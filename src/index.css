@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+/* 🚀 修复 Tailwind 和 Ant Design Icon 的样式冲突 */
+svg {
+  display: inline-block;
+  vertical-align: baseline; /* 或者 middle，看你的具体对齐感觉 */
+}
