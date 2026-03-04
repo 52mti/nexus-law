@@ -16,7 +16,7 @@ export default function MainLayout() {
       {/* 右侧主体区域 */}
       <Layout>
         {/* 顶部导航栏：去掉默认 padding，高度保持和 Sidebar Logo 一致 */}
-        <Header className="bg-white p-0 h-16 leading-[4rem]">
+        <Header className="bg-white p-0! h-16 leading-16">
           <AppHeader />
         </Header>
 

@@ -5,3 +5,27 @@ svg {
   display: inline-block;
   vertical-align: baseline; /* 或者 middle，看你的具体对齐感觉 */
 }
+
+/* 扫描线动画关键帧 */
+@keyframes scan-line {
+  0% {
+    top: 10%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    top: 90%;
+    opacity: 0;
+  }
+}
+
+/* 定义一个 utility class 供 Tailwind/React 使用 */
+.animate-scan-line {
+  /* 2.5秒执行一次，ease-in-out 使边缘速度变缓，infinite 表示无限循环 */
+  animation: scan-line 2.5s ease-in-out infinite;
+}
