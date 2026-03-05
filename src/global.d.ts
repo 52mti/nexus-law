@@ -1,0 +1,1 @@
+type AuthMode = 'pwd_login' | 'phone_login' | 'register' | 'reset_pwd';

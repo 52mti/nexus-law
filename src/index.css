@@ -29,3 +29,7 @@ svg {
   /* 2.5秒执行一次，ease-in-out 使边缘速度变缓，infinite 表示无限循环 */
   animation: scan-line 2.5s ease-in-out infinite;
 }
+
+.custom-steps-text-sm .ant-steps-item-title {
+  font-size: 13px;
+}

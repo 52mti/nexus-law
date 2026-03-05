@@ -278,7 +278,7 @@ export const AppHeader: React.FC = () => {
             </div>
             
             <div className="text-[11px] text-gray-400 text-center">
-              支付即代表您已同意 <a href="#" className="text-blue-500 hover:underline">《付费服务协议》</a>
+              支付即代表您已同意 <a className="text-blue-500 hover:underline">《付费服务协议》</a>
             </div>
           </div>
         </div>

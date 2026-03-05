@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ConfigProvider } from 'antd'
 import MainLayout from './layouts/MainLayout'
 import { useTranslation } from 'react-i18next'
+import { AuthPage } from './pages/Auth/Auth'
 
 // 引入 Ant Design 的语言包
 import zhCN from 'antd/locale/zh_CN'
@@ -10,7 +11,6 @@ import enUS from 'antd/locale/en_US'
 // 页面组件占位
 const ChatPage = () => <div>这里是 AI 对话界面</div>
 const HistoryPage = () => <div>这里是 历史记录 界面（截图内容）</div>
-const LoginPage = () => <div>独立登录页（没有侧边栏）</div>
 
 function App() {
   const { i18n } = useTranslation()
@@ -43,7 +43,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           {/* 1. 不需要侧边栏的独立页面 */}
-          <Route path='/login' element={<LoginPage />} />
+          <Route path='/login' element={<AuthPage />} />
 
           {/* 2. 需要侧边栏和顶部的页面，套在 MainLayout 下 */}
           <Route path='/' element={<MainLayout />}>
