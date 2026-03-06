@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Avatar, Badge, Button, Dropdown, Popover, Modal, Drawer } from 'antd';
 import {
   UserOutlined,
@@ -18,8 +19,17 @@ import {
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
+// 1. 定义菜单项的 TypeScript 类型
+interface UserMenuItem {
+  key: string;
+  icon: React.ElementType; // 接收 Ant Design 的图标组件
+  label: string;
+  path?: string; // 可选的路由路径
+}
+
 export const AppHeader: React.FC = () => {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate()
 
   // 控制充值弹窗的开关状态
   const [isRechargeModalOpen, setIsRechargeModalOpen] = useState(false);
@@ -38,6 +48,40 @@ export const AppHeader: React.FC = () => {
     { points: 4500, price: '400.00' },
     { points: 9500, price: '900.00' },
   ];
+
+  // 悬浮窗用户菜单配置
+  const userMenuItems: UserMenuItem[] = [
+    { key: 'account', icon: IdcardOutlined, label: '账号信息', path: '/account' },
+    { key: 'history', icon: HistoryOutlined, label: '历史记录', path: '/history' },
+    { key: 'orders', icon: ProfileOutlined, label: '订单管理', path: '/orders' },
+    { key: 'vip', icon: AppstoreOutlined, label: '会员方案', path: '/vip' },
+    { key: 'points', icon: PayCircleOutlined, label: '积分记录', path: '/points' },
+    { key: 'logout', icon: LogoutOutlined, label: '退出登录' }, // 退出登录不需要 path，走独立逻辑
+  ];
+
+// 3. 统一的菜单点击处理逻辑
+  const handleMenuClick = (item: UserMenuItem) => {
+    // 特殊逻辑：退出登录
+    if (item.key === 'logout') {
+      Modal.confirm({
+        title: '确认退出',
+        content: '您确定要退出当前账号吗？',
+        okText: '退出',
+        cancelText: '取消',
+        onOk: () => {
+          console.log('执行清除 Token 等登出逻辑...');
+          // localStorage.removeItem('token');
+          navigate('/login'); // 跳转到登录页
+        }
+      });
+      return; // 结束函数，不往下走
+    }
+
+    // 常规逻辑：正常的页面跳转
+    if (item.path) {
+      navigate(item.path);
+    }
+  };
 
   // 模拟消息通知数据
   const mockNotifications = Array(5).fill({
@@ -81,30 +125,21 @@ export const AppHeader: React.FC = () => {
       </div>
 
       <div className='bg-white rounded-lg p-2.5 grid grid-cols-2 gap-y-1 gap-x-2'>
-        <div className='flex items-center justify-start gap-3 hover:bg-[#f5f5f5] py-2 px-4 rounded-md cursor-pointer group'>
-          <IdcardOutlined className='text-gray-400 text-base group-hover:text-blue-500 transition-colors' />
-          <span className='text-sm text-gray-600 group-hover:text-blue-500 transition-colors'>账号信息</span>
-        </div>
-        <div className='flex items-center justify-start gap-3 hover:bg-[#f5f5f5] py-2 px-4 rounded-md cursor-pointer group'>
-          <HistoryOutlined className='text-gray-400 text-base group-hover:text-blue-500 transition-colors' />
-          <span className='text-sm text-gray-600 group-hover:text-blue-500 transition-colors'>历史记录</span>
-        </div>
-        <div className='flex items-center justify-start gap-3 hover:bg-[#f5f5f5] py-2 px-4 rounded-md cursor-pointer group'>
-          <ProfileOutlined className='text-gray-400 text-base group-hover:text-blue-500 transition-colors' />
-          <span className='text-sm text-gray-600 group-hover:text-blue-500 transition-colors'>订单管理</span>
-        </div>
-        <div className='flex items-center justify-start gap-3 hover:bg-[#f5f5f5] py-2 px-4 rounded-md cursor-pointer group'>
-          <AppstoreOutlined className='text-gray-400 text-base group-hover:text-blue-500 transition-colors' />
-          <span className='text-sm text-gray-600 group-hover:text-blue-500 transition-colors'>会员方案</span>
-        </div>
-        <div className='flex items-center justify-start gap-3 hover:bg-[#f5f5f5] py-2 px-4 rounded-md cursor-pointer group'>
-          <PayCircleOutlined className='text-gray-400 text-base group-hover:text-blue-500 transition-colors' />
-          <span className='text-sm text-gray-600 group-hover:text-blue-500 transition-colors'>积分记录</span>
-        </div>
-        <div className='flex items-center justify-start gap-3 hover:bg-[#f5f5f5] py-2 px-4 rounded-md cursor-pointer group'>
-          <LogoutOutlined className='text-gray-400 text-base group-hover:text-blue-500 transition-colors' />
-          <span className='text-sm text-gray-600 group-hover:text-blue-500 transition-colors'>退出登录</span>
-        </div>
+        {userMenuItems.map((item) => {
+          const Icon = item.icon;
+          return (
+            <div 
+              key={item.key} 
+              className='flex items-center justify-start gap-3 hover:bg-[#f5f5f5] py-2 px-4 rounded-md cursor-pointer group'
+              onClick={() => handleMenuClick(item)} // 这里预留了点击事件，后续可以根据 key 做路由跳转
+            >
+              <Icon className='text-gray-400 text-base group-hover:text-blue-500 transition-colors' />
+              <span className='text-sm text-gray-600 group-hover:text-blue-500 transition-colors'>
+                {item.label}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

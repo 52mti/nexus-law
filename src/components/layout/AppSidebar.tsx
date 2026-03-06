@@ -1,45 +1,61 @@
-import React from 'react';
-import { Menu } from 'antd';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import { MessageOutlined, HistoryOutlined } from '@ant-design/icons';
+import React from 'react'
+import { Menu } from 'antd'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import {
+  MessageOutlined,
+  FileTextOutlined,
+  SearchOutlined,
+  ProfileOutlined,
+  SafetyCertificateOutlined,
+  FolderOpenOutlined,
+  HistoryOutlined,
+  CrownOutlined,
+  PayCircleOutlined,
+} from '@ant-design/icons'
 
 export const AppSidebar: React.FC = () => {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const location = useLocation(); // 获取当前路由路径
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const location = useLocation() // 获取当前路由路径
 
   // 定义菜单数据结构
   const menuItems = [
+    { key: '/chat', icon: <MessageOutlined />, label: '法律咨询' },
+    { key: 'doc', icon: <FileTextOutlined />, label: '文书生成' },
+    { key: 'search', icon: <SearchOutlined />, label: '条文检索' },
+    { key: 'case_review', icon: <ProfileOutlined />, label: '案件快梳' },
     {
-      key: '/chat',
-      icon: <MessageOutlined />,
-      label: t('menu.legal_consult', '法律咨询'), // 第二个参数是默认值
+      key: 'compliance',
+      icon: <SafetyCertificateOutlined />,
+      label: '合规审查',
     },
-    {
-      key: '/history',
-      icon: <HistoryOutlined />,
-      label: t('menu.history', '历史记录'),
-    },
-  ];
+    { key: 'case_search', icon: <FolderOpenOutlined />, label: '案例搜索' },
+    { type: 'divider' },
+    { key: 'g_other', type: 'group', label: '其它' },
+    { key: 'history', icon: <HistoryOutlined />, label: '历史记录' },
+    { key: 'vip', icon: <CrownOutlined />, label: '会员方案' },
+    { key: 'order', icon: <FileTextOutlined />, label: '订单管理' },
+    { key: 'points', icon: <PayCircleOutlined />, label: '积分记录' },
+  ]
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className='flex flex-col h-full bg-[#f6f7f9] px-2'>
       {/* Logo 区域 */}
-      <div className="h-16 flex items-center justify-center font-bold text-xl text-[#5c6bc0] border-b border-gray-100">
+      <div className='h-16 flex items-center justify-center font-bold text-xl text-[#5c6bc0] border-b border-gray-100'>
         汇动法律 AI
       </div>
 
       {/* 菜单区域 */}
       <Menu
-        mode="inline"
+        mode='inline'
         // 自动根据当前 URL 高亮对应的菜单项
-        selectedKeys={[location.pathname]} 
+        selectedKeys={[location.pathname]}
         // 点击菜单时触发路由跳转
         onClick={({ key }) => navigate(key)}
         items={menuItems}
-        className="flex-1 border-r-0 mt-2"
+        className='flex-1 border-r-0! mt-2 custom-sidebar-menu bg-transparent!'
       />
     </div>
-  );
-};
+  )
+}

@@ -9,7 +9,7 @@ export default function MainLayout() {
   return (
     <Layout className="h-screen w-full overflow-hidden">
       {/* 左侧边栏：宽度 240px，背景设为白色 */}
-      <Sider width={240} theme="light" className="border-r border-gray-200">
+      <Sider width={210} theme="light" className="border-r border-gray-200">
         <AppSidebar />
       </Sider>
 
@@ -21,7 +21,7 @@ export default function MainLayout() {
         </Header>
 
         {/* 核心内容渲染区：加上背景色和内边距，内容超出会自动滚动 */}
-        <Content className="bg-[#f9fafb] p-6 overflow-auto">
+        <Content className="bg-[#f9fafb] overflow-auto">
           {/* <Outlet /> 负责把 /chat 或 /history 的组件塞到这里 */}
           <Outlet />
         </Content>

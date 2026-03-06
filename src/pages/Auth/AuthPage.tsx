@@ -18,7 +18,7 @@ export const AuthPage: React.FC = () => {
 
   return (
     <div className='min-h-screen bg-[#f5f6f9] flex flex-col items-center justify-center relative pb-20'>
-      <div className='bg-white w-110 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-10 transition-all duration-300'>
+      <div className='bg-white w-110 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-10 transition-all duration-300 pb-20'>
         {/* 共享的 Logo 区域 */}
         <div className='flex items-center justify-center mb-10'>
           <div className='w-8 h-8 bg-[#0e1118] rounded-md flex items-center justify-center mr-3'>
@@ -36,6 +36,12 @@ export const AuthPage: React.FC = () => {
         {/* 2. 动态渲染对应的表单模块 */}
         {FormMap[currentMode]}
       </div>
+      {/* 🚀 新增：底部版权信息小字 */}
+      <div className="absolute bottom-8 text-[#b1b3b8] text-[13px] tracking-wide text-center">
+        Copyright © hui dong AI, All Rights Reserved.
+      </div>
     </div>
   )
 }
+
+export default AuthPage

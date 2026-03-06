@@ -1,15 +1,16 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ConfigProvider } from 'antd'
-import MainLayout from './layouts/MainLayout'
 import { useTranslation } from 'react-i18next'
-import { AuthPage } from './pages/Auth/Auth'
+import MainLayout from './layouts/MainLayout'
+import AuthPage from './pages/Auth/AuthPage'
+import AIChatPage from './pages/AIChatPage'
+import AccountInfoPage from './pages/Account/AccountInfoPage'
 
 // 引入 Ant Design 的语言包
 import zhCN from 'antd/locale/zh_CN'
 import enUS from 'antd/locale/en_US'
 
 // 页面组件占位
-const ChatPage = () => <div>这里是 AI 对话界面</div>
 const HistoryPage = () => <div>这里是 历史记录 界面（截图内容）</div>
 
 function App() {
@@ -51,8 +52,9 @@ function App() {
             <Route index element={<Navigate to='/chat' replace />} />
 
             {/* 二级路由内容 */}
-            <Route path='chat' element={<ChatPage />} />
+            <Route path='chat' element={<AIChatPage />} />
             <Route path='history' element={<HistoryPage />} />
+            <Route path='account' element={<AccountInfoPage />}></Route>
           </Route>
         </Routes>
       </BrowserRouter>

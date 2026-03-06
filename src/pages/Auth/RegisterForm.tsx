@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
 import { Form, Input, Checkbox, Button } from 'antd'
+// 🚀 引入公共报错组件和类型
+import { FormErrorMessage, type ErrorState } from '@/components/FormErrorMessage'
 
 interface Props {
-  // 如果你的 Wrapper 需要控制模式切换，可以保留 Props
   onSwitchMode: (
     mode: 'pwd_login' | 'phone_login' | 'register' | 'reset_pwd',
   ) => void
@@ -12,30 +13,60 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
   const [form] = Form.useForm()
   const [countdown, setCountdown] = useState(0)
 
+  // 🚀 新增：统一的错误状态和抖动 Key
+  const [errorData, setErrorData] = useState<ErrorState | null>(null)
+  const [shakeKey, setShakeKey] = useState<number>(0)
+
   // 获取验证码倒计时逻辑
-  const handleGetCode = () => {
+  const handleGetCode = async () => {
     if (countdown > 0) return
 
-    // 实际业务中这里应该先校验手机号： form.validateFields(['phone']).then(...)
-    setCountdown(60)
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
+    try {
+      // 🚀 先校验手机号字段
+      await form.validateFields(['phone'])
+      
+      // 校验通过，清空错误，开始倒计时
+      setErrorData(null)
+      setCountdown(60)
+      const timer = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+    } catch (errorInfo: any) {
+      // 校验失败，触发底部抖动提示
+      const errorMsg = errorInfo.errorFields[0]?.errors[0]
+      if (errorMsg) {
+        setErrorData({ msg: errorMsg, type: 'warning' })
+        setShakeKey(Date.now())
+      }
+    }
   }
 
   const onFinish = (values: any) => {
+    // 成功提交时清空报错
+    setErrorData(null)
     console.log('Register Form Submitted:', values)
+    // TODO: 接口请求，如果后端返回账号已存在等错误，可按如下方式触发：
+    // setErrorData({ msg: '该手机号已被注册', type: 'error' })
+    // setShakeKey(Date.now())
   }
 
-  // 统一的输入框基础 Tailwind 样式
-  const inputStyles =
-    'rounded-lg h-12 bg-[#f7f8fa] border-transparent hover:border-transparent focus:bg-white focus:border-blue-500 focus:shadow-sm transition-all'
+  // 🚀 捕获表单前端校验失败事件
+  const onFinishFailed = (errorInfo: any) => {
+    const firstError = errorInfo.errorFields[0]?.errors[0]
+    if (firstError) {
+      setErrorData({ msg: firstError, type: 'warning' })
+      setShakeKey(Date.now())
+    }
+  }
+
+  // 统一的输入框基础 Tailwind 样式 (顺手帮你补全了无边框灰底的质感样式)
+  const inputStyles = 'rounded-lg h-12'
 
   return (
     <>
@@ -54,8 +85,11 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
         form={form}
         name='register_form'
         onFinish={onFinish}
+        onFinishFailed={onFinishFailed} // 绑定失败事件
+        onValuesChange={() => setErrorData(null)} // 输入内容时自动清空底部的报错
         size='large'
-        className='w-full'
+        // 🚀 隐藏 Antd 默认的红色文字提示
+        className='w-full [&_.ant-form-item-explain]:hidden'
       >
         {/* 1. 用户名称 */}
         <Form.Item
@@ -155,6 +189,10 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
             注册
           </Button>
         </Form.Item>
+
+        {/* 🚀 引入公共的报错组件，并传入状态 */}
+        <FormErrorMessage errorData={errorData} shakeKey={shakeKey} />
+
       </Form>
     </>
   )

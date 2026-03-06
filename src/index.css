@@ -1,3 +1,5 @@
+@layer theme, base, antd, components, utilities;
+
 @import "tailwindcss";
 
 /* 🚀 修复 Tailwind 和 Ant Design Icon 的样式冲突 */
@@ -23,13 +25,48 @@ svg {
     opacity: 0;
   }
 }
-
-/* 定义一个 utility class 供 Tailwind/React 使用 */
 .animate-scan-line {
   /* 2.5秒执行一次，ease-in-out 使边缘速度变缓，infinite 表示无限循环 */
   animation: scan-line 2.5s ease-in-out infinite;
 }
 
+/* 定义上下抖动的关键帧 */
+@keyframes shake-y {
+  0%, 100% { transform: translateY(0); }
+  25% { transform: translateY(-4px); }
+  50% { transform: translateY(4px); }
+  75% { transform: translateY(-4px); }
+}
+.animate-shake-y {
+  animation: shake-y 0.4s ease-in-out;
+}
+
 .custom-steps-text-sm .ant-steps-item-title {
   font-size: 13px;
+}
+
+/* 自定义 Ant Design 菜单样式，贴合原型图设计 */
+.custom-sidebar-menu .ant-menu-item {
+  border-radius: 8px !important;
+  margin-block: 4px !important;
+  color: #4b5563 !important; /* Tailwind gray-600 */
+}
+
+/* 选中项的淡紫色背景和紫色文字 */
+.custom-sidebar-menu .ant-menu-item-selected {
+  background-image: linear-gradient(to right, #ebe9f6, #f1f5f4); 
+  color: #666cff !important;
+  font-weight: 500;
+  border: 1px solid #b6a8ef;
+}
+/* hover项的淡紫色背景和紫色文字 */
+.custom-sidebar-menu .ant-menu-item-active {
+  background-image: linear-gradient(to right, #ebe9f6, #f1f5f4); 
+}
+
+/* 菜单分组标题样式变浅 */
+.custom-sidebar-menu .ant-menu-item-group-title {
+  color: #9ca3af !important;
+  font-size: 13px !important;
+  padding-left: 12px !important;
 }
