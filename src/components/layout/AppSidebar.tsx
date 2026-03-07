@@ -1,7 +1,7 @@
 import React from 'react'
 import { Menu } from 'antd'
+import type { MenuProps } from 'antd' // 1. 引入 MenuProps 类型
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
 import {
   MessageOutlined,
   FileTextOutlined,
@@ -15,12 +15,11 @@ import {
 } from '@ant-design/icons'
 
 export const AppSidebar: React.FC = () => {
-  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation() // 获取当前路由路径
 
-  // 定义菜单数据结构
-  const menuItems = [
+  // 2. 为 menuItems 显式指定类型为 MenuProps['items']
+  const menuItems: MenuProps['items'] = [
     { key: '/chat', icon: <MessageOutlined />, label: '法律咨询' },
     { key: 'doc', icon: <FileTextOutlined />, label: '文书生成' },
     { key: 'search', icon: <SearchOutlined />, label: '条文检索' },
@@ -32,11 +31,18 @@ export const AppSidebar: React.FC = () => {
     },
     { key: 'case_search', icon: <FolderOpenOutlined />, label: '案例搜索' },
     { type: 'divider' },
-    { key: 'g_other', type: 'group', label: '其它' },
-    { key: 'history', icon: <HistoryOutlined />, label: '历史记录' },
-    { key: 'vip', icon: <CrownOutlined />, label: '会员方案' },
-    { key: 'order', icon: <FileTextOutlined />, label: '订单管理' },
-    { key: 'points', icon: <PayCircleOutlined />, label: '积分记录' },
+    // 3. 将后续的菜单项作为 children 放入 group 中
+    {
+      key: 'g_other',
+      type: 'group',
+      label: '其它',
+      children: [
+        { key: 'history', icon: <HistoryOutlined />, label: '历史记录' },
+        { key: 'vip', icon: <CrownOutlined />, label: '会员方案' },
+        { key: 'order', icon: <FileTextOutlined />, label: '订单管理' },
+        { key: 'points', icon: <PayCircleOutlined />, label: '积分记录' },
+      ],
+    },
   ]
 
   return (
