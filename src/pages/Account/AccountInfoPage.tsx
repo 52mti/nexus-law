@@ -47,7 +47,7 @@ export const AccountInfoPage: React.FC = () => {
   return (
     <div className='p-6 bg-[#fbfbff] h-max flex justify-center'>
       {/* 账号信息主卡片 */}
-      <div className='bg-white rounded-2xl shadow-sm w-full max-w-[640px] p-8'>
+      <div className='bg-white rounded-2xl shadow-sm w-full max-w-130 p-8'>
         {/* 卡片标题 */}
         <div className='flex items-center gap-2 mb-6'>
           <IdcardOutlined className='text-[#666cff] text-xl' />

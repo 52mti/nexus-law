@@ -1,23 +1,16 @@
-import React, { useState } from 'react'
-import { Avatar, Badge, Button, Layout, Menu } from 'antd'
+import React, { useState, useRef, useEffect } from 'react'
+import { Avatar, Button, Layout } from 'antd'
 import {
-  MessageOutlined,
-  FileTextOutlined,
-  SearchOutlined,
-  ProfileOutlined,
-  SafetyCertificateOutlined,
-  FolderOpenOutlined,
-  HistoryOutlined,
-  CrownOutlined,
-  PayCircleOutlined,
   AudioOutlined,
   SendOutlined,
   SyncOutlined,
   CopyOutlined,
   PlusOutlined,
+  UserOutlined,
+  RobotOutlined,
 } from '@ant-design/icons'
 
-const { Sider, Content, Header } = Layout
+const { Content } = Layout
 
 // 模拟的对话数据类型
 interface ChatMessage {
@@ -28,122 +21,138 @@ interface ChatMessage {
 
 export const AIChatPage: React.FC = () => {
   const [inputValue, setInputValue] = useState('')
-  // 默认填充一张原型图中的高保真数据，如果清空数组则显示最后一张图的空状态
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: '1',
-      role: 'ai',
-      content: `法律依据
-根据《中华人民共和国消费者权益保护法》第二十四条，经营者提供的商品或服务不符合质量要求的，消费者可依照国家规定或当事人约定要求退货、更换、修理等。若经营者拒绝，消费者可通过法律途径解决。
+  // 初始设为空数组，体验居中的空状态
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const chatContainerRef = useRef<HTMLDivElement>(null)
 
-维权步骤
-保留证据：保存订单截图、支付记录、商品瑕疵照片/视频、与卖家的沟通记录等。
-联系卖家：通过平台投诉渠道要求退货、换货或维修，并明确要求承担运费（若因质量问题导致）。
-申请平台介入：若卖家拒绝，向电商平台（如淘宝、京东）提交投诉，平台通常会在7个工作日内处理。
-向监管部门投诉：若平台未解决，可向当地消费者协会（12315）或市场监管部门投诉。
-法律诉讼：若损失较大（如商品价值高或造成人身伤害），可向法院起诉，要求赔偿损失。
+  const isEmpty = messages.length === 0
 
-注意事项
-网购商品适用“七天无理由退货”规则（定制商品、鲜活易腐品等除外），但质量问题不受此期限限制。
-若卖家存在欺诈行为（如售假），可依据《消费者权益保护法》第五十五条要求“退一赔三”，最低赔偿500元。总结FaceTime新增的“裸露行为检测”功能，是苹果在隐私保护与道德责任之间寻求平衡的一次尝试。尽管该功能在保护未成年人安全方面具有重要意义，但其对成年用户的扩展也引发了隐私和误判的争议。未来，苹果需要进一步优化算法并明确功能边界，以平衡安全性与用户隐私的需求。`,
-    },
-  ])
+  // 每次消息更新时，自动滚动到最底部
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
+    }
+  }, [messages])
 
   // 发送消息逻辑
   const handleSend = () => {
     if (!inputValue.trim()) return
-    const newMessage: ChatMessage = {
+
+    const newUserMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
       content: inputValue,
     }
-    setMessages([...messages, newMessage])
+
+    // 模拟 AI 回复
+    const newAiMsg: ChatMessage = {
+      id: (Date.now() + 1).toString(),
+      role: 'ai',
+      content: `关于“${inputValue}”的法律依据如下：\n根据《中华人民共和国消费者权益保护法》相关规定，经营者提供的商品或服务不符合质量要求的，消费者可依照国家规定或当事人约定要求退货、更换、修理等。`,
+    }
+
+    setMessages([...messages, newUserMsg, newAiMsg])
     setInputValue('')
   }
 
-  // 侧边栏菜单配置
-  const menuItems = [
-    { key: 'chat', icon: <MessageOutlined />, label: '法律咨询' },
-    { key: 'doc', icon: <FileTextOutlined />, label: '文书生成' },
-    { key: 'search', icon: <SearchOutlined />, label: '条文检索' },
-    { key: 'case_梳理', icon: <ProfileOutlined />, label: '案件快梳' },
-    {
-      key: 'compliance',
-      icon: <SafetyCertificateOutlined />,
-      label: '合规审查',
-    },
-    { key: 'case_search', icon: <FolderOpenOutlined />, label: '案例搜索' },
-    { type: 'divider' },
-    { key: 'g_other', type: 'group', label: '其它' },
-    { key: 'history', icon: <HistoryOutlined />, label: '历史记录' },
-    { key: 'vip', icon: <CrownOutlined />, label: '会员方案' },
-    { key: 'order', icon: <FileTextOutlined />, label: '订单管理' },
-    { key: 'points', icon: <PayCircleOutlined />, label: '积分记录' },
-  ]
-
   return (
-    <Content className='flex flex-col relative overflow-hidden'>
-      {/* 对话列表区域 (如果为空，则不显示，转而显示居中空状态) */}
-      <div className='flex-1 overflow-y-auto p-8 pb-32'>
-        {messages.length === 0 ? (
-          // 空状态：原型图最后一张的居中大标题
-          <div className='h-full flex flex-col items-center justify-center animate-fade-in'>
-            <h1 className='text-[28px] font-bold text-gray-800 mb-3 tracking-wider'>
-              法律问题智能问答
-            </h1>
-            <p className='text-base text-gray-500 mb-10'>
-              你的专属智能法律小助手
-            </p>
-          </div>
-        ) : (
-          // 活跃状态：聊天记录
-          <div className='max-w-4xl mx-auto space-y-6 animate-fade-in'>
+    <Content className='flex flex-col h-full bg-[#f5f6f9] relative overflow-hidden'>
+      {/* ================= 1. 聊天记录区域 (仅在激活后显示) ================= */}
+      {!isEmpty && (
+        <div
+          ref={chatContainerRef}
+          className='flex-1 overflow-y-auto p-8 scroll-smooth'
+        >
+          <div className='max-w-4xl mx-auto space-y-8 animate-fade-in pb-4'>
             {messages.map((msg) => (
-              <div key={msg.id} className='flex justify-start'>
-                {/* AI 回复卡片 */}
+              <div
+                key={msg.id}
+                className={`flex gap-4 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                {/* AI 头像 (左侧) */}
                 {msg.role === 'ai' && (
-                  <div className='bg-white rounded-2xl shadow-sm border border-gray-100 p-6 w-full relative'>
-                    <div className='text-gray-700 leading-relaxed whitespace-pre-wrap text-[15px]'>
+                  <div className='w-9 h-9 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 mt-1'>
+                    <RobotOutlined className='text-[#666cff] text-xl' />
+                  </div>
+                )}
+
+                {/* 消息气泡 */}
+                <div
+                  className={`max-w-[85%] ${msg.role === 'user' ? 'flex justify-end' : 'w-full'}`}
+                >
+                  {msg.role === 'user' ? (
+                    // 用户气泡样式
+                    <div className='bg-white px-6 py-4 rounded-2xl rounded-tr-sm shadow-sm border border-gray-100 text-gray-800 text-[15px]'>
                       {msg.content}
                     </div>
-                    {/* 底部操作按钮 */}
-                    <div className='flex items-center gap-4 mt-6 text-gray-400'>
-                      <span className='flex items-center gap-1.5 cursor-pointer hover:text-[#666cff] transition-colors text-sm'>
-                        <SyncOutlined /> 重新生成
-                      </span>
-                      <span className='flex items-center gap-1.5 cursor-pointer hover:text-[#666cff] transition-colors text-sm'>
-                        <CopyOutlined /> 复制
-                      </span>
+                  ) : (
+                    // AI 卡片样式
+                    <div className='bg-white rounded-2xl rounded-tl-sm shadow-sm border border-gray-100 p-6'>
+                      <div className='text-gray-700 leading-relaxed whitespace-pre-wrap text-[15px]'>
+                        {msg.content}
+                      </div>
+                      {/* 底部操作按钮 */}
+                      <div className='flex items-center gap-4 mt-6 text-gray-400'>
+                        <span className='flex items-center gap-1.5 cursor-pointer hover:text-[#666cff] transition-colors text-sm'>
+                          <SyncOutlined /> 重新生成
+                        </span>
+                        <span className='flex items-center gap-1.5 cursor-pointer hover:text-[#666cff] transition-colors text-sm'>
+                          <CopyOutlined /> 复制
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                  )}
+                </div>
+
+                {/* 用户头像 (右侧) */}
+                {msg.role === 'user' && (
+                  <Avatar
+                    size={36}
+                    icon={<UserOutlined />}
+                    className='bg-[#666cff] mt-1 shrink-0'
+                  />
                 )}
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* 底部输入区域：绝对定位固定在底部 */}
-      <div className='absolute bottom-0 w-full bg-gradient-to-t from-[#f5f6f9] via-[#f5f6f9] to-transparent pt-10 pb-8 px-8'>
-        <div className='max-w-4xl mx-auto'>
-          {/* 新建对话按钮 (仅在有对话时显示) */}
-          {messages.length > 0 && (
-            <div className='mb-4'>
+      {/* ================= 2. 输入与核心控制区域 (通过 flex 动态切换位置) ================= */}
+      <div
+        className={`w-full px-8 transition-all duration-500 flex flex-col ${
+          isEmpty ? 'flex-1 items-center justify-center' : 'shrink-0 pt-2 pb-6'
+        }`}
+      >
+        <div className='w-full max-w-4xl mx-auto relative'>
+          {/* 空状态：居中的标题与副标题 */}
+          {isEmpty && (
+            <div className='text-center mb-10 animate-fade-in'>
+              <h1 className='text-[28px] font-bold text-gray-800 mb-3 tracking-wider'>
+                法律问题智能问答
+              </h1>
+              <p className='text-base text-gray-500'>你的专属智能法律小助手</p>
+            </div>
+          )}
+
+          {/* 激活状态：左上角的“新建对话”按钮 */}
+          {!isEmpty && (
+            <div className='mb-4 animate-fade-in'>
               <Button
                 shape='round'
                 icon={<PlusOutlined />}
-                className='bg-gray-200/60 border-none text-gray-600 hover:bg-gray-200'
-                onClick={() => setMessages([])} // 点击清空进入空状态
+                className='bg-white/60 border-gray-200 text-gray-600 hover:bg-white transition-all shadow-sm'
+                onClick={() => setMessages([])} // 清空对话，自动回到居中状态
               >
                 新建对话
               </Button>
             </div>
           )}
 
-          {/* 核心输入框 (还原原型图的高亮紫边 textarea) */}
+          {/* 核心输入框：保持 DOM 节点不被销毁，实现平滑过渡 */}
           <div
-            className={`relative bg-white rounded-2xl transition-all shadow-sm ${
-              messages.length === 0
+            className={`relative bg-white rounded-2xl transition-all duration-300 shadow-sm ${
+              isEmpty
                 ? 'border border-[#666cff] h-40'
                 : 'border border-transparent focus-within:border-[#666cff] h-32'
             }`}
@@ -176,6 +185,13 @@ export const AIChatPage: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* 🚀 激活状态：底部的免责声明小字 */}
+          {!isEmpty && (
+            <div className='text-center text-[12px] text-gray-400 mt-4 animate-fade-in tracking-wide'>
+              所有内容均由人工智能模型生成，其生成内容的准确性和完整性无法保证
+            </div>
+          )}
         </div>
       </div>
     </Content>
