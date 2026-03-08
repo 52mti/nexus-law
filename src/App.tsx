@@ -68,7 +68,7 @@ function App() {
             <Route path='compliance' element={<CompliancePage />}></Route>
             <Route path='history' element={<HistoryPage />}></Route>
             <Route path='vip' element={<MembershipPage />}></Route>
-            <Route path='order' element={<OrderListPage />}></Route>
+            <Route path='orders' element={<OrderListPage />}></Route>
             <Route path='points' element={<PointsRecordPage />}></Route>
           </Route>
         </Routes>
