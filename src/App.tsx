@@ -10,13 +10,14 @@ import LegalSearchPage from './pages/LegalSearchPage'
 import CaseSearchPage from './pages/CaseSearchPage'
 import CaseReviewPage from './pages/CaseReviewPage'
 import CompliancePage from './pages/CompliancePage'
+import HistoryPage from './pages/HistoryPage'
+import MembershipPage from './pages/MembershipPage'
+import OrderListPage from './pages/OrderListPage'
+import PointsRecordPage from './pages/PointsRecordPage'
 
 // 引入 Ant Design 的语言包
 import zhCN from 'antd/locale/zh_CN'
 import enUS from 'antd/locale/en_US'
-
-// 页面组件占位
-const HistoryPage = () => <div>这里是 历史记录 界面（截图内容）</div>
 
 function App() {
   const { i18n } = useTranslation()
@@ -65,7 +66,10 @@ function App() {
             <Route path='case_search' element={<CaseSearchPage />}></Route>
             <Route path='case_review' element={<CaseReviewPage />}></Route>
             <Route path='compliance' element={<CompliancePage />}></Route>
-
+            <Route path='history' element={<HistoryPage />}></Route>
+            <Route path='vip' element={<MembershipPage />}></Route>
+            <Route path='order' element={<OrderListPage />}></Route>
+            <Route path='points' element={<PointsRecordPage />}></Route>
           </Route>
         </Routes>
       </BrowserRouter>

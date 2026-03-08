@@ -37,10 +37,10 @@ export const AppSidebar: React.FC = () => {
       type: 'group',
       label: '其它',
       children: [
-        { key: 'history', icon: <HistoryOutlined />, label: '历史记录' },
-        { key: 'vip', icon: <CrownOutlined />, label: '会员方案' },
-        { key: 'order', icon: <FileTextOutlined />, label: '订单管理' },
-        { key: 'points', icon: <PayCircleOutlined />, label: '积分记录' },
+        { key: '/history', icon: <HistoryOutlined />, label: '历史记录' },
+        { key: '/vip', icon: <CrownOutlined />, label: '会员方案' },
+        { key: '/order', icon: <FileTextOutlined />, label: '订单管理' },
+        { key: '/points', icon: <PayCircleOutlined />, label: '积分记录' },
       ],
     },
   ]
