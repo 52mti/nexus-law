@@ -1,6 +1,6 @@
 @layer theme, base, antd, components, utilities;
 
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* 🚀 修复 Tailwind 和 Ant Design Icon 的样式冲突 */
 svg {
@@ -8,44 +8,69 @@ svg {
   vertical-align: baseline; /* 或者 middle，看你的具体对齐感觉 */
 }
 
-/* 扫描线动画关键帧 */
-@keyframes scan-line {
-  0% {
-    top: 10%;
-    opacity: 0;
+@theme {
+  /* 逐进动画 */
+  --animate-fade-in: fade-in 0.3s ease-out forwards;
+  @keyframes fade-in {
+    0% {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
-  15% {
-    opacity: 1;
+
+  /* 扫描线动画 */
+  --animate-scan-line {
+    animation: scan-line 2.5s ease-in-out infinite;
   }
-  85% {
-    opacity: 1;
+  @keyframes scan-line {
+    0% {
+      top: 10%;
+      opacity: 0;
+    }
+    15% {
+      opacity: 1;
+    }
+    85% {
+      opacity: 1;
+    }
+    100% {
+      top: 90%;
+      opacity: 0;
+    }
   }
-  100% {
-    top: 90%;
-    opacity: 0;
-  }
-}
-.animate-scan-line {
-  /* 2.5秒执行一次，ease-in-out 使边缘速度变缓，infinite 表示无限循环 */
-  animation: scan-line 2.5s ease-in-out infinite;
 }
 
-/* 定义上下抖动的关键帧 */
-@keyframes shake-y {
-  0%, 100% { transform: translateY(0); }
-  25% { transform: translateY(-4px); }
-  50% { transform: translateY(4px); }
-  75% { transform: translateY(-4px); }
-}
-.animate-shake-y {
-  animation: shake-y 0.4s ease-in-out;
+@theme {
+  /* 上下抖动 */
+  --animate-shake-y {
+    animation: shake-y 0.4s ease-in-out;
+  }
+  @keyframes shake-y {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    25% {
+      transform: translateY(-4px);
+    }
+    50% {
+      transform: translateY(4px);
+    }
+    75% {
+      transform: translateY(-4px);
+    }
+  }
 }
 
+/* 自定义 Ant Design 样式 */
 .custom-steps-text-sm .ant-steps-item-title {
   font-size: 13px;
 }
 
-/* 自定义 Ant Design 菜单样式，贴合原型图设计 */
 .custom-sidebar-menu .ant-menu-item {
   border-radius: 8px !important;
   margin-block: 4px !important;
@@ -54,14 +79,14 @@ svg {
 
 /* 选中项的淡紫色背景和紫色文字 */
 .custom-sidebar-menu .ant-menu-item-selected {
-  background-image: linear-gradient(to right, #ebe9f6, #f1f5f4); 
+  background-image: linear-gradient(to right, #ebe9f6, #f1f5f4);
   color: #666cff !important;
   font-weight: 500;
   border: 1px solid #b6a8ef;
 }
 /* hover项的淡紫色背景和紫色文字 */
 .custom-sidebar-menu .ant-menu-item-active {
-  background-image: linear-gradient(to right, #ebe9f6, #f1f5f4); 
+  background-image: linear-gradient(to right, #ebe9f6, #f1f5f4);
 }
 
 /* 菜单分组标题样式变浅 */
@@ -69,4 +94,10 @@ svg {
   color: #9ca3af !important;
   font-size: 13px !important;
   padding-left: 12px !important;
+}
+
+/* 隐藏侧边栏的丑陋滚动条，但保留滚动功能 */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 0px;
+  background: transparent;
 }

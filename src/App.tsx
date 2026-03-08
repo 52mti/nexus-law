@@ -5,6 +5,11 @@ import MainLayout from './layouts/MainLayout'
 import AuthPage from './pages/Auth/AuthPage'
 import AIChatPage from './pages/AIChatPage'
 import AccountInfoPage from './pages/Account/AccountInfoPage'
+import DocPage from './pages/DocPage'
+import LegalSearchPage from './pages/LegalSearchPage'
+import CaseSearchPage from './pages/CaseSearchPage'
+import CaseReviewPage from './pages/CaseReviewPage'
+import CompliancePage from './pages/CompliancePage'
 
 // 引入 Ant Design 的语言包
 import zhCN from 'antd/locale/zh_CN'
@@ -18,8 +23,8 @@ function App() {
   console.log(i18n)
 
   // 监听 i18n 语言变化，同步切换 Antd 的语言
-  const currentLang = i18n.language || 'zh';
-  const antdLocale = currentLang.startsWith('en') ? enUS : zhCN;
+  const currentLang = i18n.language || 'zh'
+  const antdLocale = currentLang.startsWith('en') ? enUS : zhCN
 
   const antdTheme = {
     token: {
@@ -55,6 +60,12 @@ function App() {
             <Route path='chat' element={<AIChatPage />} />
             <Route path='history' element={<HistoryPage />} />
             <Route path='account' element={<AccountInfoPage />}></Route>
+            <Route path='doc' element={<DocPage />}></Route>
+            <Route path='law' element={<LegalSearchPage />}></Route>
+            <Route path='case_search' element={<CaseSearchPage />}></Route>
+            <Route path='case_review' element={<CaseReviewPage />}></Route>
+            <Route path='compliance' element={<CompliancePage />}></Route>
+
           </Route>
         </Routes>
       </BrowserRouter>

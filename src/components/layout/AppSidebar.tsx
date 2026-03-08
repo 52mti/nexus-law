@@ -21,15 +21,15 @@ export const AppSidebar: React.FC = () => {
   // 2. 为 menuItems 显式指定类型为 MenuProps['items']
   const menuItems: MenuProps['items'] = [
     { key: '/chat', icon: <MessageOutlined />, label: '法律咨询' },
-    { key: 'doc', icon: <FileTextOutlined />, label: '文书生成' },
-    { key: 'search', icon: <SearchOutlined />, label: '条文检索' },
-    { key: 'case_review', icon: <ProfileOutlined />, label: '案件快梳' },
+    { key: '/doc', icon: <FileTextOutlined />, label: '文书生成' },
+    { key: '/law', icon: <SearchOutlined />, label: '条文检索' },
+    { key: '/case_review', icon: <ProfileOutlined />, label: '案件快梳' },
     {
-      key: 'compliance',
+      key: '/compliance',
       icon: <SafetyCertificateOutlined />,
       label: '合规审查',
     },
-    { key: 'case_search', icon: <FolderOpenOutlined />, label: '案例搜索' },
+    { key: '/case_search', icon: <FolderOpenOutlined />, label: '案例搜索' },
     { type: 'divider' },
     // 3. 将后续的菜单项作为 children 放入 group 中
     {

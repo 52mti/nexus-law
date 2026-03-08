@@ -13,6 +13,13 @@ export default function MainLayout() {
         <AppSidebar />
       </Sider>
 
+      {/* 🚀 2. 新增：预留的二级侧边栏插槽（Portal 终点） */}
+      {/* 核心技巧：empty:hidden 保证了如果当前页面没有二级侧边栏，这个 div 就完全消失，不占空间 */}
+      <div 
+        id="secondary-sidebar-portal" 
+        className="empty:hidden h-full shrink-0 bg-white border-r border-gray-200 z-10 transition-all"
+      />
+
       {/* 右侧主体区域 */}
       <Layout>
         {/* 顶部导航栏：去掉默认 padding，高度保持和 Sidebar Logo 一致 */}
