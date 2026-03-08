@@ -23,9 +23,7 @@ svg {
   }
 
   /* 扫描线动画 */
-  --animate-scan-line {
-    animation: scan-line 2.5s ease-in-out infinite;
-  }
+  --animate-scan-line: scan-line 2.5s ease-in-out infinite;
   @keyframes scan-line {
     0% {
       top: 10%;
@@ -46,9 +44,7 @@ svg {
 
 @theme {
   /* 上下抖动 */
-  --animate-shake-y {
-    animation: shake-y 0.4s ease-in-out;
-  }
+  --animate-shake-y: shake-y 0.4s ease-in-out;
   @keyframes shake-y {
     0%,
     100% {

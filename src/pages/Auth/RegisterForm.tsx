@@ -1,7 +1,10 @@
 import React, { useState } from 'react'
 import { Form, Input, Checkbox, Button } from 'antd'
 // 🚀 引入公共报错组件和类型
-import { FormErrorMessage, type ErrorState } from '@/components/FormErrorMessage'
+import {
+  FormErrorMessage,
+  type ErrorState,
+} from '@/components/FormErrorMessage'
 
 interface Props {
   onSwitchMode: (
@@ -24,7 +27,7 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
     try {
       // 🚀 先校验手机号字段
       await form.validateFields(['phone'])
-      
+
       // 校验通过，清空错误，开始倒计时
       setErrorData(null)
       setCountdown(60)
@@ -192,7 +195,6 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
 
         {/* 🚀 引入公共的报错组件，并传入状态 */}
         <FormErrorMessage errorData={errorData} shakeKey={shakeKey} />
-
       </Form>
     </>
   )
