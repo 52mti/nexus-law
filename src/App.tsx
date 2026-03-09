@@ -12,7 +12,7 @@ import CaseReviewPage from './pages/CaseReviewPage'
 import CompliancePage from './pages/CompliancePage'
 import HistoryPage from './pages/HistoryPage'
 import MembershipPage from './pages/MembershipPage'
-import OrderListPage from './pages/OrderListPage'
+import OrderListPage from './pages/OrderList/OrderListPage'
 import PointsRecordPage from './pages/PointsRecordPage'
 
 // 引入 Ant Design 的语言包

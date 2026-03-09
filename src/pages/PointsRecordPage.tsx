@@ -2,6 +2,7 @@ import React from 'react'
 import { Pagination } from 'antd'
 import { ProfileOutlined } from '@ant-design/icons'
 import Copiright from '@/components/Copiright'
+import { PageContainer } from '@/components/layout/PageContainer'
 
 // ==========================================
 // 1. 类型定义与模拟数据
@@ -78,7 +79,8 @@ const mockRecords: PointRecord[] = [
 // ==========================================
 export const PointsRecordPage: React.FC = () => {
   return (
-    <div className='min-h-full bg-[#f9fafb] p-6 flex flex-col animate-fade-in'>
+    <PageContainer>
+      <div className='flex flex-col animate-fade-in'>
       {/* 核心白底容器 */}
       <div className='bg-white rounded-2xl shadow-sm border border-gray-100 p-8 pb-6 mb-6 flex-1 flex flex-col'>
         {/* ========================================== */}
@@ -180,7 +182,8 @@ export const PointsRecordPage: React.FC = () => {
 
       {/* 底部版权信息 */}
       <Copiright />
-    </div>
+      </div>
+    </PageContainer>
   )
 }
 

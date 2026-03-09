@@ -121,7 +121,7 @@ export const AIChatPage: React.FC = () => {
       {/* ================= 2. 输入与核心控制区域 (通过 flex 动态切换位置) ================= */}
       <div
         className={`w-full px-8 transition-all duration-500 flex flex-col ${
-          isEmpty ? 'flex-1 items-center justify-center' : 'shrink-0 pt-2 pb-6'
+          isEmpty ? 'flex-1 items-center justify-center pb-30' : 'shrink-0 pt-2 pb-6'
         }`}
       >
         <div className='w-full max-w-4xl mx-auto relative'>

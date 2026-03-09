@@ -6,6 +6,7 @@ import {
   ClockCircleOutlined, 
   DeleteOutlined 
 } from '@ant-design/icons';
+import { PageContainer } from '@/components/layout/PageContainer';
 
 // ==========================================
 // 1. 模拟数据 (按日期分组)
@@ -43,7 +44,8 @@ export const HistoryPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('consult');
 
   return (
-    <div className="p-8 h-full flex flex-col bg-[#f9fafb]">
+    <PageContainer>
+      <div className="h-full flex flex-col">
       
       {/* ========================================== */}
       {/* 1. 顶部：导航与搜索区 */}
@@ -145,8 +147,8 @@ export const HistoryPage: React.FC = () => {
           ))}
         </div>
       </div>
-
-    </div>
+          </ div>
+    </PageContainer>
   );
 };
 
