@@ -90,7 +90,7 @@ const membershipPlans = [
 
 export const MembershipPage: React.FC = () => {
   return (
-    <div className="min-h-full bg-[#f9fafb] p-8 pb-16 animate-fade-in flex flex-col items-center">
+    <div className="h-full overflow-y-auto bg-[#f9fafb] p-8 pb-16 animate-fade-in flex flex-col items-center">
       
       {/* ========================================== */}
       {/* 1. 页面头部标题 */}
@@ -104,7 +104,7 @@ export const MembershipPage: React.FC = () => {
       {/* 2. 定价卡片网格 */}
       {/* ========================================== */}
       {/* 使用 grid 布局，大屏 4 列，中屏 2 列，小屏 1 列 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 w-full max-w-[1200px]">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 w-full max-w-300">
         {membershipPlans.map((plan) => {
           // 判断是否为主推的高亮卡片（钻石会员）
           const isPrimary = plan.isPrimary;
@@ -119,7 +119,7 @@ export const MembershipPage: React.FC = () => {
               }`}
             >
               {/* 卡片上半部分：渐变头、价格、按钮 */}
-              <div className={`p-8 pb-6 flex flex-col items-center ${isPrimary ? '' : 'bg-gradient-to-b from-[#f0f2ff] to-white'}`}>
+              <div className={`p-8 pb-6 flex flex-col items-center ${isPrimary ? '' : 'bg-linear-to-b from-[#f0f2ff] to-white'}`}>
                 {/* 标题 */}
                 <div className={`text-lg font-bold mb-4 flex items-center ${isPrimary ? 'text-white' : 'text-[#666cff]'}`}>
                   {plan.icon} {plan.title}
@@ -174,7 +174,7 @@ export const MembershipPage: React.FC = () => {
                     <div key={index} className="flex items-start gap-2">
                       {/* 打勾图标 */}
                       <CheckCircleOutlined 
-                        className={`mt-[3px] text-[13px] shrink-0 ${
+                        className={`mt-0.75 text-[13px] shrink-0 ${
                           isPrimary ? 'text-indigo-200' : 'text-[#666cff]/80'
                         }`} 
                       />

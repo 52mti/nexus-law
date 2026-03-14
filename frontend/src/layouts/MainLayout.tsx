@@ -27,8 +27,8 @@ export default function MainLayout() {
           <AppHeader />
         </Header>
 
-        {/* 核心内容渲染区：加上背景色和内边距，内容超出会自动滚动 */}
-        <Content className="bg-[#f9fafb] overflow-auto">
+        {/* 核心内容渲染区：不滚动，让页面内容决定是否需要滚动 */}
+        <Content className="bg-[#f9fafb] overflow-hidden">
           {/* <Outlet /> 负责把 /chat 或 /history 的组件塞到这里 */}
           <Outlet />
         </Content>

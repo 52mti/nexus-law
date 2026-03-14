@@ -16,8 +16,8 @@ export const PageContainer: React.FC<PageContainerProps> = ({
   className = ''
 }) => {
   return (
-    // 最外层：始终占满高度，并统一页面的底色和内边距
-    <div className={`min-h-full bg-[#f9fafb] p-6 flex flex-col animate-fade-in ${className}`}>
+    // 最外层：占满整个可用高度，内容超出时自动滚动
+    <div className={`h-full overflow-y-auto bg-[#f9fafb] p-6 flex flex-col animate-fade-in ${className}`}>
       
       {/* 核心限宽容器：按需限制最大宽度，并自动水平居中 */}
       <div className={`flex-1 flex flex-col w-full mx-auto ${maxWidth === 'none' ? '' : maxWidth}`}>

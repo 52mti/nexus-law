@@ -120,7 +120,7 @@ export const OrderListPage: React.FC = () => {
 
   return (
     <PageContainer>
-      <div className='flex flex-col animate-fade-in'>
+      <div className='flex-1 flex flex-col overflow-hidden animate-fade-in'>
       <div className='bg-white rounded-2xl shadow-sm border border-gray-100 p-6 pb-2 mb-6 flex-1 flex flex-col'>
         <div className='flex items-center gap-2 mb-6 px-2'>
           <ContainerOutlined className='text-[#666cff] text-lg' />

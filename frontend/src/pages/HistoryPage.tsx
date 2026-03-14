@@ -45,7 +45,7 @@ export const HistoryPage: React.FC = () => {
 
   return (
     <PageContainer>
-      <div className="h-full flex flex-col">
+      <div className="flex-1 flex flex-col overflow-hidden">
       
       {/* ========================================== */}
       {/* 1. 顶部：导航与搜索区 */}
@@ -90,14 +90,14 @@ export const HistoryPage: React.FC = () => {
               {/* 🚀 核心黑科技：手绘时间轴竖线 */}
               {/* 如果不是最后一项，就画一条绝对定位的灰色竖线贯穿到底 */}
               {groupIndex !== mockHistoryData.length - 1 && (
-                <div className="absolute left-[70px] top-4 bottom-0 w-px bg-gray-200 z-0" />
+                <div className="absolute left-17.5 top-4 bottom-0 w-px bg-gray-200 z-0" />
               )}
 
               {/* 左侧：日期与时间轴圆点 */}
               <div className="w-24 shrink-0 flex items-start justify-between relative z-10 pt-1 pr-5">
                 <span className="text-gray-500 text-[15px]">{group.date}</span>
                 {/* 蓝色的圆点，加上底色相同的环(ring)来实现镂空效果 */}
-                <div className="w-[7px] h-[7px] rounded-full bg-[#666cff] mt-[7px] ring-[5px] ring-[#f9fafb]" />
+                <div className="w-1.75 h-1.75 rounded-full bg-[#666cff] mt-1.75 ring-[5px] ring-[#f9fafb]" />
               </div>
 
               {/* 右侧：卡片网格 (支持响应式：大屏3列，中屏2列) */}
