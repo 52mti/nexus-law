@@ -33,7 +33,7 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
         
         {/* 成功图标 (蓝底白勾/蓝圈蓝勾，高度还原原型) */}
         <div className="w-16 h-16 rounded-full border-[3px] border-[#666cff] flex items-center justify-center mb-5 bg-[#f0f2ff]">
-          <CheckOutlined className="text-3xl text-[#666cff] font-bold" strokeWidth={5} />
+          <CheckOutlined className="text-3xl text-[#666cff] font-bold" />
         </div>
 
         {/* 标题与金额 */}
