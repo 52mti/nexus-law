@@ -41,7 +41,7 @@ export const UpdatePhoneForm: React.FC<UpdatePhoneFormProps> = ({ onClose }) => 
   };
 
   // 统一的 UI 样式
-  const inputStyles = "rounded-lg h-12 bg-[#f7f8fa] border-transparent hover:border-transparent focus:bg-white focus:border-[#666cff] focus:shadow-sm transition-all";
+  const inputStyles = "rounded-lg h-12 bg-[#f7f8fa] border-transparent hover:border-transparent focus:bg-white focus:border-[#666cff]  transition-all";
   const buttonStyles = "w-full h-12 bg-[#666cff] hover:bg-[#585ee6] border-none rounded-lg text-[16px] font-medium tracking-wide shadow-md shadow-indigo-500/20";
 
   return (

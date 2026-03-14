@@ -15,7 +15,6 @@ const contractReviewSchema: SidebarSchema = {
           label: '合同/协议资料上传', 
           type: 'upload-dragger', 
           required: true,
-          // 原型图中写的是 prd，估计是设计打错字了，我在这里帮你修成了 pdf
           placeholder: '支持上传pdf/word格式文件，单个文件不能超过50M' 
         },
         { 

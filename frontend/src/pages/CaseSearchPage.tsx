@@ -1,75 +1,57 @@
 import {
-  BlockOutlined,
-  AimOutlined,
-  PartitionOutlined,
-  ClusterOutlined,
+  ShopOutlined,
+  CopyOutlined,
+  FundOutlined,
+  PlaySquareOutlined,
+  HeartOutlined,
   FormOutlined,
-  ApartmentOutlined,
-  BuildOutlined,
-  ProfileOutlined,
-  DeploymentUnitOutlined
-} from '@ant-design/icons';
+  MessageOutlined,
+} from '@ant-design/icons'
 import { PortalSidebar } from '@/components/layout/PortalSidebar'
-import { SmartSidebar, type SidebarSchema } from '@/components/SmartSidebar'
+import {
+  SmartSidebar,
+  type SidebarSchema,
+  type SchemaField,
+} from '@/components/SmartSidebar'
 
-const docCategories = [
+const formFields: SchemaField[] = [
   {
-    id: 'civil_lawsuit',
-    title: '民事起诉状',
-    description: '公民 / 法人因民事纠纷向法院提起诉讼',
-    icon: <BlockOutlined />
+    name: 'docType',
+    label: '关键词信息',
+    type: 'textarea',
+    maxLength: 50,
   },
   {
-    id: 'civil_defense',
-    title: '民事答辩状',
-    description: '被告针对原告起诉状作出回应和辩解',
-    icon: <AimOutlined />
+    name: 'content',
+    label: '判决时间',
+    type: 'date-range',
   },
   {
-    id: 'property_evidence',
-    title: '财产 / 证据类申请书',
-    description: '向法院申请财产保全、强制执行等事项',
-    icon: <PartitionOutlined />
+    name: 'partyA',
+    label: '涉案金额',
+    type: 'grid-radio',
+    options: [
+      { label: '1 万比尔以下', value: '1' },
+      { label: '1-5 万比尔', value: '2' },
+      { label: '5-20 万比尔', value: '3' },
+      { label: '20-100 万比尔', value: '4' },
+      { label: '100万比尔以上', value: '5' },
+      { label: '不限', value: '' },
+    ],
   },
   {
-    id: 'labor_contract',
-    title: '劳动相关合同',
-    description: '企业与员工之间确立劳动关系、约定权利义务的协议',
-    icon: <ClusterOutlined />
+    name: 'partyB',
+    label: '判决法院等级',
+    type: 'grid-radio',
+    options: [
+      { label: '联邦最高法院', value: '1' },
+      { label: '地区高等法院', value: '2' },
+      { label: '基层法院', value: '3' },
+      { label: '专门法院', value: '4' },
+      { label: '不限', value: '' },
+    ],
   },
-  {
-    id: 'commercial_contract',
-    title: '商事经营合同',
-    description: '企业之间开展经营合作、交易的各类协议',
-    icon: <FormOutlined />
-  },
-  {
-    id: 'civil_life_contract',
-    title: '民事生活合同',
-    description: '个人之间因日常生活、交易产生的各类协议',
-    icon: <ApartmentOutlined />
-  },
-  {
-    id: 'marriage_family_agreement',
-    title: '婚姻家庭协议',
-    description: '婚姻家庭中关于财产、子女抚养等事项的约定协议',
-    icon: <BuildOutlined />
-  },
-  {
-    id: 'labor_arbitration',
-    title: '劳动仲裁文书',
-    description: '劳动争议中向仲裁委提交的申请、答辩等文书',
-    icon: <ProfileOutlined />
-  },
-  {
-    id: 'administrative_document',
-    title: '行政类文书',
-    description: '对行政行为不服，申请复议、提起诉讼的文书',
-    icon: <DeploymentUnitOutlined />
-  }
-];
-
-console.log(docCategories)
+]
 
 const docSchema: SidebarSchema = {
   title: '法律文书生成',
@@ -78,35 +60,54 @@ const docSchema: SidebarSchema = {
   hasSceneSwitch: true, // 开启场景切换逻辑
   categories: [
     {
-      id: 'civil_lawsuit',
-      title: '民事起诉状',
-      description: '公民 / 法人因民事纠纷向法院提起诉讼',
-      icon: <BlockOutlined />,
-      formFields: [{ name: 'plaintiff', label: '原告信息', type: 'textarea' }],
+      id: 'civil_case',
+      title: '民事案件',
+      description: '含婚姻家庭、邻里纠纷、债务借贷、人身损害、财产权属等',
+      icon: <ShopOutlined />,
+      formFields,
     },
     {
-      id: 'civil_life_contract',
-      title: '日常民事合同',
-      description: '个人之间因日常生活、交易产生的各类协议',
-      icon: <ApartmentOutlined />,
-      formFields: [
-        {
-          name: 'docType',
-          label: '文书类型',
-          type: 'select',
-          options: [{ label: '个人借款', value: '1' }],
-        },
-        {
-          name: 'content',
-          label: '文书内容描述',
-          type: 'textarea',
-          maxLength: 1000,
-        },
-        { name: 'partyA', label: '甲方信息', type: 'textarea', maxLength: 100 },
-        { name: 'partyB', label: '乙方信息', type: 'textarea', maxLength: 100 },
-      ],
+      id: 'criminal_case',
+      title: '刑事案件',
+      description: '含盗窃、故意伤害、诈骗、交通肇事、职务犯罪',
+      icon: <CopyOutlined />,
+      formFields,
     },
-    // ... 其他分类
+    {
+      id: 'labor_dispute',
+      title: '劳动争议案件',
+      description: '含劳动合同解除、工资拖欠、工伤赔偿、社保缴纳、解雇补偿等',
+      icon: <FundOutlined />,
+      formFields,
+    },
+    {
+      id: 'commercial_case',
+      title: '商业案件',
+      description: '含合同违约、股权纠纷、商业欺诈、知识产权侵权、企业借贷等',
+      icon: <PlaySquareOutlined />,
+      formFields,
+    },
+    {
+      id: 'administrative_case',
+      title: '行政案件',
+      description: '含行政许可、行政处罚、行政强制、政府信息公开等',
+      icon: <HeartOutlined />,
+      formFields,
+    },
+    {
+      id: 'intellectual_property',
+      title: '知识产权案件',
+      description: '含商标侵权、专利纠纷、著作权保护、商业秘密侵权等',
+      icon: <FormOutlined />,
+      formFields,
+    },
+    {
+      id: 'family_case',
+      title: '家事案件',
+      description: '含离婚、子女抚养、财产分割、遗产继承、收养关系等',
+      icon: <MessageOutlined />,
+      formFields,
+    },
   ],
 }
 

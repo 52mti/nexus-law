@@ -17,7 +17,7 @@ export const UpdatePwdForm: React.FC<UpdatePwdFormProps> = ({ onClose }) => {
   };
 
   // 统一的无边框浅灰底输入框样式 (移除前缀图标，高度稍微紧凑一点为 h-11)
-  const inputStyles = "rounded-lg h-11 bg-[#f7f8fa] border-transparent hover:border-transparent focus:bg-white focus:border-[#666cff] focus:shadow-sm transition-all";
+  const inputStyles = "rounded-lg h-11 bg-[#f7f8fa] border-transparent hover:border-transparent focus:bg-white focus:border-[#666cff]  transition-all";
 
   return (
     // 使用 layout="vertical" 让标签在上方，并用 Tailwind 强行加粗所有 label

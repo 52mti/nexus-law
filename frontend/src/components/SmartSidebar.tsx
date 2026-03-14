@@ -61,7 +61,7 @@ const GridRadio: React.FC<{
           onClick={() => onChange?.(opt.value)}
           className={`flex items-center justify-center py-2 px-1 text-[13px] rounded-md cursor-pointer transition-all border ${
             isSelected
-              ? 'bg-blue-50/50 border-[#666cff] text-[#666cff] font-medium'
+              ? 'bg-blue-50/50 border-[#666cff] text-[#666cff]'
               : 'bg-[#f7f8fb] border-transparent text-gray-600 hover:bg-[#f0f2f7]'
           }`}
         >
@@ -93,7 +93,7 @@ const ColorRadio: React.FC<{
         >
           {/* 颜色方块 */}
           <div
-            className={`w-5 h-5 rounded-[4px] transition-colors ${
+            className={`w-5 h-5 rounded-sm transition-colors ${
               isSelected ? 'bg-[blue]' : 'bg-gray-500' // 原型图选中是高亮纯蓝，未选是深灰
             }`}
           />
@@ -130,7 +130,7 @@ export const SmartSidebar: React.FC<{
 
   const activeCategory = schema.categories.find((c) => c.id === activeId)
   const inputStyles =
-    'rounded-lg bg-[#f7f8fb] border-transparent hover:border-transparent focus:bg-white focus:border-[#666cff] focus:shadow-sm transition-all'
+    'rounded-lg bg-[#f7f8fb] border-transparent hover:border-transparent focus:bg-white focus:border-[#666cff]  transition-all'
 
   return (
     <div className='w-86 h-full bg-white p-5 flex flex-col overflow-y-auto custom-scrollbar animate-fade-in relative'>
@@ -247,13 +247,8 @@ export const SmartSidebar: React.FC<{
                           placeholder={field.placeholder}
                           size='large'
                           className='w-full'
-                        >
-                          {field.options?.map((opt) => (
-                            <Select.Option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </Select.Option>
-                          ))}
-                        </Select>
+                          options={field.options}
+                        ></Select>
                       </Form.Item>
                     )
                   case 'date-range':
@@ -344,7 +339,7 @@ export const SmartSidebar: React.FC<{
               <Button
                 type='primary'
                 htmlType='submit'
-                className='w-full h-12 bg-[#666cff] hover:bg-[#585ee6] border-none rounded-lg text-[16px] font-medium shadow-md shadow-indigo-500/20'
+                className='w-full h-12 bg-[#666cff] hover:bg-[#585ee6] border-none rounded-lg text-[16px] font-medium '
               >
                 {schema.submitText}{' '}
                 {schema.submitHint && (
