@@ -122,15 +122,15 @@ export const SmartSidebar: React.FC<{
     schema.hasSceneSwitch ? null : schema.categories[0]?.id,
   )
 
-  // 当外部 schema 变化时（比如路由切换），重置状态
   useEffect(() => {
-    setActiveId(schema.hasSceneSwitch ? null : schema.categories[0]?.id)
-    form.resetFields()
-  }, [schema, form])
+    if (activeId) {
+      form.resetFields()
+    }
+  }, [activeId, form])
 
   const activeCategory = schema.categories.find((c) => c.id === activeId)
   const inputStyles =
-    'rounded-lg bg-[#f7f8fb] border-transparent hover:border-transparent focus:bg-white focus:border-[#666cff]  transition-all'
+    'rounded-lg bg-[#f7f8fb] border-transparent focus:bg-white'
 
   return (
     <div className='w-86 h-full bg-white p-5 flex flex-col overflow-y-auto custom-scrollbar animate-fade-in relative'>
@@ -262,7 +262,7 @@ export const SmartSidebar: React.FC<{
                       >
                         <RangePicker
                           size='large'
-                          className={`w-full ${inputStyles}`}
+                          className={`w-full ${inputStyles} [&_.ant-picker-active-bar]:hidden w-full`}
                           placeholder={['开始时间', '结束时间']}
                         />
                       </Form.Item>

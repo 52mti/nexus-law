@@ -53,7 +53,7 @@ const formFields: SchemaField[] = [
   },
 ]
 
-const docSchema: SidebarSchema = {
+const schema: SidebarSchema = {
   title: '法律文书生成',
   submitText: '立即生成',
   submitHint: '(消耗2点积分)',
@@ -112,14 +112,14 @@ const docSchema: SidebarSchema = {
 }
 
 export const CaseSearchPage = () => {
-  const handleSubmit = (values: any) => console.log('生成文书:', values)
+  const handleSubmit = (values: any) => console.log('案例检索:', values)
 
   return (
     <>
       <PortalSidebar>
-        <SmartSidebar schema={docSchema} onSubmit={handleSubmit} />
+        <SmartSidebar schema={schema} onSubmit={handleSubmit} />
       </PortalSidebar>
-      <div className='p-8'>这是文书生成页面的主体内容...</div>
+      <div className='p-8'>这是案例检索页面的主体内容...</div>
     </>
   )
 }

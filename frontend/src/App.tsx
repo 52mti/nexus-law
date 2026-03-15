@@ -14,6 +14,7 @@ import HistoryPage from './pages/HistoryPage'
 import MembershipPage from './pages/MembershipPage'
 import OrderListPage from './pages/OrderList/OrderListPage'
 import PointsRecordPage from './pages/PointsRecordPage'
+import { useThemeColor } from './hooks/useThemeColor'
 
 // 引入 Ant Design 的语言包
 import zhCN from 'antd/locale/zh_CN'
@@ -21,7 +22,9 @@ import enUS from 'antd/locale/en_US'
 
 function App() {
   const { i18n } = useTranslation()
-  console.log(i18n)
+  const primaryColor = useThemeColor('--brand-primary', '#666cff')
+
+  const solidFocusRing = `0 0 0 1px ${primaryColor}`
 
   // 监听 i18n 语言变化，同步切换 Antd 的语言
   const currentLang = i18n.language || 'zh'
@@ -30,18 +33,38 @@ function App() {
   const antdTheme = {
     token: {
       // 修改为截图中的品牌主色调（蓝紫）
-      colorPrimary: '#5c6bc0',
+      colorPrimary: primaryColor,
       // 统一设置圆角大小，匹配图上的卡片微圆角
       borderRadius: 8,
       // 背景色配置
       colorBgContainer: '#ffffff',
       colorBgLayout: '#f9fafb',
+      controlOutline: 'none',
     },
     components: {
       // 针对特定组件的微调
       Menu: {
         itemSelectedBg: '#eef2ff', // 选中菜单的浅色背景
-        itemSelectedColor: '#5c6bc0',
+        itemSelectedColor: primaryColor,
+      },
+      Modal: {
+        paddingContent: 0, // v6 中的全局 Token
+      },
+      Input: {
+        activeShadow: solidFocusRing,
+        hoverBorderColor: 'transparent',
+        activeBorderColor: 'transparent',
+      },
+      DatePicker: {
+        activeShadow: solidFocusRing,
+        hoverBorderColor: 'transparent',
+        activeBorderColor: 'transparent',
+      },
+      Select: {
+        activeOutlineColor: 'transparent',
+        activeShadow: solidFocusRing,
+        hoverBorderColor: primaryColor,
+        activeBorderColor: primaryColor,
       },
     },
   }

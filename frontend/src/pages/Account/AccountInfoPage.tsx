@@ -23,7 +23,7 @@ export const AccountInfoPage: React.FC = () => {
 
   // 统一的输入框无边框浅灰底样式
   const inputStyles =
-    'rounded-lg h-11 bg-[#f7f8fa] border-transparent hover:border-transparent focus:bg-white focus:border-blue-500  transition-all text-gray-700'
+    'rounded-lg h-11 bg-[#f7f8fa] border-transparent hover:border-transparent focus:bg-white transition-all text-gray-700'
 
   // 自定义表单 Label 渲染函数（用于在 Label 右侧加上“修改xx”的蓝色可点击文字）
   const renderLabel = (
