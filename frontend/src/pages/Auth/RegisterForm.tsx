@@ -94,13 +94,16 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
         // 🚀 隐藏 Antd 默认的红色文字提示
         className='w-full [&_.ant-form-item-explain]:hidden'
       >
-        {/* 1. 用户名称 */}
+        {/* 1. 邮箱地址 */}
         <Form.Item
-          name='username'
+          name='email'
           className='mb-4'
-          rules={[{ required: true, message: '请输入用户名称' }]}
+          rules={[
+            { required: true, message: '请输入邮箱地址' },
+            { type: 'email', message: '邮箱格式不正确' },
+          ]}
         >
-          <Input placeholder='请输入用户名称' className={inputStyles} />
+          <Input placeholder='请输入邮箱地址' className={inputStyles} />
         </Form.Item>
 
         {/* 2. 登录密码 */}

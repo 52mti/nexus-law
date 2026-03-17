@@ -52,12 +52,12 @@ function App() {
       },
       Input: {
         activeShadow: solidFocusRing,
-        hoverBorderColor: 'transparent',
+        hoverBorderColor: primaryColor,
         activeBorderColor: 'transparent',
       },
       DatePicker: {
         activeShadow: solidFocusRing,
-        hoverBorderColor: 'transparent',
+        hoverBorderColor: primaryColor,
         activeBorderColor: 'transparent',
       },
       Select: {
