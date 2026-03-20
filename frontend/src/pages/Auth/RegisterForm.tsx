@@ -5,6 +5,7 @@ import {
   FormErrorMessage,
   type ErrorState,
 } from '@/components/FormErrorMessage'
+import { getVerificationCode, register } from '@/api/auth'
 
 interface Props {
   onSwitchMode: (
@@ -27,6 +28,9 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
     try {
       // 🚀 先校验手机号字段
       await form.validateFields(['phone'])
+      const phone = form.getFieldValue('phone')
+
+      getVerificationCode({ phone })
 
       // 校验通过，清空错误，开始倒计时
       setErrorData(null)
@@ -50,13 +54,22 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
     }
   }
 
-  const onFinish = (values: any) => {
+  const onFinish = async (values: any) => {
     // 成功提交时清空报错
     setErrorData(null)
     console.log('Register Form Submitted:', values)
-    // TODO: 接口请求，如果后端返回账号已存在等错误，可按如下方式触发：
-    // setErrorData({ msg: '该手机号已被注册', type: 'error' })
-    // setShakeKey(Date.now())
+    try {
+      const response = register({
+        ...values,
+        verificationCode: values.code,
+      })
+      console.log(response)
+    } catch (err: any) {
+      if (err.response && err.response.status === 409) {
+        setErrorData({ msg: err.response.data.message, type: 'error' })
+        setShakeKey(Date.now())
+      }
+    }
   }
 
   // 🚀 捕获表单前端校验失败事件

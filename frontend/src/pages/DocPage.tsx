@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons'
 import { PortalSidebar } from '@/components/layout/PortalSidebar'
 import { SmartSidebar, type SidebarSchema, type SchemaField } from '@/components/SmartSidebar'
+import request from '@/utils/request'
 
 const formFields: SchemaField[] = [
   {
@@ -113,7 +114,9 @@ const docSchema: SidebarSchema = {
 }
 
 export const DocPage = () => {
-  const handleSubmit = (values: any) => console.log('生成文书:', values)
+  const handleSubmit = (values: any) => {
+    request.get('/user')
+  }
 
   return (
     <>

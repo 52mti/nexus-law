@@ -4,10 +4,34 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+// 用户表
+model User {
+  id       Int    @id @default(autoincrement())
+  email    String @unique
+  phone    String @unique
+  password String // 用户的登录密码
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  points Int @default(0)
+  avatarUrl String?
+}
+
+// 手机验证码表 (用于替代 Redis 做临时存储)
+model VerificationCode {
+  id        Int      @id @default(autoincrement())
+  phone     String // 接收验证码的手机号
+  code      String // 验证码内容 (如 "123456")
+  expiresAt DateTime // 过期时间 (通常是发送后的 5-10 分钟)
+  used      Boolean  @default(false) // 标记该验证码是否已经被使用过
+
+  createdAt DateTime @default(now())
 }

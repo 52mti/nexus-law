@@ -17,4 +17,14 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    proxy: {
+      // 代理 /api 开头的请求到后端服务
+      '/auth': {
+        target: 'http://localhost:3000', // 后端服务地址，根据需要修改端口
+        changeOrigin: true,
+        // rewrite: (path) => path.replace(/^\/api/, '/api'), // 保持路径不变，如需修改可调整
+      },
+    },
+  },
 })
