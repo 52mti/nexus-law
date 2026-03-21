@@ -1,6 +1,6 @@
 import React from 'react'
 import { Menu } from 'antd'
-import type { MenuProps } from 'antd' // 1. 引入 MenuProps 类型
+import type { MenuProps } from 'antd'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   MessageOutlined,
@@ -16,9 +16,16 @@ import {
 
 export const AppSidebar: React.FC = () => {
   const navigate = useNavigate()
-  const location = useLocation() // 获取当前路由路径
+  const location = useLocation()
 
-  // 2. 为 menuItems 显式指定类型为 MenuProps['items']
+  // 🚀 核心修复：处理动态路由的高亮问题
+  // 无论当前在 "/doc/123" 还是 "/doc"，都统一提取出 "/doc" 来匹配菜单
+  const getSelectedKey = () => {
+    const pathSegments = location.pathname.split('/')
+    // pathSegments[1] 就是去掉第一个斜杠后的那一节，比如 "doc"、"chat"
+    return pathSegments[1] ? `/${pathSegments[1]}` : '/'
+  }
+
   const menuItems: MenuProps['items'] = [
     { key: '/chat', icon: <MessageOutlined />, label: '法律咨询' },
     { key: '/doc', icon: <FileTextOutlined />, label: '文书生成' },
@@ -31,7 +38,6 @@ export const AppSidebar: React.FC = () => {
     },
     { key: '/case_search', icon: <FolderOpenOutlined />, label: '案例搜索' },
     { type: 'divider' },
-    // 3. 将后续的菜单项作为 children 放入 group 中
     {
       key: 'g_other',
       type: 'group',
@@ -55,10 +61,14 @@ export const AppSidebar: React.FC = () => {
       {/* 菜单区域 */}
       <Menu
         mode='inline'
-        // 自动根据当前 URL 高亮对应的菜单项
-        selectedKeys={[location.pathname]}
-        // 点击菜单时触发路由跳转
-        onClick={({ key }) => navigate(key)}
+        // 🚀 使用我们刚才写的函数来计算应该高亮谁
+        selectedKeys={[getSelectedKey()]}
+        onClick={({ key }) => {
+          if (key === getSelectedKey()) return;
+
+          // 只有点击了其他的菜单（比如去历史记录），才执行真实的跳转
+          navigate(key);
+        }}
         items={menuItems}
         className='flex-1 border-r-0! mt-2 custom-sidebar-menu bg-transparent!'
       />

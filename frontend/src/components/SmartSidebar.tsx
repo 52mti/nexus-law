@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Form, Input, Select, Button, DatePicker, Upload } from 'antd'
 import { RightOutlined, CloudUploadOutlined } from '@ant-design/icons'
+import { SidebarSkeleton } from '@/components/Skeleton/SidebarSkeleton' // 根据你的实际路径调整
 
 const { TextArea } = Input
 const { RangePicker } = DatePicker
@@ -26,7 +27,7 @@ export interface SchemaField {
   placeholder?: string
   maxLength?: number
   options?: { label: string; value: string | number }[]
-  minRows?: number 
+  minRows?: number
   maxRows?: number
 }
 
@@ -117,13 +118,31 @@ const normFile = (e: any) => {
 export const SmartSidebar: React.FC<{
   schema: SidebarSchema
   onSubmit: (values: any) => void
-  isLoading: boolean
-}> = ({ schema, onSubmit, isLoading = false }) => {
+  isLoading?: boolean
+  initialValues?: any // 🚀 1. 新增：接收从历史记录拉取到的表单数据
+}> = ({ schema, onSubmit, isLoading = false, initialValues }) => {
   const [form] = Form.useForm()
+  const [prevInitialValues, setPrevInitialValues] = useState(initialValues)
   // 如果不需要场景切换，默认选中第一个场景；否则初始为 null（显示列表）
   const [activeId, setActiveId] = useState<string | null>(
     schema.hasSceneSwitch ? null : schema.categories[0]?.id,
   )
+
+  // 🚀 2. 核心修复：直接在渲染期间更新状态！不再使用 useEffect
+  // 完美符合 React 官方 "Adjusting state based on a prop change" 规范
+  if (initialValues !== prevInitialValues) {
+    setPrevInitialValues(initialValues)
+    if (initialValues?.docType) {
+      setActiveId(initialValues.docType)
+    }
+  }
+
+  // 🚀 3. Antd 表单赋值依然可以放在这里，因为它是与外部库(Antd底层)的同步
+  useEffect(() => {
+    if (initialValues) {
+      form.setFieldsValue(initialValues)
+    }
+  }, [initialValues, form])
 
   useEffect(() => {
     if (activeId) {
@@ -145,25 +164,35 @@ export const SmartSidebar: React.FC<{
       {/* 场景 A：显示列表 (需要场景切换 && 当前未选中) */}
       {schema.hasSceneSwitch && !activeId && (
         <div className='flex flex-col gap-4 pb-6'>
-          {schema.categories.map((item) => (
-            <div
-              key={item.id}
-              onClick={() => setActiveId(item.id)}
-              className='flex items-center gap-4 p-4 h-20 rounded-xl bg-[#f7f8fb] hover:bg-[#f0f2f7] transition-all cursor-pointer group'
-            >
-              <div className='text-[#666cff] text-[25px] font-light shrink-0 mt-0.5 opacity-90 group-hover:opacity-100 transition-transform'>
-                {item.icon}
-              </div>
-              <div className='flex flex-col'>
-                <div className='text-[16px] font-bold text-gray-800 mb-1 tracking-wide'>
-                  {item.title}
+          {/* 🚀 核心修改：增加 isLoading 判断，渲染骨架屏或真实列表 */}
+          {isLoading ? (
+            // 骨架屏：生成 6 个灰色的呼吸灯占位卡片
+            <SidebarSkeleton count={6} />
+          ) : (
+            // 真实列表：加载完成后展示的数据
+            schema.categories.map((item) => (
+              <div
+                key={item.id}
+                onClick={() => {
+                  setActiveId(item.id)
+                  form.resetFields()
+                }}
+                className='flex items-center gap-4 p-4 h-20 rounded-xl bg-[#f7f8fb] hover:bg-[#f0f2f7] transition-all cursor-pointer group'
+              >
+                <div className='text-[#666cff] text-[25px] font-light shrink-0 mt-0.5 opacity-90 group-hover:opacity-100 transition-transform'>
+                  {item.icon}
                 </div>
-                <div className='text-[12px] text-gray-500 leading-tight line-clamp-2'>
-                  {item.description}
+                <div className='flex flex-col'>
+                  <div className='text-[16px] font-bold text-gray-800 mb-1 tracking-wide'>
+                    {item.title}
+                  </div>
+                  <div className='text-[12px] text-gray-500 leading-tight line-clamp-2'>
+                    {item.description}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       )}
 
@@ -173,9 +202,9 @@ export const SmartSidebar: React.FC<{
           {/* 如果需要场景切换，则渲染顶部带有原型的“返回”卡片 */}
           {schema.hasSceneSwitch && (
             <div
-              onClick={() =>!isLoading && setActiveId(null)}
+              onClick={() => !isLoading && setActiveId(null)}
               className={`flex items-center justify-between p-4 rounded-xl transition-all mb-6 group ${
-                isLoading 
+                isLoading
                   ? 'bg-gray-50 opacity-60 cursor-not-allowed' // loading 时的置灰状态
                   : 'bg-[#f7f8fb] hover:bg-[#f0f2f7] cursor-pointer'
               }`}
@@ -237,9 +266,9 @@ export const SmartSidebar: React.FC<{
                           placeholder={field.placeholder}
                           showCount
                           maxLength={field.maxLength}
-                          autoSize={{ 
-                            minRows: field.minRows || 5, 
-                            maxRows: field.maxRows || 10 
+                          autoSize={{
+                            minRows: field.minRows || 5,
+                            maxRows: field.maxRows || 10,
                           }}
                           className={inputStyles}
                         />

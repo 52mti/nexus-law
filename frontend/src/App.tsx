@@ -85,7 +85,7 @@ function App() {
               <Route path='chat' element={<AIChatPage />} />
               <Route path='history' element={<HistoryPage />} />
               <Route path='account' element={<AccountInfoPage />} />
-              <Route path='doc' element={<DocPage />} />
+              <Route path='doc/:id?' element={<DocPage />} />
               <Route path='law' element={<LegalSearchPage />} />
               <Route path='case_search' element={<CaseSearchPage />} />
               <Route path='case_review' element={<CaseReviewPage />} />
