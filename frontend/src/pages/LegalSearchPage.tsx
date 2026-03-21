@@ -1,4 +1,4 @@
-import { BlockOutlined, ApartmentOutlined } from '@ant-design/icons'
+import { ApartmentOutlined } from '@ant-design/icons'
 import { PortalSidebar } from '@/components/layout/PortalSidebar'
 import { SmartSidebar, type SidebarSchema } from '@/components/SmartSidebar'
 
