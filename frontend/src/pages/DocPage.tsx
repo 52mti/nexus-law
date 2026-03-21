@@ -21,7 +21,7 @@ import {
   type SchemaField,
 } from '@/components/SmartSidebar'
 import { useParams } from 'react-router-dom' // 🚀 1. 引入 react-router 的钩子
-import request from '@/utils/request'
+// import request from '@/utils/request'
 import { useReactToPrint } from 'react-to-print'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm' // 支持表格、中划线等
@@ -163,6 +163,7 @@ export const DocPage = () => {
 
   // 模拟从后端拉取历史数据的函数
   const fetchHistoryData = async (documentId: string) => {
+    console.log(documentId)
     setLoading(true)
     try {
       // 真实请求：const res = await request.get(`/document/${documentId}`)
