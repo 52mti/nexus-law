@@ -33,26 +33,9 @@ request.interceptors.request.use(
 // ==========================================
 request.interceptors.response.use(
   (response) => {
-    // 假设 NestJS / Java 统一返回的格式是：{ code: 200, data: {...}, msg: "成功" }
     const res = response.data
 
-    // 🚀 核心魔法：判断业务状态码
-    // 注意：这里的 200 是你后端自定义的业务 code，不是 HTTP 状态码
-    if (res.code && res.code !== 200) {
-      // 统一抛出业务报错，页面里不用再写 try-catch
-      message.error(res.msg || res.message || '业务处理失败')
-
-      // 如果 code 是 401，说明 Token 过期了，强制登出
-      if (res.code === 401) {
-        localStorage.removeItem('token')
-        window.location.href = '/login' // 强踢回登录页
-      }
-
-      return Promise.reject(new Error(res.msg || 'Error'))
-    }
-
-    // 正常情况，把最核心的 data 扒出来给组件用，极其干净！
-    return res.data !== undefined ? res.data : res
+    return res.data ? res.data : res
   },
   (error) => {
     // 💣 捕获 HTTP 级别的致命错误 (500, 404, 跨域, 超时等)
@@ -68,8 +51,6 @@ request.interceptors.response.use(
           break
         case 404:
           message.error('请求的接口不存在')
-          break
-        case 409:
           break
         case 500:
           message.error('服务器开了个小差，请稍后再试')

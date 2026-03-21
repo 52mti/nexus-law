@@ -15,7 +15,7 @@ interface ErrorState {
 
 interface Props {
   onSwitchMode: (
-    mode: 'pwd_login' | 'phone_login' | 'register' | 'reset_pwd',
+    mode: AuthMode,
   ) => void
 }
 

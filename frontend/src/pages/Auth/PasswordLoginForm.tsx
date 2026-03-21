@@ -1,33 +1,34 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Form, Input, Checkbox, Button } from 'antd'
 import { UserOutlined, KeyOutlined } from '@ant-design/icons'
 import {
   FormErrorMessage,
   type ErrorState,
 } from '@/components/FormErrorMessage'
+import { login } from '@/api/auth'
 
 interface Props {
   onSwitchMode: (
-    mode: 'pwd_login' | 'phone_login' | 'register' | 'reset_pwd',
+    mode: AuthMode,
   ) => void
 }
 
 export const PasswordLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
+  const navigate = useNavigate()
   const [errorData, setErrorData] = useState<ErrorState | null>(null)
   const [shakeKey, setShakeKey] = useState<number>(0)
 
   // 模拟登录提交
-  const onFinish = (values: any) => {
-    // 【模拟接口校验】：假设账号密码不对，触发红色的错误提示
-    if (values.username !== 'admin@test.com' || values.password !== '123456') {
-      setErrorData({ msg: '用户名或密码不正确', type: 'error' })
-      setShakeKey(Date.now()) // 同样触发抖动动画
-      return
-    }
-
-    // 成功则清空错误，执行后续逻辑
-    setErrorData(null)
-    console.log('登录成功:', values)
+  const onFinish = async (values: any) => {
+    try {
+      const response = await login({
+        ...values,
+      })
+      console.log(response)
+      setErrorData(null)
+      navigate('/')
+    } catch (err) {}
   }
 
   // 捕获表单前端校验失败事件 (必填项没填)
@@ -63,7 +64,7 @@ export const PasswordLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
         className='w-full [&_.ant-form-item-explain]:hidden'
       >
         <Form.Item
-          name='username'
+          name='email'
           className='mb-6'
           rules={[{ required: true, message: '请填写用户账号' }]}
         >

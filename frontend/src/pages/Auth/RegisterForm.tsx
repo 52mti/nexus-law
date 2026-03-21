@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Form, Input, Checkbox, Button } from 'antd'
 // 🚀 引入公共报错组件和类型
 import {
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
+  const navigate = useNavigate()
   const [form] = Form.useForm()
   const [countdown, setCountdown] = useState(0)
 
@@ -59,16 +61,14 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
     setErrorData(null)
     console.log('Register Form Submitted:', values)
     try {
-      const response = register({
+      const response = await register({
         ...values,
         verificationCode: values.code,
       })
+      navigate('/')
       console.log(response)
     } catch (err: any) {
-      if (err.response && err.response.status === 409) {
-        setErrorData({ msg: err.response.data.message, type: 'error' })
-        setShakeKey(Date.now())
-      }
+      console.error(err)
     }
   }
 

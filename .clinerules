@@ -1,0 +1,11 @@
+# 项目架构与规范指南
+
+## 1. 技术栈
+- **前端 (frontend/)**: React/Vue + Vite + Ant Design/Tailwind
+- **后端 (backend/)**: NestJS + Prisma + PostgreSQL (Supabase)
+
+## 2. 核心架构铁律 (必读)
+- **前后端分离**: 前端在 `frontend` 目录，后端在 `backend` 目录，不要混淆。
+- **状态码规范**: 后端 HTTP 状态码永远是 200。业务成功状态码为 `code: 0`。非 0 均为业务报错。
+- **网络层**: 前端统一使用 `frontend/src/utils/request.ts` 发起请求，不要在组件里直接引入原生 axios。
+- **样式与弹窗**: 页面级别的业务报错（如邮箱已注册），严禁使用全局飘窗（message.error），必须高亮在对应的输入框下方。
