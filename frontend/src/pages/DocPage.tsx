@@ -115,6 +115,7 @@ const docSchema: SidebarSchema = {
 
 export const DocPage = () => {
   const handleSubmit = (values: any) => {
+    console.log(values)
     request.get('/user')
   }
 
