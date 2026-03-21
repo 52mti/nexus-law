@@ -26,6 +26,8 @@ export interface SchemaField {
   placeholder?: string
   maxLength?: number
   options?: { label: string; value: string | number }[]
+  minRows?: number 
+  maxRows?: number
 }
 
 export interface CategorySchema {
@@ -115,7 +117,8 @@ const normFile = (e: any) => {
 export const SmartSidebar: React.FC<{
   schema: SidebarSchema
   onSubmit: (values: any) => void
-}> = ({ schema, onSubmit }) => {
+  isLoading: boolean
+}> = ({ schema, onSubmit, isLoading = false }) => {
   const [form] = Form.useForm()
   // 如果不需要场景切换，默认选中第一个场景；否则初始为 null（显示列表）
   const [activeId, setActiveId] = useState<string | null>(
@@ -170,8 +173,12 @@ export const SmartSidebar: React.FC<{
           {/* 如果需要场景切换，则渲染顶部带有原型的“返回”卡片 */}
           {schema.hasSceneSwitch && (
             <div
-              onClick={() => setActiveId(null)}
-              className='flex items-center justify-between p-4 rounded-xl bg-[#f7f8fb] hover:bg-[#f0f2f7] transition-all cursor-pointer mb-6 group'
+              onClick={() =>!isLoading && setActiveId(null)}
+              className={`flex items-center justify-between p-4 rounded-xl transition-all mb-6 group ${
+                isLoading 
+                  ? 'bg-gray-50 opacity-60 cursor-not-allowed' // loading 时的置灰状态
+                  : 'bg-[#f7f8fb] hover:bg-[#f0f2f7] cursor-pointer'
+              }`}
             >
               <div className='flex items-center gap-3'>
                 <div className='text-[#666cff] text-[20px] flex items-center'>
@@ -192,6 +199,7 @@ export const SmartSidebar: React.FC<{
             form={form}
             layout='vertical'
             onFinish={onSubmit}
+            disabled={isLoading}
             className='flex-1 flex flex-col [&_.ant-form-item-label>label]:font-bold [&_.ant-form-item-label>label]:text-[15px] [&_.ant-form-item-label]:pb-1.5'
           >
             <div className='flex-1'>
@@ -229,7 +237,10 @@ export const SmartSidebar: React.FC<{
                           placeholder={field.placeholder}
                           showCount
                           maxLength={field.maxLength}
-                          autoSize={{ minRows: 4, maxRows: 8 }}
+                          autoSize={{ 
+                            minRows: field.minRows || 5, 
+                            maxRows: field.maxRows || 10 
+                          }}
                           className={inputStyles}
                         />
                       </Form.Item>
@@ -339,10 +350,11 @@ export const SmartSidebar: React.FC<{
               <Button
                 type='primary'
                 htmlType='submit'
-                className='w-full h-12 bg-[#666cff] hover:bg-[#585ee6] border-none rounded-lg text-[16px] font-medium '
+                loading={isLoading}
+                className='w-full h-12 bg-primary hover:bg-secondary border-none rounded-lg text-[16px] font-medium '
               >
-                {schema.submitText}{' '}
-                {schema.submitHint && (
+                {isLoading ? 'AI 正在起草中...' : schema.submitText}{' '}
+                {!isLoading && schema.submitHint && (
                   <span className='text-sm opacity-80'>
                     {schema.submitHint}
                   </span>

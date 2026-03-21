@@ -6,29 +6,46 @@ import {
   FormErrorMessage,
   type ErrorState,
 } from '@/components/FormErrorMessage'
+
 import { login } from '@/api/auth'
+import { useUserStore } from '@/store/useUserStore'
 
 interface Props {
-  onSwitchMode: (
-    mode: AuthMode,
-  ) => void
+  onSwitchMode: (mode: AuthMode) => void
+}
+
+interface formValue {
+  email: string
+  password: string
+  remember: boolean
 }
 
 export const PasswordLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
   const navigate = useNavigate()
   const [errorData, setErrorData] = useState<ErrorState | null>(null)
   const [shakeKey, setShakeKey] = useState<number>(0)
+  const [loading, setLoading] = useState<boolean>(false)
+  const setUser = useUserStore((state) => state.setUser)
 
   // 模拟登录提交
-  const onFinish = async (values: any) => {
+  const onFinish = async (values: formValue) => {
     try {
+      setLoading(true)
       const response = await login({
-        ...values,
+        email: values.email,
+        password: values.password,
+        rememberMe: values.remember,
       })
-      console.log(response)
+      // 保存用户信息到全局store
+      setUser(response)
       setErrorData(null)
       navigate('/')
-    } catch (err) {}
+    } catch (err) {
+      console.error(err)
+      setErrorData({ msg: '登录失败，请检查邮箱和密码', type: 'error' })
+    } finally {
+      setLoading(false)
+    }
   }
 
   // 捕获表单前端校验失败事件 (必填项没填)
@@ -113,6 +130,7 @@ export const PasswordLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
           <Button
             type='primary'
             htmlType='submit'
+            loading={loading}
             className='w-full h-12 bg-[#666cff] hover:bg-[#585ee6] border-none rounded-lg text-[16px] font-medium tracking-wide shadow-md shadow-indigo-500/20'
           >
             登录

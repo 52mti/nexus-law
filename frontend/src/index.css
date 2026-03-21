@@ -1,6 +1,7 @@
 @layer theme, base, antd, components, utilities;
 
 @import 'tailwindcss';
+@plugin "@tailwindcss/typography";
 
 /* 1. 在根节点定义原生的 CSS 变量 */
 :root {

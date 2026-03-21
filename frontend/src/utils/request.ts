@@ -1,6 +1,15 @@
 // src/utils/request.ts
-import axios from 'axios'
+import axios, { type AxiosResponse } from 'axios'
 import { message } from 'antd' // 依然使用 antd 帮你做优雅的全局提示
+
+// ==========================================
+// 定义后端响应格式
+// ==========================================
+interface ApiResponse<T = any> {
+  code: number
+  message: string
+  data: T
+}
 
 // ==========================================
 // 1. 创建属于你业务后端的专属 Axios 实例
@@ -32,10 +41,10 @@ request.interceptors.request.use(
 // 3. 响应拦截器 (收回来之后)
 // ==========================================
 request.interceptors.response.use(
-  (response) => {
+  <T,>(response: AxiosResponse<ApiResponse<T>>) => {
     const res = response.data
 
-    return res.data ? res.data : res
+    return (res.data ? res.data : res) as T
   },
   (error) => {
     // 💣 捕获 HTTP 级别的致命错误 (500, 404, 跨域, 超时等)

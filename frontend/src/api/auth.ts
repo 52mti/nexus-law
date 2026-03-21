@@ -8,6 +8,8 @@ export interface AuthResponse {
   phone: string
   token: string
   expiresIn: number
+  nickname: string
+  avatarUrl: string
 }
 
 // 1. 获取手机验证码
@@ -21,8 +23,8 @@ export const register = (data: {
   password: string
   phone: string
   verificationCode: string
-}) => {
-  return request.post<AuthResponse>('/auth/register', data)
+}): Promise<AuthResponse> => {
+  return request.post('/auth/register', data)
 }
 
 // 3. 用户登录（邮箱+密码或手机验证码）
@@ -32,8 +34,8 @@ export const login = (data: {
   phone?: string
   verificationCode?: string
   rememberMe?: boolean
-}) => {
-  return request.post<AuthResponse>('/auth/login', data)
+}): Promise<AuthResponse> => {
+  return request.post('/auth/login', data)
 }
 
 // 4. 重置密码
