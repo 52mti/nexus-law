@@ -133,7 +133,7 @@ export const OrderListPage: React.FC = () => {
             columns={getColumns(handlePayClick)}
             dataSource={mockOrders}
             pagination={{
-              position: ['bottomCenter'],
+              placement: ['bottomCenter'],
               defaultCurrent: 1,
               total: 50, 
               showSizeChanger: false,
