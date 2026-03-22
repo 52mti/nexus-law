@@ -31,6 +31,7 @@ const formFields: SchemaField[] = [
     name: 'docType',
     label: '文书类型',
     type: 'select',
+    placeholder: '请选择您需要生成的文书类型', // 🚀 新增
     options: [
       { label: '个人借款', value: '0' },
       { label: '房屋租凭合同', value: '1' },
@@ -38,7 +39,7 @@ const formFields: SchemaField[] = [
       { label: '赠与合同', value: '3' },
       { label: '借款合同', value: '4' },
       { label: '委托合同', value: '5' },
-      { label: '借款合同', value: '6' },
+      { label: '借款合同', value: '6' }, // 注意：这里有个重复的“借款合同”和“委托合同”，可以顺手清理一下
       { label: '委托合同', value: '7' },
       { label: '承揽合同', value: '8' },
       { label: '其他', value: '9' },
@@ -49,20 +50,26 @@ const formFields: SchemaField[] = [
     label: '文书内容描述',
     type: 'textarea',
     maxLength: 1000,
-    minRows: 10, // 🚀 这个框比较重要，默认展示 6 行高
-    maxRows: 18, // 最多展开到 12 行
+    minRows: 10,
+    maxRows: 18,
+    // 🚀 新增：引导用户输入时间、地点、事件经过和诉求
+    placeholder: '请详细描述事件的背景、经过及核心诉求。\n\n例如：\n2023年5月10日，被告因资金周转困难向原告借款10万元，约定月息1%，于同年12月底前还清。现期限已届满，被告以各种理由推脱拒不还款。现请求法院判令被告立即偿还本金及逾期利息...',
   },
   {
     name: 'partyA',
     label: '甲方信息',
     type: 'textarea',
     maxLength: 100,
+    // 🚀 新增：提示标准的身份要素
+    placeholder: '请输入甲方（原告/出租方/出借方等）基本信息：\n姓名/公司名称、性别、出生年月、身份证号/统一社会信用代码、联系地址、电话等。',
   },
   {
     name: 'partyB',
     label: '乙方信息',
     type: 'textarea',
     maxLength: 100,
+    // 🚀 新增：提示标准的身份要素
+    placeholder: '请输入乙方（被告/承租方/借款方等）基本信息：\n姓名/公司名称、性别、出生年月、身份证号/统一社会信用代码、联系地址、电话等。',
   },
 ]
 
