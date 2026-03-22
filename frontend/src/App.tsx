@@ -82,14 +82,14 @@ function App() {
               <Route index element={<Navigate to='/chat' replace />} />
 
               {/* 这里的子路由现在全部变成按需加载了！ */}
-              <Route path='chat/?id' element={<AIChatPage />} />
+              <Route path='chat/:id?' element={<AIChatPage />} />
               <Route path='history' element={<HistoryPage />} />
               <Route path='account' element={<AccountInfoPage />} />
               <Route path='doc/:id?' element={<DocPage />} />
               <Route path='law' element={<LegalSearchPage />} />
               <Route path='case_search' element={<CaseSearchPage />} />
               <Route path='case_review' element={<CaseReviewPage />} />
-              <Route path='compliance/:id' element={<CompliancePage />} />
+              <Route path='compliance/:id?' element={<CompliancePage />} />
               {/* 注意：你原来代码里有两遍 history，这里我删掉了一个重复的 */}
               <Route path='vip' element={<MembershipPage />} />
               <Route path='orders' element={<OrderListPage />} />
