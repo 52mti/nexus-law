@@ -17,7 +17,7 @@ interface ApiResponse<T = any> {
 const request = axios.create({
   // Vite 环境变量读取方式，如果没有则默认请求本地 3000 端口
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000',
-  timeout: 10000, // 10秒超时
+  timeout: 60 * 1000, // 10秒超时
 })
 
 // ==========================================
@@ -42,9 +42,7 @@ request.interceptors.request.use(
 // ==========================================
 request.interceptors.response.use(
   <T,>(response: AxiosResponse<ApiResponse<T>>) => {
-    const res = response.data
-
-    return (res.data ? res.data : res) as T
+    return (response.data ? response.data : response) as T
   },
   (error) => {
     // 💣 捕获 HTTP 级别的致命错误 (500, 404, 跨域, 超时等)

@@ -20,8 +20,8 @@ import {
   type SidebarSchema,
   type SchemaField,
 } from '@/components/SmartSidebar'
-import { useParams } from 'react-router-dom' // 🚀 1. 引入 react-router 的钩子
-// import request from '@/utils/request'
+import { useParams } from 'react-router-dom'
+import { getDocument } from '@/api/document'
 import { useReactToPrint } from 'react-to-print'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm' // 支持表格、中划线等
@@ -53,7 +53,8 @@ const formFields: SchemaField[] = [
     minRows: 10,
     maxRows: 18,
     // 🚀 新增：引导用户输入时间、地点、事件经过和诉求
-    placeholder: '请详细描述事件的背景、经过及核心诉求。\n\n例如：\n2023年5月10日，被告因资金周转困难向原告借款10万元，约定月息1%，于同年12月底前还清。现期限已届满，被告以各种理由推脱拒不还款。现请求法院判令被告立即偿还本金及逾期利息...',
+    placeholder:
+      '请详细描述事件的背景、经过及核心诉求。\n\n例如：\n2023年5月10日，被告因资金周转困难向原告借款10万元，约定月息1%，于同年12月底前还清。现期限已届满，被告以各种理由推脱拒不还款。现请求法院判令被告立即偿还本金及逾期利息...',
   },
   {
     name: 'partyA',
@@ -61,7 +62,8 @@ const formFields: SchemaField[] = [
     type: 'textarea',
     maxLength: 100,
     // 🚀 新增：提示标准的身份要素
-    placeholder: '请输入甲方（原告/出租方/出借方等）基本信息：\n姓名/公司名称、性别、出生年月、身份证号/统一社会信用代码、联系地址、电话等。',
+    placeholder:
+      '请输入甲方（原告/出租方/出借方等）基本信息：\n姓名/公司名称、性别、出生年月、身份证号/统一社会信用代码、联系地址、电话等。',
   },
   {
     name: 'partyB',
@@ -69,7 +71,8 @@ const formFields: SchemaField[] = [
     type: 'textarea',
     maxLength: 100,
     // 🚀 新增：提示标准的身份要素
-    placeholder: '请输入乙方（被告/承租方/借款方等）基本信息：\n姓名/公司名称、性别、出生年月、身份证号/统一社会信用代码、联系地址、电话等。',
+    placeholder:
+      '请输入乙方（被告/承租方/借款方等）基本信息：\n姓名/公司名称、性别、出生年月、身份证号/统一社会信用代码、联系地址、电话等。',
   },
 ]
 
@@ -205,45 +208,17 @@ export const DocPage = () => {
   const handleSubmit = async (values: any) => {
     try {
       setLoading(true)
-      // 真实请求示例：
-      // const res = await request.post('/document/generate', values);
-      // if (res.code === 0) { setDocData(res.data); }
 
-      // 模拟后端返回的 Markdown 数据
-      setTimeout(() => {
-        setDocData({
-          title: '民事起诉状',
-          markdownContent: `
-# 民事起诉状
+      const res = await getDocument(values)
+      if (res.code === 0) {
+        setDocData(res.data)
+      }
 
-## 起诉人信息
-**甲方**：${values.partyA || '张三，男，1985年生，住址：北京市朝阳区某街道某号'}
-
-## 被起诉人信息
-**乙方**：${values.partyB || '李四，男，1982年生，住址：上海市浦东新区某街道某号'}
-
-## 诉讼请求
-1. 请求法院判令被告立即偿还借款本金人民币10万元（¥100,000.00）。
-2. 请求法院判令被告支付逾期利息。
-3. 本案诉讼费用由被告承担。
-
-## 事实与理由
-${values.content || '2024年3月20日，被告因资金周转需要，向原告借款...'}
-
-综上所述，被告的行为已严重侵害原告合法权益，为维护原告合法权益，特向贵院提起诉讼，恳请依法判决。
-
-此致  
-**XXX 人民法院**
-
-
-**起诉人**：___________________ (签字/盖章)  
-**日 期**：2026年 03月 22日
-          `.trim(),
-        })
-        message.success('文书生成成功，已扣除 2 积分')
-        setLoading(false)
-      }, 2000)
+      message.success('文书生成成功，已扣除 2 积分')
+      setLoading(false)
     } catch (error) {
+      console.error(error)
+    } finally {
       setLoading(false)
     }
   }

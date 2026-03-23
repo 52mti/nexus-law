@@ -1,5 +1,3 @@
-@layer theme, base, antd, components, utilities;
-
 @import 'tailwindcss';
 @plugin "@tailwindcss/typography";
 
@@ -84,7 +82,7 @@ svg {
 /* 选中项的淡紫色背景和紫色文字 */
 .custom-sidebar-menu .ant-menu-item-selected {
   background-image: linear-gradient(to right, #ebe9f6, #f1f5f4);
-  color: #666cff !important;
+  color: var(--brand-primary) !important;
   font-weight: 500;
   border: 1px solid #b6a8ef;
 }

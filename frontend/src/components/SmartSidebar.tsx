@@ -227,7 +227,7 @@ export const SmartSidebar: React.FC<{
           <Form
             form={form}
             layout='vertical'
-            onFinish={onSubmit}
+            onFinish={(formValues) => onSubmit({ ...formValues, category: activeId })}
             disabled={isLoading}
             className='flex-1 flex flex-col [&_.ant-form-item-label>label]:font-bold [&_.ant-form-item-label>label]:text-[15px] [&_.ant-form-item-label]:pb-1.5'
           >

@@ -19,7 +19,7 @@ export const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ qrCodeUrl }) => {
         />
         
         {/* 🚀 黑科技：高亮扫描线 */}
-        <div className="absolute left-0 right-0 h-0.5 bg-[#666cff] shadow-[0_0_12px_3px_rgba(102,108,255,0.4)] animate-scan-line" />
+        <div className="absolute left-0 right-0 h-0.5 bg-primary shadow-[0_0_12px_3px_rgba(102,108,255,0.4)] animate-scan-line" />
       </div>
 
       {/* 2. 底部提示文字与图标 */}

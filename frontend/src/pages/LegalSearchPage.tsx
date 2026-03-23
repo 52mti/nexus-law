@@ -26,6 +26,7 @@ const docSchema: SidebarSchema = {
           name: 'docType',
           label: '条文类型',
           type: 'select',
+          placeholder: '请选择相关法律门类',
           options: [
             { label: '民法典', value: '1' }, // 优化了基础选项
             { label: '劳动法/劳动合同法', value: '2' },
