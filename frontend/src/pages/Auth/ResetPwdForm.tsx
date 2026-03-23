@@ -84,7 +84,7 @@ export const ResetPwdForm: React.FC<Props> = ({ onSwitchMode }) => {
   // 保持你原有的 UI 样式字典不变
   const inputStyles = 'rounded-lg h-12'
   const buttonStyles =
-    'w-full h-12 bg-[#666cff] hover:bg-[#585ee6] border-none rounded-lg text-[16px] font-medium tracking-wide shadow-md shadow-indigo-500/20'
+    'w-full h-12 bg-primary hover:bg-secondary border-none rounded-lg text-[16px] font-medium tracking-wide shadow-md shadow-indigo-500/20'
 
   const stepItems = [
     { title: '验证手机号码' },
@@ -242,7 +242,7 @@ export const ResetPwdForm: React.FC<Props> = ({ onSwitchMode }) => {
       {/* ======= 步骤 2：密码重置成功 ======= */}
       {currentStep === 2 && (
         <div className='flex flex-col items-center justify-center py-6 animate-fade-in'>
-          <CheckCircleFilled className='text-[#666cff] text-[64px] mb-5 shadow-sm rounded-full' />
+          <CheckCircleFilled className='text-primary text-[64px] mb-5 shadow-sm rounded-full' />
 
           <h2 className='text-xl font-bold text-gray-800 mb-2'>密码重置成功</h2>
           <p className='text-sm text-gray-500 mb-8'>

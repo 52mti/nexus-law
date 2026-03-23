@@ -114,14 +114,14 @@ export const MembershipPage: React.FC = () => {
               key={plan.id}
               className={`flex flex-col rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-2 hover:shadow-xl ${
                 isPrimary 
-                  ? 'bg-[#666cff] text-white shadow-lg shadow-indigo-500/30' // 高亮卡片：纯蓝背景，白字
+                  ? 'bg-primary text-white shadow-lg shadow-indigo-500/30' // 高亮卡片：纯蓝背景，白字
                   : 'bg-white text-gray-800 shadow-sm border border-gray-100' // 普通卡片：白背景
               }`}
             >
               {/* 卡片上半部分：渐变头、价格、按钮 */}
               <div className={`p-8 pb-6 flex flex-col items-center ${isPrimary ? '' : 'bg-linear-to-b from-[#f0f2ff] to-white'}`}>
                 {/* 标题 */}
-                <div className={`text-lg font-bold mb-4 flex items-center ${isPrimary ? 'text-white' : 'text-[#666cff]'}`}>
+                <div className={`text-lg font-bold mb-4 flex items-center ${isPrimary ? 'text-white' : 'text-primary'}`}>
                   {plan.icon} {plan.title}
                 </div>
                 
@@ -149,7 +149,7 @@ export const MembershipPage: React.FC = () => {
                       ? 'bg-gray-100! text-gray-400!' // 置灰状态（已领取）
                       : isPrimary
                         ? 'bg-transparent border border-white/50 text-white hover:bg-white/10 hover:border-white' // 钻石会员：透明描边白字
-                        : 'bg-[#666cff] hover:bg-[#585ee6] text-white shadow-md shadow-indigo-500/20' // 普通购买：紫色按钮
+                        : 'bg-primary hover:bg-secondary text-white shadow-md shadow-indigo-500/20' // 普通购买：紫色按钮
                   }`}
                 >
                   {plan.buttonText}
@@ -175,7 +175,7 @@ export const MembershipPage: React.FC = () => {
                       {/* 打勾图标 */}
                       <CheckCircleOutlined 
                         className={`mt-0.75 text-[13px] shrink-0 ${
-                          isPrimary ? 'text-indigo-200' : 'text-[#666cff]/80'
+                          isPrimary ? 'text-indigo-200' : 'text-primary/80'
                         }`} 
                       />
                       {/* 权益文案 */}

@@ -64,7 +64,7 @@ const GridRadio: React.FC<{
           onClick={() => onChange?.(opt.value)}
           className={`flex items-center justify-center py-2 px-1 text-[13px] rounded-md cursor-pointer transition-all border ${
             isSelected
-              ? 'bg-blue-50/50 border-[#666cff] text-[#666cff]'
+              ? 'bg-blue-50/50 border-primary text-primary'
               : 'bg-[#f7f8fb] border-transparent text-gray-600 hover:bg-[#f0f2f7]'
           }`}
         >
@@ -179,7 +179,7 @@ export const SmartSidebar: React.FC<{
                 }}
                 className='flex items-center gap-4 p-4 h-20 rounded-xl bg-[#f7f8fb] hover:bg-[#f0f2f7] transition-all cursor-pointer group'
               >
-                <div className='text-[#666cff] text-[25px] font-light shrink-0 mt-0.5 opacity-90 group-hover:opacity-100 transition-transform'>
+                <div className='text-primary text-[25px] font-light shrink-0 mt-0.5 opacity-90 group-hover:opacity-100 transition-transform'>
                   {item.icon}
                 </div>
                 <div className='flex flex-col'>
@@ -210,14 +210,14 @@ export const SmartSidebar: React.FC<{
               }`}
             >
               <div className='flex items-center gap-3'>
-                <div className='text-[#666cff] text-[20px] flex items-center'>
+                <div className='text-primary text-[20px] flex items-center'>
                   {activeCategory.icon}
                 </div>
                 <span className='font-bold text-gray-800 text-[15px]'>
                   {activeCategory.title}
                 </span>
               </div>
-              <div className='text-[13px] text-gray-400 group-hover:text-[#666cff] transition-colors flex items-center gap-0.5'>
+              <div className='text-[13px] text-gray-400 group-hover:text-primary transition-colors flex items-center gap-0.5'>
                 切换场景 <RightOutlined className='text-[10px]' />
               </div>
             </div>
@@ -336,14 +336,14 @@ export const SmartSidebar: React.FC<{
                           name='file'
                           multiple={false}
                           beforeUpload={() => false}
-                          className='bg-[#f9fafc] border-gray-200 hover:border-[#666cff] transition-all'
+                          className='bg-[#f9fafc] border-gray-200 hover:border-primary transition-all'
                         >
                           <p className='ant-upload-drag-icon pt-2'>
                             <CloudUploadOutlined className='text-gray-400 text-6xl' />
                           </p>
                           <p className='ant-upload-text text-[14px] text-gray-600 mt-2'>
                             将文件拖到此处或
-                            <span className='text-[#666cff] px-1'>
+                            <span className='text-primary px-1'>
                               点击上传
                             </span>
                           </p>

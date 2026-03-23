@@ -257,7 +257,7 @@ export const DocPage = () => {
           <div className='flex flex-col h-full items-center justify-center text-center animate-fade-in'>
             {/* 🚀 2. 替换为 Antd 的 BulbOutlined，加上呼吸灯动画 */}
             <div className='mb-6'>
-              <BulbOutlined className='text-[80px] text-[#666cff] animate-pulse' />
+              <BulbOutlined className='text-[80px] text-primary animate-pulse' />
             </div>
             <h2 className='text-2xl font-bold text-gray-800 tracking-wide mb-2'>
               AI生成中

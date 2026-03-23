@@ -203,7 +203,7 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
           <Button
             type='primary'
             htmlType='submit'
-            className='w-full h-12 bg-[#666cff] hover:bg-[#585ee6] border-none rounded-lg text-[16px] font-medium tracking-wide shadow-md shadow-indigo-500/20'
+            className='w-full h-12 bg-primary hover:bg-secondary border-none rounded-lg text-[16px] font-medium tracking-wide shadow-md shadow-indigo-500/20'
           >
             注册
           </Button>

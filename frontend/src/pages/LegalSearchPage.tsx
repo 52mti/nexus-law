@@ -201,7 +201,7 @@ export const LegalSearchPage = () => {
           <div className='flex flex-col h-full items-center justify-center text-center animate-fade-in'>
             <div className='mb-6'>
               {/* 🚀 专属的法典搜索图标 */}
-              <BookOutlined className='text-[80px] text-[#666cff] animate-pulse' />
+              <BookOutlined className='text-[80px] text-primary animate-pulse' />
             </div>
             <h2 className='text-2xl font-bold text-gray-800 tracking-wide mb-2'>
               AI 法条检索中
@@ -229,11 +229,11 @@ export const LegalSearchPage = () => {
                 className='
                 prose prose-slate max-w-none 
                 prose-h1:text-3xl prose-h1:text-center prose-h1:tracking-widest prose-h1:mb-10
-                prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-4 prose-h2:border-b prose-h2:pb-2 prose-h2:text-[#666cff]
+                prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-4 prose-h2:border-b prose-h2:pb-2 prose-h2:text-primary
                 prose-h3:text-lg prose-h3:mt-6 prose-h3:font-bold prose-h3:text-gray-800
                 prose-p:leading-relaxed prose-p:mb-4
                 prose-li:my-1
-                prose-blockquote:border-l-4 prose-blockquote:border-[#666cff] prose-blockquote:bg-gray-50 prose-blockquote:py-2 prose-blockquote:px-5 prose-blockquote:mt-4 prose-blockquote:text-gray-700 prose-blockquote:font-serif
+                prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:bg-gray-50 prose-blockquote:py-2 prose-blockquote:px-5 prose-blockquote:mt-4 prose-blockquote:text-gray-700 prose-blockquote:font-serif
                 prose-strong:text-black prose-strong:font-bold
               '
               >

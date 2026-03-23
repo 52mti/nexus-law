@@ -23,7 +23,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ open, onCancel, amou
         
         {/* 弹窗标题 */}
         <div className="text-xl font-bold text-gray-800 mb-8">
-          扫码支付 <span className="text-[#666cff] mx-1">{amount}</span> 元
+          扫码支付 <span className="text-primary mx-1">{amount}</span> 元
         </div>
 
         {/* 🚀 引入复用的二维码组件 */}
@@ -31,7 +31,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ open, onCancel, amou
 
         {/* 底部服务协议 */}
         <div className="text-[12px] text-gray-400 mt-8">
-          支付即代表您已同意 <a className="text-[#666cff] hover:text-[#585ee6] transition-colors cursor-pointer">《付费服务协议》</a>
+          支付即代表您已同意 <a className="text-primary hover:text-secondary transition-colors cursor-pointer">《付费服务协议》</a>
         </div>
       </div>
     </Modal>

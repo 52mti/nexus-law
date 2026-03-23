@@ -72,7 +72,7 @@ export const AIChatPage: React.FC = () => {
                 {/* AI 头像 (左侧) */}
                 {msg.role === 'ai' && (
                   <div className='w-9 h-9 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 mt-1'>
-                    <RobotOutlined className='text-[#666cff] text-xl' />
+                    <RobotOutlined className='text-primary text-xl' />
                   </div>
                 )}
 
@@ -93,10 +93,10 @@ export const AIChatPage: React.FC = () => {
                       </div>
                       {/* 底部操作按钮 */}
                       <div className='flex items-center gap-4 mt-6 text-gray-400'>
-                        <span className='flex items-center gap-1.5 cursor-pointer hover:text-[#666cff] transition-colors text-sm'>
+                        <span className='flex items-center gap-1.5 cursor-pointer hover:text-primary transition-colors text-sm'>
                           <SyncOutlined /> 重新生成
                         </span>
-                        <span className='flex items-center gap-1.5 cursor-pointer hover:text-[#666cff] transition-colors text-sm'>
+                        <span className='flex items-center gap-1.5 cursor-pointer hover:text-primary transition-colors text-sm'>
                           <CopyOutlined /> 复制
                         </span>
                       </div>
@@ -109,7 +109,7 @@ export const AIChatPage: React.FC = () => {
                   <Avatar
                     size={36}
                     icon={<UserOutlined />}
-                    className='bg-[#666cff] mt-1 shrink-0'
+                    className='bg-primary mt-1 shrink-0'
                   />
                 )}
               </div>
@@ -153,8 +153,8 @@ export const AIChatPage: React.FC = () => {
           <div
             className={`relative bg-white rounded-2xl transition-all duration-300 shadow-sm ${
               isEmpty
-                ? 'border border-[#666cff] h-40'
-                : 'border border-transparent focus-within:border-[#666cff] h-32'
+                ? 'border border-primary h-40'
+                : 'border border-transparent focus-within:border-primary h-32'
             }`}
           >
             <textarea
@@ -172,12 +172,12 @@ export const AIChatPage: React.FC = () => {
 
             {/* 右下角操作区 */}
             <div className='absolute bottom-3 right-3 flex items-center gap-4'>
-              <AudioOutlined className='text-2xl text-gray-400 cursor-pointer hover:text-[#666cff] transition-colors' />
+              <AudioOutlined className='text-2xl text-gray-400 cursor-pointer hover:text-primary transition-colors' />
               <div
                 onClick={handleSend}
                 className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${
                   inputValue.trim()
-                    ? 'bg-[#666cff] shadow-md shadow-indigo-500/30 hover:bg-[#585ee6]'
+                    ? 'bg-primary shadow-md shadow-indigo-500/30 hover:bg-secondary'
                     : 'bg-indigo-400 cursor-default'
                 }`}
               >

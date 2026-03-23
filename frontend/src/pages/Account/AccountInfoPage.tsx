@@ -50,7 +50,7 @@ export const AccountInfoPage: React.FC = () => {
       <div className='bg-white rounded-2xl shadow-sm w-full max-w-130 p-8'>
         {/* 卡片标题 */}
         <div className='flex items-center gap-2 mb-6'>
-          <IdcardOutlined className='text-[#666cff] text-xl' />
+          <IdcardOutlined className='text-primary text-xl' />
           <span className='text-lg font-bold text-gray-800 tracking-wide'>
             账号信息
           </span>
@@ -63,7 +63,7 @@ export const AccountInfoPage: React.FC = () => {
             <Avatar
               size={56}
               icon={<UserOutlined />}
-              className='bg-white text-[#666cff] group-hover:opacity-80 transition-opacity'
+              className='bg-white text-primary group-hover:opacity-80 transition-opacity'
             />
             <span className='text-xs text-white tracking-widest'>修改头像</span>
           </div>

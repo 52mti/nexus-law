@@ -41,8 +41,8 @@ export const UpdatePhoneForm: React.FC<UpdatePhoneFormProps> = ({ onClose }) => 
   };
 
   // 统一的 UI 样式
-  const inputStyles = "rounded-lg h-12 bg-[#f7f8fa] border-transparent hover:border-transparent focus:bg-white focus:border-[#666cff]  transition-all";
-  const buttonStyles = "w-full h-12 bg-[#666cff] hover:bg-[#585ee6] border-none rounded-lg text-[16px] font-medium tracking-wide shadow-md shadow-indigo-500/20";
+  const inputStyles = "rounded-lg h-12 bg-[#f7f8fa] border-transparent hover:border-transparent focus:bg-white focus:border-primary  transition-all";
+  const buttonStyles = "w-full h-12 bg-primary hover:bg-secondary border-none rounded-lg text-[16px] font-medium tracking-wide shadow-md shadow-indigo-500/20";
 
   return (
     <div className="w-full pt-2">
@@ -76,7 +76,7 @@ export const UpdatePhoneForm: React.FC<UpdatePhoneFormProps> = ({ onClose }) => 
                   className={`text-[14px] transition-colors select-none ${
                     countdown > 0
                       ? 'text-gray-400 cursor-not-allowed'
-                      : 'text-[#666cff] hover:text-[#585ee6] cursor-pointer'
+                      : 'text-primary hover:text-secondary cursor-pointer'
                   }`}
                 >
                   {countdown > 0 ? `${countdown}s后重发` : '获取验证码'}
@@ -126,7 +126,7 @@ export const UpdatePhoneForm: React.FC<UpdatePhoneFormProps> = ({ onClose }) => 
                   className={`text-[14px] transition-colors select-none ${
                     countdown > 0
                       ? 'text-gray-400 cursor-not-allowed'
-                      : 'text-[#666cff] hover:text-[#585ee6] cursor-pointer'
+                      : 'text-primary hover:text-secondary cursor-pointer'
                   }`}
                 >
                   {countdown > 0 ? `${countdown}s后重发` : '获取验证码'}
@@ -146,7 +146,7 @@ export const UpdatePhoneForm: React.FC<UpdatePhoneFormProps> = ({ onClose }) => 
       {/* ======= 步骤 2：修改成功 ======= */}
       {currentStep === 2 && (
         <div className="flex flex-col items-center justify-center py-6 animate-fade-in">
-          <CheckCircleFilled className="text-[#666cff] text-[64px] mb-4" />
+          <CheckCircleFilled className="text-primary text-[64px] mb-4" />
           <h2 className="text-lg font-bold text-gray-800 mb-2">修改成功</h2>
           <p className="text-sm text-gray-500 mb-8">您的手机号码已成功更新</p>
           <Button type="primary" className={buttonStyles} onClick={onClose}>

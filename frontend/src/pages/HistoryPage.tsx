@@ -104,7 +104,7 @@ export const HistoryPage: React.FC = () => {
                   onClick={() => setActiveTab(tab.key)}
                   className={`px-5 py-2 rounded-full text-[14px] cursor-pointer transition-all ${
                     isActive
-                      ? 'bg-[#666cff] text-white font-medium shadow-md shadow-indigo-500/20'
+                      ? 'bg-primary text-white font-medium shadow-md shadow-indigo-500/20'
                       : 'text-gray-600 hover:bg-gray-200/50'
                   }`}
                 >
@@ -117,7 +117,7 @@ export const HistoryPage: React.FC = () => {
           <Input
             prefix={<SearchOutlined className='text-gray-400 mr-1' />}
             placeholder='搜索历史记录'
-            className='w-72 h-10 rounded-lg bg-white border-transparent hover:border-transparent focus:border-[#666cff] '
+            className='w-72 h-10 rounded-lg bg-white border-transparent hover:border-transparent focus:border-primary '
           />
         </div>
 
@@ -141,7 +141,7 @@ export const HistoryPage: React.FC = () => {
                     <span className='text-gray-500 text-[15px]'>
                       {group.date}
                     </span>
-                    <div className='w-1.75 h-1.75 rounded-full bg-[#666cff] mt-1.75 ring-[5px] ring-[#f9fafb]' />
+                    <div className='w-1.75 h-1.75 rounded-full bg-primary mt-1.75 ring-[5px] ring-[#f9fafb]' />
                   </div>
 
                   <div className='flex-1 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5'>
@@ -157,7 +157,7 @@ export const HistoryPage: React.FC = () => {
                         className='bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all flex flex-col group cursor-pointer'
                       >
                         <div className='flex items-center gap-2 mb-3'>
-                          <FileTextOutlined className='text-[#666cff] text-lg' />
+                          <FileTextOutlined className='text-primary text-lg' />
                           <span className='font-bold text-gray-800'>
                             {item.title}
                           </span>

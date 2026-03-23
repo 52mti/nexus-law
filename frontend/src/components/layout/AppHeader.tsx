@@ -167,8 +167,8 @@ export const AppHeader: React.FC = () => {
               className='flex items-center justify-start gap-3 hover:bg-[#f5f5f5] py-2 px-4 rounded-md cursor-pointer group transition-colors'
               onClick={() => handleMenuClick(item)}
             >
-              <Icon className='text-gray-400 text-base group-hover:text-[#666cff] transition-colors' />
-              <span className='text-sm text-gray-600 group-hover:text-[#666cff] transition-colors'>
+              <Icon className='text-gray-400 text-base group-hover:text-primary transition-colors' />
+              <span className='text-sm text-gray-600 group-hover:text-primary transition-colors'>
                 {item.label}
               </span>
             </div>
@@ -274,7 +274,7 @@ export const AppHeader: React.FC = () => {
                   {notice.time}
                 </div>
                 <span
-                  className='text-gray-500 cursor-pointer hover:text-[#666cff] transition-colors'
+                  className='text-gray-500 cursor-pointer hover:text-primary transition-colors'
                   onClick={() => handleViewMessageDetail(notice)}
                 >
                   查看详情
@@ -321,7 +321,7 @@ export const AppHeader: React.FC = () => {
               <Button
                 type='primary'
                 onClick={() => setIsMessageDetailOpen(false)}
-                className='bg-[#666cff] hover:bg-[#585ee6] border-none rounded-lg px-6 h-9 text-sm tracking-widest shadow-md shadow-indigo-500/20'
+                className='bg-primary hover:bg-secondary border-none rounded-lg px-6 h-9 text-sm tracking-widest shadow-md shadow-indigo-500/20'
               >
                 我知道了
               </Button>
@@ -413,7 +413,7 @@ export const AppHeader: React.FC = () => {
 
             <div className='text-[12px] text-gray-400 text-center mt-3'>
               支付即代表您已同意{' '}
-              <a className='text-[#666cff] hover:text-[#585ee6] hover:underline transition-colors'>
+              <a className='text-primary hover:text-secondary hover:underline transition-colors'>
                 《付费服务协议》
               </a>
             </div>

@@ -53,7 +53,7 @@ const getColumns = (onPayClick: (record: OrderRecord) => void): ColumnsType<Orde
     key: 'status',
     render: (status: OrderStatus) => {
       const statusConfig = {
-        pending: { text: '等待付款', dotClass: 'bg-[#666cff]', textClass: 'text-gray-800' },
+        pending: { text: '等待付款', dotClass: 'bg-primary', textClass: 'text-gray-800' },
         cancelled: { text: '订单取消', dotClass: 'bg-gray-400', textClass: 'text-gray-500' },
         success: { text: '支付成功', dotClass: 'bg-emerald-500', textClass: 'text-gray-800' },
       }
@@ -78,7 +78,7 @@ const getColumns = (onPayClick: (record: OrderRecord) => void): ColumnsType<Orde
         return (
           // 🚀 触发外部传入的点击事件
           <span 
-            className='text-[#666cff] hover:text-[#585ee6] cursor-pointer transition-colors'
+            className='text-primary hover:text-secondary cursor-pointer transition-colors'
             onClick={() => onPayClick(record)}
           >
             立即支付
@@ -123,7 +123,7 @@ export const OrderListPage: React.FC = () => {
       <div className='flex-1 flex flex-col overflow-hidden animate-fade-in'>
       <div className='bg-white rounded-2xl shadow-sm border border-gray-100 p-6 pb-2 mb-6 flex-1 flex flex-col'>
         <div className='flex items-center gap-2 mb-6 px-2'>
-          <ContainerOutlined className='text-[#666cff] text-lg' />
+          <ContainerOutlined className='text-primary text-lg' />
           <span className='text-[16px] font-bold text-gray-800'>订单列表</span>
         </div>
 
