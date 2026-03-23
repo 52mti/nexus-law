@@ -67,7 +67,7 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
       })
       navigate('/')
       console.log(response)
-    } catch (err: any) {
+    } catch (err) {
       console.error(err)
     }
   }

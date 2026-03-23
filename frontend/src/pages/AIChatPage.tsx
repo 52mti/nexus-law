@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Avatar, Button, Layout } from 'antd'
+import { Avatar, Button, Layout, message, Spin } from 'antd'
 import {
   AudioOutlined,
   SendOutlined,
@@ -9,10 +9,12 @@ import {
   UserOutlined,
   RobotOutlined,
 } from '@ant-design/icons'
+import { fetchEventSource } from '@microsoft/fetch-event-source'
+import { useParams, useNavigate } from 'react-router-dom'
 
 const { Content } = Layout
 
-// 模拟的对话数据类型
+// 对话数据类型
 interface ChatMessage {
   id: string
   role: 'user' | 'ai'
@@ -20,12 +22,44 @@ interface ChatMessage {
 }
 
 export const AIChatPage: React.FC = () => {
-  const [inputValue, setInputValue] = useState('')
-  // 初始设为空数组，体验居中的空状态
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const chatContainerRef = useRef<HTMLDivElement>(null)
+  // 获取 URL 路由参数
+  const { sessionId } = useParams<{ sessionId: string }>()
+  const navigate = useNavigate()
 
+  const [inputValue, setInputValue] = useState('')
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [isStreaming, setIsStreaming] = useState(false)
+  const [loadingHistory, setLoadingHistory] = useState(false)
+  
+  const chatContainerRef = useRef<HTMLDivElement>(null)
   const isEmpty = messages.length === 0
+
+  // 1. 监听路由变化，加载历史记录
+  useEffect(() => {
+    if (sessionId) {
+      loadChatHistory(sessionId)
+    } else {
+      setMessages([])
+    }
+  }, [sessionId])
+
+  // 模拟请求历史记录
+  const loadChatHistory = async (id: string) => {
+    setLoadingHistory(true)
+    try {
+      // TODO: 这里未来换成你真实的后端 Axios 请求
+      await new Promise(resolve => setTimeout(resolve, 500)) 
+      setMessages([
+        { id: '1', role: 'user', content: '之前问过的一个问题' },
+        { id: '2', role: 'ai', content: '这是之前 AI 的历史回复。' }
+      ])
+    } catch (error) {
+      message.error('拉取历史记录失败')
+      navigate('/chat', { replace: true })
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
 
   // 每次消息更新时，自动滚动到最底部
   useEffect(() => {
@@ -34,30 +68,103 @@ export const AIChatPage: React.FC = () => {
     }
   }, [messages])
 
-  // 发送消息逻辑
-  const handleSend = () => {
-    if (!inputValue.trim()) return
+  // 新建对话
+  const handleNewChat = () => {
+    setMessages([])
+    setIsStreaming(false)
+    navigate('/chat') // 清空路由参数，回到纯净状态
+  }
+
+  // 核心：发送消息并接收流
+  const handleSend = async () => {
+    if (!inputValue.trim() || isStreaming) return
+
+    const userText = inputValue
+    const userMsgId = Date.now().toString()
+    const aiMsgId = (Date.now() + 1).toString()
 
     const newUserMsg: ChatMessage = {
-      id: Date.now().toString(),
+      id: userMsgId,
       role: 'user',
-      content: inputValue,
+      content: userText,
     }
-
-    // 模拟 AI 回复
-    const newAiMsg: ChatMessage = {
-      id: (Date.now() + 1).toString(),
+    const emptyAiMsg: ChatMessage = {
+      id: aiMsgId,
       role: 'ai',
-      content: `关于“${inputValue}”的法律依据如下：\n根据《中华人民共和国消费者权益保护法》相关规定，经营者提供的商品或服务不符合质量要求的，消费者可依照国家规定或当事人约定要求退货、更换、修理等。`,
+      content: '',
     }
 
-    setMessages([...messages, newUserMsg, newAiMsg])
     setInputValue('')
+    setMessages((prev) => [...prev, newUserMsg, emptyAiMsg])
+    setIsStreaming(true)
+
+    try {
+      await fetchEventSource('http://localhost:3000/api/chat/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          prompt: userText,
+          sessionId: sessionId || null // 把当前的 sessionId 传给后端
+        }),
+        
+        onmessage(ev) {
+          // 🚀 拦截后端发来的 sessionId 事件
+          if (ev.event === 'session_id') {
+            const newSessionId = ev.data
+            navigate(`/chat/${newSessionId}`, { replace: true })
+            return 
+          }
+
+          // 正常文本流处理
+          const content = ev.data; 
+          if (!content) return;
+
+          setMessages((prev) => 
+            prev.map((msg) => {
+              if (msg.id === aiMsgId) {
+                const parsedContent = content.replace(/\\n/g, '\n')
+                return { ...msg, content: msg.content + parsedContent };
+              }
+              return msg;
+            })
+          );
+        },
+        
+        onclose() {
+          setIsStreaming(false);
+        },
+        
+        onerror(err) {
+          console.error('流式输出中断:', err);
+          message.error('网络连接异常，AI 回复中断');
+          setIsStreaming(false);
+          throw err;
+        },
+      });
+    } catch (error) {
+      console.error(error)
+      setIsStreaming(false);
+    }
   }
+
+  const handleCopy = (content: string) => {
+    navigator.clipboard.writeText(content).then(() => {
+      message.success('复制成功');
+    });
+  };
 
   return (
     <Content className='flex flex-col h-full bg-[#f5f6f9] relative overflow-hidden'>
-      {/* ================= 1. 聊天记录区域 (仅在激活后显示) ================= */}
+      {/* 历史记录加载动画遮罩 */}
+      {loadingHistory && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#f5f6f9]/80 backdrop-blur-sm">
+          <Spin size="large" tip="正在同步历史记录..." />
+        </div>
+      )}
+
+      {/* ================= 1. 聊天记录区域 ================= */}
       {!isEmpty && (
         <div
           ref={chatContainerRef}
@@ -69,7 +176,7 @@ export const AIChatPage: React.FC = () => {
                 key={msg.id}
                 className={`flex gap-4 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                {/* AI 头像 (左侧) */}
+                {/* AI 头像 */}
                 {msg.role === 'ai' && (
                   <div className='w-9 h-9 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 mt-1'>
                     <RobotOutlined className='text-primary text-xl' />
@@ -81,30 +188,37 @@ export const AIChatPage: React.FC = () => {
                   className={`max-w-[85%] ${msg.role === 'user' ? 'flex justify-end' : 'w-full'}`}
                 >
                   {msg.role === 'user' ? (
-                    // 用户气泡样式
                     <div className='bg-white px-6 py-4 rounded-2xl rounded-tr-sm shadow-sm border border-gray-100 text-gray-800 text-[15px]'>
                       {msg.content}
                     </div>
                   ) : (
-                    // AI 卡片样式
                     <div className='bg-white rounded-2xl rounded-tl-sm shadow-sm border border-gray-100 p-6'>
                       <div className='text-gray-700 leading-relaxed whitespace-pre-wrap text-[15px]'>
                         {msg.content}
+                        {isStreaming && msg.content === '' && (
+                           <span className="inline-block w-2 h-4 bg-gray-400 animate-pulse ml-1" />
+                        )}
                       </div>
-                      {/* 底部操作按钮 */}
                       <div className='flex items-center gap-4 mt-6 text-gray-400'>
-                        <span className='flex items-center gap-1.5 cursor-pointer hover:text-primary transition-colors text-sm'>
-                          <SyncOutlined /> 重新生成
-                        </span>
-                        <span className='flex items-center gap-1.5 cursor-pointer hover:text-primary transition-colors text-sm'>
-                          <CopyOutlined /> 复制
-                        </span>
+                        {!isStreaming && (
+                          <>
+                            <span className='flex items-center gap-1.5 cursor-pointer hover:text-primary transition-colors text-sm'>
+                              <SyncOutlined /> 重新生成
+                            </span>
+                            <span 
+                              className='flex items-center gap-1.5 cursor-pointer hover:text-primary transition-colors text-sm'
+                              onClick={() => handleCopy(msg.content)}
+                            >
+                              <CopyOutlined /> 复制
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* 用户头像 (右侧) */}
+                {/* 用户头像 */}
                 {msg.role === 'user' && (
                   <Avatar
                     size={36}
@@ -118,14 +232,13 @@ export const AIChatPage: React.FC = () => {
         </div>
       )}
 
-      {/* ================= 2. 输入与核心控制区域 (通过 flex 动态切换位置) ================= */}
+      {/* ================= 2. 输入与核心控制区域 ================= */}
       <div
         className={`w-full px-8 transition-all duration-500 flex flex-col ${
           isEmpty ? 'flex-1 items-center justify-center pb-30' : 'shrink-0 pt-2 pb-6'
         }`}
       >
         <div className='w-full max-w-4xl mx-auto relative'>
-          {/* 空状态：居中的标题与副标题 */}
           {isEmpty && (
             <div className='text-center mb-10 animate-fade-in'>
               <h1 className='text-[28px] font-bold text-gray-800 mb-3 tracking-wider'>
@@ -135,58 +248,66 @@ export const AIChatPage: React.FC = () => {
             </div>
           )}
 
-          {/* 激活状态：左上角的“新建对话”按钮 */}
           {!isEmpty && (
             <div className='mb-4 animate-fade-in'>
               <Button
                 shape='round'
                 icon={<PlusOutlined />}
+                disabled={isStreaming} 
                 className='bg-white/60 border-gray-200 text-gray-600 hover:bg-white transition-all shadow-sm'
-                onClick={() => setMessages([])} // 清空对话，自动回到居中状态
+                onClick={handleNewChat}
               >
                 新建对话
               </Button>
             </div>
           )}
 
-          {/* 核心输入框：保持 DOM 节点不被销毁，实现平滑过渡 */}
           <div
             className={`relative bg-white rounded-2xl transition-all duration-300 shadow-sm ${
               isEmpty
                 ? 'border border-primary h-40'
                 : 'border border-transparent focus-within:border-primary h-32'
-            }`}
+            } ${isStreaming ? 'opacity-70' : ''}`} 
           >
             <textarea
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
+              disabled={isStreaming} 
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
-                  handleSend()
+                  if (!isStreaming) {
+                    handleSend()
+                  }
                 }
               }}
-              placeholder='请输入您的问题或需求'
-              className='w-full h-full p-4 pb-12 resize-none outline-none bg-transparent rounded-2xl text-[15px]'
+              placeholder={isStreaming ? 'AI 正在思考并回答中...' : '请输入您的问题或需求'}
+              className={`w-full h-full p-4 pb-12 resize-none outline-none bg-transparent rounded-2xl text-[15px] ${isStreaming ? 'cursor-not-allowed' : ''}`}
             />
 
-            {/* 右下角操作区 */}
             <div className='absolute bottom-3 right-3 flex items-center gap-4'>
-              <AudioOutlined className='text-2xl text-gray-400 cursor-pointer hover:text-primary transition-colors' />
+              <AudioOutlined 
+                className={`text-2xl transition-colors ${
+                  isStreaming ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 cursor-pointer hover:text-primary'
+                }`} 
+              />
               <div
                 onClick={handleSend}
                 className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-                  inputValue.trim()
+                  inputValue.trim() && !isStreaming
                     ? 'bg-primary shadow-md shadow-indigo-500/30 hover:bg-secondary'
-                    : 'bg-indigo-400 cursor-default'
+                    : 'bg-indigo-400 cursor-not-allowed'
                 }`}
               >
-                <SendOutlined className='text-white text-lg ml-0.5' />
+                {isStreaming ? (
+                   <SyncOutlined spin className='text-white text-lg' />
+                ) : (
+                   <SendOutlined className='text-white text-lg ml-0.5' />
+                )}
               </div>
             </div>
           </div>
 
-          {/* 🚀 激活状态：底部的免责声明小字 */}
           {!isEmpty && (
             <div className='text-center text-[12px] text-gray-400 mt-4 animate-fade-in tracking-wide'>
               所有内容均由人工智能模型生成，其生成内容的准确性和完整性无法保证

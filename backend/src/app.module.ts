@@ -5,7 +5,9 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { OpenaiModule } from './openai/openai.module';
+import { ChatModule } from './chat/chat.module';
 import { DocumentModule } from './document/document.module';
+
 @Module({
   imports: [
     // 💡 2. 把 ConfigModule 放在 imports 数组的【绝对第一位】！
@@ -16,6 +18,7 @@ import { DocumentModule } from './document/document.module';
     AuthModule,
     OpenaiModule,
     DocumentModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],

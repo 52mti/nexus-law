@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
+import { Observable } from 'rxjs';
+import * as crypto from 'crypto'; // 引入 Node 原生 crypto 生成唯一 ID
 
 @Injectable()
 export class OpenaiService {
@@ -16,6 +18,43 @@ export class OpenaiService {
     this.openai = new OpenAI({
       apiKey: this.configService.get<string>('OPENAI_API_KEY'),
       baseURL: this.configService.get<string>('OPENAI_BASE_URL'),
+    });
+  }
+
+  // 🚀 支持接收 sessionId 参数，并推送会话 ID
+  createChatStream(prompt: string, sessionId?: string): Observable<any> {
+    return new Observable((subscriber) => {
+      (async () => {
+        try {
+          // 1. 生成或复用 Session ID
+          const currentSessionId = sessionId || crypto.randomUUID();
+
+          // 2. 告诉前端当前的 Session ID
+          subscriber.next({ type: 'session_id', data: currentSessionId });
+
+          // 3. 开始大模型流式调用
+          const stream = await this.openai.chat.completions.create({
+            model: 'deepseek-chat', // 保持我们调通的模型名称
+            messages: [{ role: 'user', content: prompt }],
+            stream: true, // 开启流式输出
+          });
+
+          // 遍历 OpenAI 吐出来的数据块
+          for await (const chunk of stream) {
+            const content = chunk.choices[0]?.delta?.content || '';
+            if (content) {
+              // 按照 NestJS SSE 的标准格式，把数据发射给前端
+              subscriber.next({ data: content });
+            }
+          }
+
+          // 对话结束，关闭水龙头
+          subscriber.complete();
+        } catch (error) {
+          this.logger.error('流式调用失败:', error);
+          subscriber.error(error);
+        }
+      })();
     });
   }
 

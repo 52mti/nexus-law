@@ -7,4 +7,4 @@ import { ChatService } from './chat.service';
   controllers: [ChatController],
   providers: [ChatService],
 })
-export class AppModule {}
+export class ChatModule {}
