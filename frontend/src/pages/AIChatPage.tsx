@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Avatar, Button, Layout, message, Spin } from 'antd'
 import {
   AudioOutlined,
@@ -21,7 +21,7 @@ interface ChatMessage {
   content: string
 }
 
-export const AIChatPage: React.FC = () => {
+export const AIChatPage = () => {
   // 获取 URL 路由参数
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
@@ -34,17 +34,8 @@ export const AIChatPage: React.FC = () => {
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const isEmpty = messages.length === 0
 
-  // 1. 监听路由变化，加载历史记录
-  useEffect(() => {
-    if (sessionId) {
-      loadChatHistory(sessionId)
-    } else {
-      setMessages([])
-    }
-  }, [sessionId])
-
   // 模拟请求历史记录
-  const loadChatHistory = async (id: string) => {
+  const loadChatHistory = useCallback(async (sessionId: string) => {
     setLoadingHistory(true)
     try {
       // TODO: 这里未来换成你真实的后端 Axios 请求
@@ -54,12 +45,22 @@ export const AIChatPage: React.FC = () => {
         { id: '2', role: 'ai', content: '这是之前 AI 的历史回复。' }
       ])
     } catch (error) {
+      console.error(error)
       message.error('拉取历史记录失败')
       navigate('/chat', { replace: true })
     } finally {
       setLoadingHistory(false)
     }
-  }
+  }, [navigate])
+
+  // 监听路由变化，加载历史记录
+  useEffect(() => {
+    if (!sessionId) {
+      setMessages([])
+      return
+    }
+    loadChatHistory(sessionId)
+  }, [sessionId, loadChatHistory])
 
   // 每次消息更新时，自动滚动到最底部
   useEffect(() => {
@@ -113,7 +114,7 @@ export const AIChatPage: React.FC = () => {
           // 🚀 拦截后端发来的 sessionId 事件
           if (ev.event === 'session_id') {
             const newSessionId = ev.data
-            navigate(`/chat/${newSessionId}`, { replace: true })
+            window.history.replaceState(null, '', `/chat/${newSessionId}`)
             return 
           }
 
@@ -149,6 +150,10 @@ export const AIChatPage: React.FC = () => {
     }
   }
 
+  const handleResend = () => {
+
+  }
+
   const handleCopy = (content: string) => {
     navigator.clipboard.writeText(content).then(() => {
       message.success('复制成功');
@@ -160,7 +165,7 @@ export const AIChatPage: React.FC = () => {
       {/* 历史记录加载动画遮罩 */}
       {loadingHistory && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#f5f6f9]/80 backdrop-blur-sm">
-          <Spin size="large" tip="正在同步历史记录..." />
+          <Spin size="large" description="正在同步历史记录..." />
         </div>
       )}
 
@@ -203,7 +208,7 @@ export const AIChatPage: React.FC = () => {
                         {!isStreaming && (
                           <>
                             <span className='flex items-center gap-1.5 cursor-pointer hover:text-primary transition-colors text-sm'>
-                              <SyncOutlined /> 重新生成
+                              <SyncOutlined  onClick={handleResend} /> 重新生成
                             </span>
                             <span 
                               className='flex items-center gap-1.5 cursor-pointer hover:text-primary transition-colors text-sm'
@@ -300,7 +305,7 @@ export const AIChatPage: React.FC = () => {
                 }`}
               >
                 {isStreaming ? (
-                   <SyncOutlined spin className='text-white text-lg' />
+                   <SyncOutlined spin className='text-white scale-125' />
                 ) : (
                    <SendOutlined className='text-white text-lg ml-0.5' />
                 )}
