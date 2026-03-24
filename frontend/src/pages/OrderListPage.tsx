@@ -6,8 +6,8 @@ import Copiright from '@/components/Copiright'
 import { PageContainer } from '@/components/layout/PageContainer'
 
 // 🚀 1. 引入刚刚写好的两个弹窗组件
-import { PaymentModal } from './PaymentModal'
-import { PaymentSuccessModal } from './PaymentSuccessModal'
+import { PaymentModal } from '@/components/PaymentModal'
+import { PaymentSuccessModal } from '@/components/PaymentSuccessModal'
 
 // ==========================================
 // 1. 类型定义与模拟数据

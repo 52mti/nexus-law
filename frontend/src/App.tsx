@@ -25,7 +25,7 @@ const CaseReviewPage = lazy(() => import('./pages/CaseReviewPage'))
 const CompliancePage = lazy(() => import('./pages/CompliancePage'))
 const HistoryPage = lazy(() => import('./pages/HistoryPage'))
 const MembershipPage = lazy(() => import('./pages/MembershipPage'))
-const OrderListPage = lazy(() => import('./pages/OrderList/OrderListPage'))
+const OrderListPage = lazy(() => import('./pages/OrderListPage'))
 const PointsRecordPage = lazy(() => import('./pages/PointsRecordPage'))
 
 // 全局的加载动画组件
