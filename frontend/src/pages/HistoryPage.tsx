@@ -48,17 +48,19 @@ const tabToRouteMap: Record<string, string> = {
   compliance: '/compliance',
 }
 
-const { confirm } = Modal; // 解构出 confirm 方法
-
 export const HistoryPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('doc')
   // 🚀 2. 将静态数据转为状态，这样删除后才能触发页面重新渲染
   const [historyData, setHistoryData] = useState(initialMockData) 
   const navigate = useNavigate()
 
+  // 🚀 1. 核心修正：引入 Hooks 版本的 Modal 和 Message
+  const [modal, modalContextHolder] = Modal.useModal();
+  const [messageApi, messageContextHolder] = message.useMessage();
+
   // 🚀 3. 核心：删除确认弹窗逻辑
   const showDeleteConfirm = (idToDelete: string) => {
-    confirm({
+    modal.confirm({
       title: '确定要删除这条历史记录吗？',
       icon: <ExclamationCircleFilled style={{ color: '#ff4d4f' }} />,
       content: '删除后将无法恢复，相关文书数据将一并清理。',
@@ -67,21 +69,20 @@ export const HistoryPage: React.FC = () => {
       cancelText: '取消',
       onOk() {
         return new Promise((resolve) => {
-          // 模拟接口请求延迟
           setTimeout(() => {
-            // 从前端状态中剔除该条数据
             const newData = historyData
               .map(group => ({
                 ...group,
                 items: group.items.filter(item => item.id !== idToDelete)
               }))
-              // 顺便把如果 items 删空了的日期组也过滤掉
               .filter(group => group.items.length > 0);
             
             setHistoryData(newData);
-            message.success('删除成功');
+            
+            // 🚀 3. 使用 hooks 实例的 message 方法
+            messageApi.success('删除成功'); 
             resolve(true);
-          }, 500); // 模拟 0.5秒 的接口请求
+          }, 500); 
         });
       },
       onCancel() {
@@ -92,6 +93,10 @@ export const HistoryPage: React.FC = () => {
 
   return (
     <PageContainer>
+      {/* 🚀 4. 极其关键：必须把占位符渲染在你的 JSX 里！ */}
+      {/* 这样弹窗才能真正成为当前组件树的一部分，从而继承 StyleProvider 的 Layer 设置 */}
+      {modalContextHolder}
+      {messageContextHolder}
       <div className='flex-1 flex flex-col overflow-hidden'>
         {/* 1. 顶部：导航与搜索区 */}
         <div className='flex justify-between items-center mb-8 shrink-0'>

@@ -32,12 +32,15 @@ export const AppHeader: React.FC = () => {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
 
+  // 🚀 1. 核心修复：引入 Hooks 版本的 Modal
+  const [modal, modalContextHolder] = Modal.useModal()
+
   // 状态控制
   const [isRechargeModalOpen, setIsRechargeModalOpen] = useState(false)
   const [selectedPackage, setSelectedPackage] = useState<number>(500)
   const [isNotificationOpen, setIsNotificationOpen] = useState(false)
 
-  // 🚀 新增：控制系统消息详情弹窗的开关与内容
+  // 控制系统消息详情弹窗的开关与内容
   const [isMessageDetailOpen, setIsMessageDetailOpen] = useState(false)
   const [currentMessage, setCurrentMessage] = useState<any>(null)
 
@@ -83,7 +86,8 @@ export const AppHeader: React.FC = () => {
 
   const handleMenuClick = (item: UserMenuItem) => {
     if (item.key === 'logout') {
-      Modal.confirm({
+      // 🚀 2. 核心修复：把静态的 Modal.confirm 替换为 modal.confirm
+      modal.confirm({
         title: '确认退出',
         content: '您确定要退出当前账号吗？',
         okText: '退出',
@@ -180,6 +184,9 @@ export const AppHeader: React.FC = () => {
 
   return (
     <>
+      {/* 🚀 3. 核心修复：把 modal 上下文占位符放到组件树里 */}
+      {modalContextHolder}
+
       <div className='flex items-center justify-end h-full px-6 bg-white border-b border-gray-100 gap-6'>
         <div
           className='flex items-center gap-2 text-sm text-gray-600 bg-blue-50 px-3 py-1.5 rounded-full cursor-pointer hover:bg-blue-100 transition-colors'
