@@ -1,6 +1,10 @@
-import React from 'react';
-import { Button } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Button, message } from 'antd';
 import { CrownOutlined, CheckCircleOutlined } from '@ant-design/icons';
+
+// 🚀 1. 引入支付相关的两个弹窗组件
+import { PaymentModal } from '@/components/PaymentModal';
+import { PaymentSuccessModal } from '@/components/PaymentSuccessModal';
 
 // ==========================================
 // 1. JSON 驱动配置：会员方案数据
@@ -88,7 +92,34 @@ const membershipPlans = [
   }
 ];
 
+// 定义计划的类型，方便状态管理
+type PlanType = typeof membershipPlans[0];
+
 export const MembershipPage: React.FC = () => {
+  // 🚀 2. 管理弹窗状态与当前选中的套餐
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [currentPlan, setCurrentPlan] = useState<PlanType | null>(null);
+
+  // 🚀 3. 点击购买按钮逻辑
+  const handleBuyClick = (plan: PlanType) => {
+    setCurrentPlan(plan);
+    setIsPaymentModalOpen(true);
+  };
+
+  // 🚀 4. 模拟扫码支付成功（3秒后自动跳转成功弹窗）
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isPaymentModalOpen) {
+      timer = setTimeout(() => {
+        setIsPaymentModalOpen(false); // 关掉扫码框
+        setIsSuccessModalOpen(true);  // 打开成功框
+        message.success('模拟支付成功！');
+      }, 3000);
+    }
+    return () => clearTimeout(timer);
+  }, [isPaymentModalOpen]);
+
   return (
     <div className="h-full overflow-y-auto bg-[#f9fafb] p-8 pb-16 animate-fade-in flex flex-col items-center">
       
@@ -144,6 +175,7 @@ export const MembershipPage: React.FC = () => {
                 <Button
                   type={isPrimary ? 'default' : 'primary'}
                   disabled={plan.buttonDisabled}
+                  onClick={() => handleBuyClick(plan)} // 🚀 绑定点击事件
                   className={`w-full h-11 rounded-lg text-[15px] font-medium border-none tracking-wider ${
                     plan.buttonDisabled 
                       ? 'bg-gray-100! text-gray-400!' // 置灰状态（已领取）
@@ -193,6 +225,32 @@ export const MembershipPage: React.FC = () => {
           );
         })}
       </div>
+
+      {/* ========================================== */}
+      {/* 🚀 5. 弹窗挂载区域 */}
+      {/* ========================================== */}
+
+      {/* 1. 扫码支付弹窗 */}
+      <PaymentModal
+        open={isPaymentModalOpen}
+        onCancel={() => setIsPaymentModalOpen(false)}
+        // 将价格字符串转为数字（如果点击的是体验用户虽然按钮置灰，但也做了兜底转换）
+        amount={Number(currentPlan?.price) || 0}
+      />
+
+      {/* 2. 支付成功弹窗 */}
+      <PaymentSuccessModal
+        open={isSuccessModalOpen}
+        onCancel={() => setIsSuccessModalOpen(false)}
+        // 保证金额格式是 "299.00" 这种格式
+        amount={Number(currentPlan?.price || 0).toFixed(2)}
+        payMethod="支付宝"
+        payTime={new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-')}
+        onReturnHome={() => {
+          setIsSuccessModalOpen(false);
+          message.info('返回首页逻辑...');
+        }}
+      />
 
     </div>
   );
