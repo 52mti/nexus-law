@@ -10,7 +10,7 @@ import { getVerificationCode, register } from '@/api/auth'
 
 interface Props {
   onSwitchMode: (
-    mode: 'pwd_login' | 'phone_login' | 'register' | 'reset_pwd',
+    mode: AuthMode,
   ) => void
 }
 
@@ -81,7 +81,7 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
     }
   }
 
-  // 统一的输入框基础 Tailwind 样式 (顺手帮你补全了无边框灰底的质感样式)
+  // 统一的输入框基础 Tailwind 样式
   const inputStyles = 'rounded-lg h-12'
 
   return (
@@ -107,7 +107,19 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
         // 🚀 隐藏 Antd 默认的红色文字提示
         className='w-full [&_.ant-form-item-explain]:hidden'
       >
-        {/* 1. 邮箱地址 */}
+        {/* ================= 1. 用户名 (新增) ================= */}
+        <Form.Item
+          name='username'
+          className='mb-4'
+          rules={[
+            { required: true, message: '请输入用户名' },
+            { min: 2, max: 20, message: '用户名长度需在2-20个字符之间' }
+          ]}
+        >
+          <Input placeholder='请输入用户名' className={inputStyles} />
+        </Form.Item>
+
+        {/* ================= 2. 邮箱地址 ================= */}
         <Form.Item
           name='email'
           className='mb-4'
@@ -119,7 +131,7 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
           <Input placeholder='请输入邮箱地址' className={inputStyles} />
         </Form.Item>
 
-        {/* 2. 登录密码 */}
+        {/* ================= 3. 登录密码 ================= */}
         <Form.Item
           name='password'
           className='mb-4'
@@ -134,7 +146,7 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
           />
         </Form.Item>
 
-        {/* 3. 手机号码 */}
+        {/* ================= 4. 手机号码 ================= */}
         <Form.Item
           name='phone'
           className='mb-4'
@@ -146,7 +158,7 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
           <Input placeholder='请输入手机号码' className={inputStyles} />
         </Form.Item>
 
-        {/* 4. 手机验证码 */}
+        {/* ================= 5. 手机验证码 ================= */}
         <Form.Item
           name='code'
           className='mb-5'
@@ -170,7 +182,7 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
           />
         </Form.Item>
 
-        {/* 5. 用户协议复选框 */}
+        {/* ================= 6. 用户协议复选框 ================= */}
         <Form.Item
           name='agreement'
           valuePropName='checked'
@@ -198,7 +210,7 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
           </Checkbox>
         </Form.Item>
 
-        {/* 6. 注册按钮 */}
+        {/* ================= 7. 注册按钮 ================= */}
         <Form.Item className='mb-0'>
           <Button
             type='primary'
