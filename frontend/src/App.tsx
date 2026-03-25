@@ -22,7 +22,7 @@ const DocPage = lazy(() => import('./pages/DocPage'))
 const LegalSearchPage = lazy(() => import('./pages/LegalSearchPage'))
 const CaseSearchPage = lazy(() => import('./pages/CaseSearchPage'))
 const CaseReviewPage = lazy(() => import('./pages/CaseReviewPage'))
-const CompliancePage = lazy(() => import('./pages/CompliancePage'))
+const ComplianceReviewPage = lazy(() => import('./pages/ComplianceReviewPage'))
 const HistoryPage = lazy(() => import('./pages/HistoryPage'))
 const MembershipPage = lazy(() => import('./pages/MembershipPage'))
 const OrderListPage = lazy(() => import('./pages/OrderListPage'))
@@ -89,7 +89,7 @@ function App() {
               <Route path='law' element={<LegalSearchPage />} />
               <Route path='case_search' element={<CaseSearchPage />} />
               <Route path='case_review' element={<CaseReviewPage />} />
-              <Route path='compliance/:id?' element={<CompliancePage />} />
+              <Route path='compliance_review/:id?' element={<ComplianceReviewPage />} />
               {/* 注意：你原来代码里有两遍 history，这里我删掉了一个重复的 */}
               <Route path='vip' element={<MembershipPage />} />
               <Route path='orders' element={<OrderListPage />} />

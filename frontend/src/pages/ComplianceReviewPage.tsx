@@ -12,7 +12,9 @@ import { useReactToPrint } from 'react-to-print'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-// 侧边栏配置保持不变
+// 🚀 1. 引入刚刚创建的真实 API
+import { analyzeComplianceApi } from '@/api/compliance'
+
 const contractReviewSchema: SidebarSchema = {
   title: '合规审查',
   submitText: '开始审查',
@@ -45,9 +47,9 @@ const contractReviewSchema: SidebarSchema = {
   ],
 }
 
-export const CaseReviewPage = () => {
+// 💡 建议页面组件改名为 ComplianceReviewPage 以符合语义
+export const ComplianceReviewPage = () => {
   const { message } = App.useApp()
-  // 1. 路由参数与状态管理
   const { id } = useParams<{ id: string }>()
   const [loading, setLoading] = useState(Boolean(id))
   const [docData, setDocData] = useState<{
@@ -57,7 +59,6 @@ export const CaseReviewPage = () => {
   const [historyFormValues, setHistoryFormValues] = useState<any>(null)
   const paperRef = useRef<HTMLDivElement>(null)
 
-  // 2. 监听 URL ID 变化，拉取历史记录
   useEffect(() => {
     if (id) {
       fetchHistoryData(id)
@@ -67,7 +68,7 @@ export const CaseReviewPage = () => {
     }
   }, [id])
 
-  // 3. 模拟拉取历史记录
+  // 历史记录逻辑暂留
   const fetchHistoryData = async (documentId: string) => {
     setLoading(true)
     try {
@@ -92,57 +93,54 @@ export const CaseReviewPage = () => {
     }
   }
 
-  // 4. 提交表单：模拟 AI 生成审查报告
+  // 🚀 2. 重构提交表单逻辑
   const handleSubmit = async (values: any) => {
     try {
       setLoading(true)
       
-      // 提取审查角度文本用于展示
-      const angleMap: Record<string, string> = {
-        partyA: '甲方（提供产品/服务方）',
-        partyB: '乙方（采购/受让方）',
-        neutral: '中立',
-      }
-      const currentAngle = angleMap[values.reviewAngle] || '中立'
+      const formData = new FormData()
 
-      setTimeout(() => {
+      // 提取文件并组装 (对应后端的 FilesInterceptor('files'))
+      if (values.contractFile && values.contractFile.length > 0) {
+        values.contractFile.forEach((fileItem: any) => {
+          const actualFile = fileItem.originFileObj || fileItem
+          formData.append('files', actualFile)
+        })
+      } else {
+        message.warning('请先上传至少一份合同或协议资料')
+        setLoading(false)
+        return
+      }
+
+      // 提取审查角度 (对应后端的 AnalyzeComplianceDto)
+      if (values.reviewAngle) {
+        formData.append('reviewAngle', values.reviewAngle)
+      } else {
+        message.warning('请选择审查角度')
+        setLoading(false)
+        return
+      }
+
+      // 🚀 发起真实请求
+      const res = await analyzeComplianceApi(formData)
+
+      if (res.code === 0) {
         setDocData({
           title: '法律合规审查报告',
-          markdownContent: `
-# 法律合规审查报告
-
-## 一、 审查基本信息
-- **审查视角**：基于**${currentAngle}**立场。
-- **文件状态**：已上传并解析完成。
-- **审查依据**：《中华人民共和国民法典》及相关商事实体法律规范。
-
-## 二、 核心风险与修改建议
-
-### 1. 违约责任条款不对等 ⚠️
-**【存在问题】** 当前协议中针对${currentAngle}的违约责任惩罚过重，而对方的违约成本极低，存在显失公平的法律风险。
-**【修改建议】** 建议在第 X 条加入对等约束条款，或者设置违约金上限为合同总金额的 20%。
-
-### 2. 管辖权与争议解决 ⚠️
-**【存在问题】** 原合同约定的争议解决机构为对方所在地法院，一旦发生诉讼，将极大增加己方的维权成本。
-**【修改建议】** 强烈建议修改为：“因本合同引起的争议，双方应友好协商解决；协商不成的，应向**己方所在地**有管辖权的人民法院提起诉讼。”
-
-## 三、 审查结论
-总体来看，该合同存在 **2处高风险点** 和 **3处一般性瑕疵**。建议业务部门在与对方盖章确立合作前，严格按照上述建议进行磋商修改。
-
----
-**审查出具系统**：汇动法律 AI  
-**生成日期**：2026年 03月 22日
-          `.trim(),
+          markdownContent: res.data, 
         })
         message.success('合规审查完毕，已扣除 2 积分')
-        setLoading(false)
-      }, 2500) // 模拟大模型阅读文件并生成报告的耗时
+      } else {
+        message.error(res.message || '审查失败')
+      }
+
     } catch (error) {
+      console.error('合规审查请求异常:', error)
+    } finally {
       setLoading(false)
     }
   }
 
-  // 5. 复制文书功能
   const handleCopy = () => {
     if (!paperRef.current) return
     const textToCopy = paperRef.current.innerText
@@ -152,7 +150,6 @@ export const CaseReviewPage = () => {
       .catch(() => message.error('复制失败，请手动选择复制'))
   }
 
-  // 6. 导出 PDF 功能
   const handleDownloadPDF = useReactToPrint({
     contentRef: paperRef,
     documentTitle: docData?.title || '合规审查报告',
@@ -161,7 +158,6 @@ export const CaseReviewPage = () => {
 
   return (
     <div className='flex h-full bg-gray-50'>
-      {/* 侧边栏 */}
       <PortalSidebar>
         <SmartSidebar
           schema={contractReviewSchema}
@@ -171,10 +167,8 @@ export const CaseReviewPage = () => {
         />
       </PortalSidebar>
 
-      {/* 右侧主体区 */}
       <div className='flex-1 overflow-y-auto p-8 flex flex-col items-center relative'>
         
-        {/* 状态一：AI 审查加载中 */}
         {loading && (
           <div className='flex flex-col h-full items-center justify-center text-center animate-fade-in'>
             <div className='mb-6'>
@@ -187,17 +181,14 @@ export const CaseReviewPage = () => {
           </div>
         )}
 
-        {/* 状态二：空状态 */}
         {!docData && !loading && (
           <div className='flex h-full items-center justify-center text-gray-400'>
             请在左侧上传合同文件并选择审查角度，点击“开始审查”
           </div>
         )}
 
-        {/* 状态三：审查结果呈现 */}
         {docData && !loading && (
           <div className='w-full h-full flex flex-col gap-6 max-w-4xl'>
-            {/* A4 纸张容器 */}
             <div
               id='legal-document-paper'
               ref={paperRef}
@@ -220,7 +211,6 @@ export const CaseReviewPage = () => {
               </div>
             </div>
 
-            {/* 操作按钮 */}
             <div className='flex gap-4 m-auto'>
               <Button
                 type='primary'
@@ -244,4 +234,4 @@ export const CaseReviewPage = () => {
   )
 }
 
-export default CaseReviewPage
+export default ComplianceReviewPage

@@ -32,7 +32,7 @@ export const AppSidebar: React.FC = () => {
     { key: '/law', icon: <SearchOutlined />, label: '条文检索' },
     { key: '/case_review', icon: <ProfileOutlined />, label: '案件快梳' },
     {
-      key: '/compliance',
+      key: '/compliance_review',
       icon: <SafetyCertificateOutlined />,
       label: '合规审查',
     },

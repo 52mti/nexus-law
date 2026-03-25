@@ -9,7 +9,7 @@ import {
   FormOutlined,
   MessageOutlined,
   DownloadOutlined,
-  SearchOutlined, // 🚀 引入搜索专属图标
+  SearchOutlined,
 } from '@ant-design/icons'
 import { PortalSidebar } from '@/components/layout/PortalSidebar'
 import {
@@ -22,6 +22,9 @@ import { useReactToPrint } from 'react-to-print'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
+// 🚀 1. 引入我们刚刚定义好的 API
+import { searchCaseApi } from '@/api/case-search'
+
 const formFields: SchemaField[] = [
   {
     name: 'docType',
@@ -31,6 +34,7 @@ const formFields: SchemaField[] = [
     minRows: 3,
     maxRows: 5,
     placeholder: '请输入案由、争议焦点或关键法条',
+    required: true, // 关键词是必须的
   },
   {
     name: 'content',
@@ -66,56 +70,56 @@ const formFields: SchemaField[] = [
 
 const schema: SidebarSchema = {
   title: '案例智能检索',
-  submitText: '开始检索', // 🚀 贴合搜索场景
+  submitText: '开始检索',
   submitHint: '(消耗2点积分)',
   hasSceneSwitch: true,
   categories: [
     {
       id: 'civil_case',
       title: '民事案件',
-      description: '含婚姻家庭、邻里纠纷、债务借贷、人身损害、财产权属等',
+      description: '含婚姻家庭、邻里纠纷等',
       icon: <ShopOutlined />,
       formFields,
     },
     {
       id: 'criminal_case',
       title: '刑事案件',
-      description: '含盗窃、故意伤害、诈骗、交通肇事、职务犯罪',
+      description: '含盗窃、故意伤害等',
       icon: <CopyOutlined />,
       formFields,
     },
     {
       id: 'labor_dispute',
       title: '劳动争议案件',
-      description: '含劳动合同解除、工资拖欠、工伤赔偿、社保缴纳、解雇补偿等',
+      description: '含劳动合同解除等',
       icon: <FundOutlined />,
       formFields,
     },
     {
       id: 'commercial_case',
       title: '商业案件',
-      description: '含合同违约、股权纠纷、商业欺诈、知识产权侵权、企业借贷等',
+      description: '含合同违约、股权纠纷等',
       icon: <PlaySquareOutlined />,
       formFields,
     },
     {
       id: 'administrative_case',
       title: '行政案件',
-      description: '含行政许可、行政处罚、行政强制、政府信息公开等',
+      description: '含行政许可、处罚等',
       icon: <HeartOutlined />,
       formFields,
     },
     {
       id: 'intellectual_property',
       title: '知识产权案件',
-      description: '含商标侵权、专利纠纷、著作权保护、商业秘密侵权等',
+      description: '含商标侵权、专利等',
       icon: <FormOutlined />,
       formFields,
     },
     {
       id: 'family_case',
       title: '家事案件',
-      description: '含离婚、子女抚养、财产分割、遗产继承、收养关系等',
+      description: '含离婚、子女抚养等',
       icon: <MessageOutlined />,
       formFields,
     },
@@ -142,7 +146,6 @@ export const CaseSearchPage = () => {
     }
   }, [id])
 
-  // 模拟从后端拉取历史检索记录
   const fetchHistoryData = async (documentId: string) => {
     setLoading(true)
     try {
@@ -150,8 +153,8 @@ export const CaseSearchPage = () => {
         const mockResponse = {
           formValues: {
             docType: '民间借贷、举证责任倒置',
-            partyA: '3', // 5-20万
-            partyB: '2', // 地区高等法院
+            partyA: '3',
+            partyB: '2',
           },
           generatedResult: {
             title: '案例智能检索报告',
@@ -169,62 +172,47 @@ export const CaseSearchPage = () => {
     }
   }
 
+  // 🚀 2. 对接真实 API 的表单提交逻辑
   const handleSubmit = async (values: any) => {
     try {
       setLoading(true)
-      
-      // 提取表单数据进行展示映射
-      const amountMap: Record<string, string> = { '1': '1万比尔以下', '2': '1-5万比尔', '3': '5-20万比尔', '4': '20-100万比尔', '5': '100万比尔以上', '': '不限' }
-      const courtMap: Record<string, string> = { '1': '联邦最高法院', '2': '地区高等法院', '3': '基层法院', '4': '专门法院', '': '不限' }
-      
-      const keyword = values.docType || '未提供明确关键词'
-      const amountStr = amountMap[values.partyA] || '不限'
-      const courtStr = courtMap[values.partyB] || '不限'
 
-      // 模拟 AI 检索海量判例库的过程
-      setTimeout(() => {
+      // 💡 核心细节：处理 Ant Design 的日期范围对象，转化为纯字符串数组发送给后端
+      let formattedDateRange = undefined
+      if (values.content && values.content.length === 2) {
+        // 判断如果有 format 方法说明是 dayjs/moment 对象
+        formattedDateRange = [
+          typeof values.content[0].format === 'function'
+            ? values.content[0].format('YYYY-MM-DD')
+            : values.content[0],
+          typeof values.content[1].format === 'function'
+            ? values.content[1].format('YYYY-MM-DD')
+            : values.content[1],
+        ]
+      }
+
+      // 🚀 组装参数并调用 API
+      const res = await searchCaseApi({
+        categoryId: values.categoryId, // 如果你的 SmartSidebar 会把选中的栏目 id 混在 values 里传过来
+        docType: values.docType,
+        content: formattedDateRange,
+        partyA: values.partyA || undefined,
+        partyB: values.partyB || undefined,
+      })
+
+      if (res.code === 0) {
         setDocData({
           title: '案例智能检索报告',
-          markdownContent: `
-# 案例智能检索报告
-
-## 一、 检索条件回顾
-- **核心关键词**：${keyword}
-- **涉案金额区间**：${amountStr}
-- **判决法院等级**：${courtStr}
-
----
-
-## 二、 智能匹配判例汇编
-
-### 案例一：张某诉李某民间借贷纠纷案
-**【案号】** (2024) 某某高法民终 112 号
-**【判决法院】** 地区高等法院
-**【裁判要旨】**
-在借贷关系中，若仅有转账凭证而无借条，且被告主张为其他债务往来的，原告应承担进一步举证责任。本案中，原告提供的微信聊天记录足以形成完整的证据链，法院予以支持。
-**【AI 相似度】** ⭐️⭐️⭐️⭐️⭐️ (98%)
-
-### 案例二：某贸易公司诉赵某不当得利案
-**【案号】** (2023) 某某高法民终 85 号
-**【判决法院】** 地区高等法院
-**【裁判要旨】**
-虽无书面合同，但双方存在长期交易习惯，原告错误汇款至被告账户后，被告拒不返还。法院认为，被告无合法根据取得利益，致使原告受损，构成不当得利。
-**【AI 相似度】** ⭐️⭐️⭐️⭐️ (85%)
-
----
-
-## 三、 AI 检索总结与趋势分析
-根据您提供的筛选条件，系统从判例库中共为您精准匹配到 **15 篇** 生效判决。
-**司法倾向分析**：多数法院在处理涉及 \`${keyword}\` 的同类纠纷时，极其看重**书面证据的连贯性**与**资金流水的对应关系**。建议您在后续办案中，优先固定上述两类证据。
-
-> **检索平台**：汇动法律 AI 案例大数据系统  
-> **报告生成时间**：2026年 03月 22日
-          `.trim(),
+          markdownContent: res.data,
         })
         message.success('案例检索完毕，已扣除 2 积分')
-        setLoading(false)
-      }, 3000)
+      } else {
+        message.error(res.message || '检索失败')
+      }
     } catch (error) {
+      console.error('案例检索请求异常:', error)
+      // 拦截器已经处理了全局报错，这里无需重复 toast
+    } finally {
       setLoading(false)
     }
   }
@@ -246,7 +234,6 @@ export const CaseSearchPage = () => {
 
   return (
     <div className='flex h-full bg-gray-50'>
-      {/* 左侧智能表单 */}
       <PortalSidebar>
         <SmartSidebar
           schema={schema}
@@ -256,31 +243,27 @@ export const CaseSearchPage = () => {
         />
       </PortalSidebar>
 
-      {/* 右侧主内容区 */}
       <div className='flex-1 overflow-y-auto p-8 flex flex-col items-center relative'>
-        
-        {/* 状态一：AI 检索中 */}
         {loading && (
           <div className='flex flex-col h-full items-center justify-center text-center animate-fade-in'>
             <div className='mb-6'>
-              {/* 🚀 专属的搜索放大镜图标 */}
               <SearchOutlined className='text-[80px] text-primary animate-pulse' />
             </div>
             <h2 className='text-2xl font-bold text-gray-800 tracking-wide mb-2'>
               AI 全库检索中
             </h2>
-            <p className='text-[15px] text-gray-500'>正在为您匹配最相关的历史判例，请稍后</p>
+            <p className='text-[15px] text-gray-500'>
+              正在为您匹配最相关的历史判例，请稍后
+            </p>
           </div>
         )}
 
-        {/* 状态二：空状态 */}
         {!docData && !loading && (
           <div className='flex h-full items-center justify-center text-gray-400'>
             请在左侧选择案件类型并输入检索条件，点击“开始检索”
           </div>
         )}
 
-        {/* 状态三：检索结果展示 */}
         {docData && !loading && (
           <div className='w-full h-full flex flex-col gap-6 max-w-4xl'>
             <div

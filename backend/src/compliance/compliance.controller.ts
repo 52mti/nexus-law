@@ -1,15 +1,31 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseInterceptors,
+  UploadedFiles,
+  BadRequestException,
+} from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { ComplianceService } from './compliance.service';
 import { AnalyzeComplianceDto } from './dto/analyze-compliance.dto';
+import { MulterFile } from './compliance.service'; // 引入我们在 Service 里写的本地接口
 
 @Controller('api/compliance')
 export class ComplianceController {
   constructor(private readonly complianceService: ComplianceService) {}
 
   @Post('analyze')
-  async analyze(@Body() dto: AnalyzeComplianceDto) {
-    // 未来在这里加 req.user.id 扣积分、存历史
-    const result = await this.complianceService.analyze(dto);
+  @UseInterceptors(FilesInterceptor('files', 10)) // 同样支持最多 10 个文件
+  async analyze(
+    @UploadedFiles() files: Array<MulterFile>,
+    @Body() dto: AnalyzeComplianceDto,
+  ) {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('请至少上传一份合同或协议资料');
+    }
+
+    const result = await this.complianceService.analyze(files, dto);
 
     return {
       code: 0,

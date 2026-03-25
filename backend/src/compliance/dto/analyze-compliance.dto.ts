@@ -1,7 +1,8 @@
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsIn } from 'class-validator';
 
 export class AnalyzeComplianceDto {
   @IsString()
-  @IsNotEmpty({ message: '待审查的内容不能为空' })
-  content: string; // 前端传过来的合同文本或商业模式描述
+  @IsNotEmpty({ message: '审查角度不能为空' })
+  @IsIn(['partyA', 'partyB', 'neutral'], { message: '审查角度不合法' })
+  reviewAngle: string; // 'partyA' | 'partyB' | 'neutral'
 }
