@@ -7,6 +7,10 @@ import { PrismaModule } from './prisma/prisma.module';
 import { OpenaiModule } from './openai/openai.module';
 import { ChatModule } from './chat/chat.module';
 import { DocumentModule } from './document/document.module';
+import { LegalSearchModule } from './legal-search/legal-search.module';
+import { CaseSummaryModule } from './case-summary/case-summary.module';
+import { ComplianceModule } from './compliance/compliance.module';
+import { CaseSearchModule } from './case-search/case-search.module';
 
 @Module({
   imports: [
@@ -19,6 +23,10 @@ import { DocumentModule } from './document/document.module';
     OpenaiModule,
     DocumentModule,
     ChatModule,
+    LegalSearchModule,
+    CaseSummaryModule,
+    ComplianceModule,
+    CaseSearchModule,
   ],
   controllers: [AppController],
   providers: [AppService],
