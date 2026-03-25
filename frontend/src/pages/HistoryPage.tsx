@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Input, Modal, message } from 'antd' // 🚀 1. 引入 Modal 和 message
+import { Input, Modal, App } from 'antd' // 🚀 1. 引入 Modal 和 message
 import {
   SearchOutlined,
   FileTextOutlined,
@@ -49,6 +49,7 @@ const tabToRouteMap: Record<string, string> = {
 }
 
 export const HistoryPage: React.FC = () => {
+  const { message } = App.useApp()
   const [activeTab, setActiveTab] = useState('doc')
   // 🚀 2. 将静态数据转为状态，这样删除后才能触发页面重新渲染
   const [historyData, setHistoryData] = useState(initialMockData) 

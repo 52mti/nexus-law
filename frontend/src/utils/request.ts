@@ -1,6 +1,6 @@
 // src/utils/request.ts
 import axios, { type AxiosResponse } from 'axios'
-import { message } from 'antd' // 依然使用 antd 帮你做优雅的全局提示
+import { globalMessage } from '@/utils/globalAntd';
 
 // ==========================================
 // 定义后端响应格式
@@ -49,26 +49,26 @@ request.interceptors.response.use(
     if (error.response) {
       switch (error.response.status) {
         case 401:
-          message.error('登录已过期，请重新登录')
+          globalMessage.error('登录已过期，请重新登录')
           localStorage.removeItem('token')
           window.location.href = '/login'
           break
         case 403:
-          message.error('您没有权限访问该资源')
+          globalMessage.error('您没有权限访问该资源')
           break
         case 404:
-          message.error('请求的接口不存在')
+          globalMessage.error('请求的接口不存在')
           break
         case 500:
-          message.error('服务器开了个小差，请稍后再试')
+          globalMessage.error('服务器开了个小差，请稍后再试')
           break
         default:
-          message.error(`网络请求错误: ${error.response.status}`)
+          globalMessage.error(`网络请求错误: ${error.response.status}`)
       }
     } else if (error.message && error.message.includes('timeout')) {
-      message.error('请求超时，请检查您的网络环境')
+      globalMessage.error('请求超时，请检查您的网络环境')
     } else {
-      message.error('网络连接异常，请检查后端服务是否启动')
+      globalMessage.error('网络连接异常，请检查后端服务是否启动')
     }
 
     return Promise.reject(error)

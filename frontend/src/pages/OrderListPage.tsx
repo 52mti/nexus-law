@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Table, message } from 'antd'
+import { Table, App } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { ContainerOutlined } from '@ant-design/icons'
 import Copiright from '@/components/Copiright'
@@ -94,6 +94,7 @@ const getColumns = (onPayClick: (record: OrderRecord) => void): ColumnsType<Orde
 // 3. 主页面组件
 // ==========================================
 export const OrderListPage: React.FC = () => {
+  const { message } = App.useApp()
   // 🚀 管理弹窗状态与当前订单
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)

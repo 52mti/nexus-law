@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Avatar, Button, Layout, message, Spin } from 'antd'
+import { Avatar, Button, Layout, Spin, App } from 'antd'
 import {
   AudioOutlined,
   SendOutlined,
@@ -22,6 +22,7 @@ interface ChatMessage {
 }
 
 export const AIChatPage = () => {
+  const { message } = App.useApp()
   // 获取 URL 路由参数
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { message, Button } from 'antd'
+import { App, Button } from 'antd'
 import {
   ShopOutlined,
   CopyOutlined,
@@ -123,6 +123,7 @@ const schema: SidebarSchema = {
 }
 
 export const CaseSearchPage = () => {
+  const { message } = App.useApp()
   const { id } = useParams<{ id: string }>()
   const [loading, setLoading] = useState(Boolean(id))
   const [docData, setDocData] = useState<{

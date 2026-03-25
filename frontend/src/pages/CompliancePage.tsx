@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { message, Button } from 'antd'
+import { App, Button } from 'antd'
 import {
   CopyOutlined,
   DownloadOutlined,
@@ -46,6 +46,7 @@ const contractReviewSchema: SidebarSchema = {
 }
 
 export const CaseReviewPage = () => {
+  const { message } = App.useApp()
   // 1. 路由参数与状态管理
   const { id } = useParams<{ id: string }>()
   const [loading, setLoading] = useState(Boolean(id))

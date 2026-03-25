@@ -1,11 +1,12 @@
 import React from 'react';
-import { Form, Input, Button, message } from 'antd';
+import { Form, Input, Button, App } from 'antd';
 
 interface UpdatePwdFormProps {
   onClose: () => void; // 用于点击取消或修改成功后关闭弹窗
 }
 
 export const UpdatePwdForm: React.FC<UpdatePwdFormProps> = ({ onClose }) => {
+  const { message } = App.useApp()
   const [form] = Form.useForm();
 
   const onFinish = (values: any) => {

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { message, Button } from 'antd'
+import { App, Button } from 'antd'
 import {
   BlockOutlined,
   AimOutlined,
@@ -149,6 +149,7 @@ const docSchema: SidebarSchema = {
 }
 
 export const DocPage = () => {
+  const { message } = App.useApp()
   const { id } = useParams<{ id: string }>()
   const [loading, setLoading] = useState(Boolean(id))
   // 🌟 只存标题和 Markdown 正文

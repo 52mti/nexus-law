@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Button, message } from 'antd';
+import { Button, App } from 'antd';
 import { CrownOutlined, CheckCircleOutlined } from '@ant-design/icons';
 
 // 🚀 1. 引入支付相关的两个弹窗组件
@@ -96,6 +96,7 @@ const membershipPlans = [
 type PlanType = typeof membershipPlans[0];
 
 export const MembershipPage: React.FC = () => {
+  const { message } = App.useApp()
   // 🚀 2. 管理弹窗状态与当前选中的套餐
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
