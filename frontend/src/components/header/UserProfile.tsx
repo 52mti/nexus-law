@@ -1,6 +1,6 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Popover, Avatar, Modal } from 'antd'
+import { Popover, Avatar, App } from 'antd'
 import {
   UserOutlined,
   CrownFilled,
@@ -14,8 +14,7 @@ import {
 
 export const UserProfile: React.FC = () => {
   const navigate = useNavigate()
-  // 🚀 让这个组件自己维护一个 modal 实例，保持独立性
-  const [modal, modalContextHolder] = Modal.useModal()
+  const { modal } = App.useApp()
 
   const userMenuItems = [
     {
@@ -115,7 +114,6 @@ export const UserProfile: React.FC = () => {
 
   return (
     <>
-      {modalContextHolder}
       <Popover
         content={content}
         trigger='hover'

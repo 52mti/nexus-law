@@ -49,15 +49,11 @@ const tabToRouteMap: Record<string, string> = {
 }
 
 export const HistoryPage: React.FC = () => {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const [activeTab, setActiveTab] = useState('doc')
   // 🚀 2. 将静态数据转为状态，这样删除后才能触发页面重新渲染
   const [historyData, setHistoryData] = useState(initialMockData) 
   const navigate = useNavigate()
-
-  // 🚀 1. 核心修正：引入 Hooks 版本的 Modal 和 Message
-  const [modal, modalContextHolder] = Modal.useModal();
-  const [messageApi, messageContextHolder] = message.useMessage();
 
   // 🚀 3. 核心：删除确认弹窗逻辑
   const showDeleteConfirm = (idToDelete: string) => {
@@ -81,7 +77,7 @@ export const HistoryPage: React.FC = () => {
             setHistoryData(newData);
             
             // 🚀 3. 使用 hooks 实例的 message 方法
-            messageApi.success('删除成功'); 
+            message.success('删除成功'); 
             resolve(true);
           }, 500); 
         });
@@ -94,10 +90,6 @@ export const HistoryPage: React.FC = () => {
 
   return (
     <PageContainer>
-      {/* 🚀 4. 极其关键：必须把占位符渲染在你的 JSX 里！ */}
-      {/* 这样弹窗才能真正成为当前组件树的一部分，从而继承 StyleProvider 的 Layer 设置 */}
-      {modalContextHolder}
-      {messageContextHolder}
       <div className='flex-1 flex flex-col overflow-hidden'>
         {/* 1. 顶部：导航与搜索区 */}
         <div className='flex justify-between items-center mb-8 shrink-0'>
