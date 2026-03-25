@@ -115,7 +115,7 @@ export const HistoryPage: React.FC = () => {
           <Input
             prefix={<SearchOutlined className='text-gray-400 mr-1' />}
             placeholder='搜索历史记录'
-            className='w-72 h-10 rounded-lg bg-white border-transparent hover:border-transparent focus:border-primary '
+            className='w-72 h-10 rounded-lg bg-white border-transparent hover:border-transparent focus:border-primary -translate-x-px translate-y-px'
           />
         </div>
 
