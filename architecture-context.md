@@ -104,7 +104,25 @@ model VerificationCode {
 - 前端通过统一的 `request.ts` 发起 HTTP 请求
 - 后端提供 RESTful API，HTTP 状态码固定为 200
 
-### 2. 响应格式规范
+### 2. 后端模块架构
+```
+ConfigModule (全局配置)
+    ↓
+PrismaModule (全局数据库)
+    ↓
+OpenaiModule (全局AI服务，@Global() 装饰器)
+    ↓
+业务模块层 (共7个):
+├─ AuthModule           (用户认证 & 授权)
+├─ ChatModule           (AI 聊天，流式响应)
+├─ DocumentModule       (法律文档生成)
+├─ LegalSearchModule    (法律条文搜索，Temperature=0.1 保证准确性)
+├─ CaseSearchModule     (案例趋势分析，Temperature=0.3)
+├─ CaseSummaryModule    (案例总结，Temperature=0.3)
+└─ ComplianceModule     (合规风险审查，Temperature=0.2)
+```
+
+### 3. 响应格式规范
 ```typescript
 // 后端响应格式
 interface ApiResponse<T = any> {
@@ -121,58 +139,385 @@ enum ErrorCode {
   USER_NOT_FOUND = 2003,          // 用户不存在
   INTERNAL_SERVER_ERROR = 5000,   // 服务器内部错误
 }
+
+// AI 模块统一使用 Strategy Pattern
+// 每个业务模块自定义 SystemPrompt，通过 OpenaiService 执行
 ```
 
-### 3. 网络层规范
+### 4. 网络层规范
 - 前端统一使用 `frontend/src/utils/request.ts` 发起请求
 - 禁止在组件中直接引入原生 axios
-- 请求拦截器自动添加 Token 认证
+- 请求拦截器自动添加 Token 认证 (JWT)
 - 响应拦截器统一处理错误和业务状态码
+- API 路由约定：`/api/v1/{module}/{endpoint}`
 
-### 4. 样式与弹窗规范
+### 5. 样式与弹窗规范
 - 使用 CSS 变量定义主题色：`--brand-primary: #666cff`
 - 页面级别的业务报错（如邮箱已注册），禁止使用全局飘窗（message.error）
 - 错误必须高亮在对应的输入框下方
 - 使用 Tailwind CSS 的 `primary` 类替代硬编码的颜色值
+- Ant Design 主题通过 ConfigProvider 全局配置
 
-### 5. 状态管理规范
+### 6. 状态管理规范
 - 使用 Zustand 进行状态管理
 - 用户状态存储在 `useUserStore` 中
 - 状态持久化使用 `persist` 中间件
 - 开发工具使用 `devtools` 中间件
+- 避免过度使用全局状态，仅存储跨页面共享的数据
 
-## 模块设计
+## 后端架构详解
 
-### 认证模块 (Auth)
-- **功能**: 用户注册、登录、密码重置、手机验证
-- **前端**: `frontend/src/pages/Auth/` 包含登录、注册、重置密码表单
-- **后端**: `backend/src/auth/` 包含控制器、服务、DTO、实体
-- **流程**: 手机号验证 → 密码设置 → JWT Token 生成
+### 依赖注入与模块加载顺序
+1. **App.Module** 启动时加载所有模块
+2. **全局模块**（@Global）被注入到所有其他模块：
+   - ConfigModule: 环境变量管理
+   - PrismaModule: 数据库连接池
+   - OpenaiModule: AI 服务（所有业务模块依赖）
+3. **业务模块**：完全独立的特性模块，共享全局模块
 
-### AI 聊天模块 (Chat)
-- **功能**: 法律问题智能问答
-- **前端**: `frontend/src/pages/AIChatPage.tsx`
-- **后端**: `backend/src/chat/` + `backend/src/openai/`
-- **集成**: OpenAI GPT 模型，支持上下文对话
+### AI 集成架构 (Strategy Pattern)
+```typescript
+// OpenaiService 作为统一 AI 入口
+OpenaiService
+├─ 流式聊天 (ChatModule 使用)
+├─ 文档生成 (DocumentModule 使用)
+├─ 搜索分析 (LegalSearch/CaseSearch 使用)
+├─ 合规审查 (ComplianceModule 使用)
+└─ 情感分析 (CaseSummary 使用)
 
-### 文档模块 (Document)
-- **功能**: 法律文档生成与处理
-- **前端**: `frontend/src/pages/DocPage.tsx`
-- **后端**: `backend/src/document/`
-- **特性**: Markdown 渲染、文档模板、合规检查
+// 每个业务模块定义自己的 SystemPrompt，调用 OpenaiService
+// 通过 Temperature 参数控制创意度：
+//   - 0.1 (法律搜索) → 精准合规
+//   - 0.2 (合规审查) → 保守风险评估
+//   - 0.3 (案例分析) → 平衡分析
+```
 
-### 搜索模块
-- **法律搜索**: `frontend/src/pages/LegalSearchPage.tsx`
-- **案例搜索**: `frontend/src/pages/CaseSearchPage.tsx`
-- **合规审查**: `frontend/src/pages/CompliancePage.tsx`
-- **案例审阅**: `frontend/src/pages/CaseReviewPage.tsx`
+### 全局异常处理与管道
+```typescript
+// main.ts 配置
+ValidationPipe()          // DTO 数据验证
+BusinessExceptionFilter() // 统一异常响应
+
+// 所有异常都转换为标准 ApiResponse 格式
+```
+
+## 前端架构详解
+
+### 路由结构与代码分割
+```
+/login
+  └─ AuthPage (认证模块)
+
+/ (MainLayout - 不lazy-load，保证持久状态)
+  ├─ /chat/:id?          (AI聊天 - React.lazy)
+  ├─ /doc/:id?           (文档生成 - React.lazy)
+  ├─ /law                (法律搜索 - React.lazy)
+  ├─ /case_search        (案例搜索 - React.lazy)
+  ├─ /case_review        (案例总结 - React.lazy)
+  ├─ /compliance         (合规审查 - React.lazy)
+  ├─ /history            (聊天历史 - React.lazy)
+  ├─ /account            (账户信息 - React.lazy)
+  ├─ /vip                (会员管理 - React.lazy)
+  ├─ /orders             (订单列表 - React.lazy)
+  └─ /points             (积分记录 - React.lazy)
+```
+
+### 性能优化策略
+- **代码分割**：路由级别的 React.lazy() 实现按需加载
+- **持久窗口**：MainLayout 不卸载，减少重排
+- **状态管理**：Zustand 相对于 Redux 更轻量级
+- **样式系统**：CSS 变量 + Tailwind，避免 runtime 计算
+
+## 核心模块详解
+
+### AuthModule (认证模块)
+**职责**：用户认证、授权、会话管理
+- **前端**：`frontend/src/pages/Auth/` - Login, Register, ResetPassword 表单
+- **后端**：`backend/src/auth/`
+  - `auth.controller.ts` - 路由处理
+  - `auth.service.ts` - JWT 签发、密码加密 (bcryptjs)
+  - `dto/` - 请求/响应数据结构
+  - `entities/` - JWT Payload 定义
+- **流程**：
+  1. 用户提交邮箱/电话
+  2. 后端发送验证码 (VerificationCode)
+  3. 用户验证码 + 密码
+  4. 后端返回 JWT Token
+  5. 前端存储 Token，后续请求自动添加 Authorization 头
+- **依赖**：bcryptjs, JWT, Prisma
+
+### ChatModule (AI聊天模块)
+**职责**：实时 AI 法律问答，支持流式响应
+- **前端**：`frontend/src/pages/AIChatPage.tsx`
+  - 消息列表展示
+  - 流式文本渲染 (SSE)
+  - 对话上下文保存
+- **后端**：`backend/src/chat/`
+  - 调用 OpenaiService
+  - SSE(Server-Sent Events) 流式传输
+  - SystemPrompt: 法律专家身份
+- **关键特性**：
+  - 上下文对话（维护聊天历史）
+  - 流式输出（用户实时看到文本生成）
+  - Token 限制处理
+- **依赖**：OpenaiService, RxJS Observables
+
+### DocumentModule (文档生成模块)
+**职责**：AI 生成法律文档（合同、诉讼文书等）
+- **前端**：`frontend/src/pages/DocPage.tsx`
+  - 模板选择
+  - 参数填写表单
+  - Markdown 渲染最终文档
+- **后端**：`backend/src/document/`
+  - 支持多种文档类型模板
+  - OpenAI 批量生成或交互式生成
+  - 文档版本管理
+- **支持的文档**：合同、诉状、答辩状、调解协议等
+- **依赖**：OpenaiService, Prisma, react-markdown
+
+### LegalSearchModule (法律条文搜索)
+**职责**：搜索法律条文，提供 AI 解读
+- **前端**：`frontend/src/pages/LegalSearchPage.tsx`
+  - 关键词搜索
+  - 条文详情展示
+  - AI 解读对话
+- **后端**：`backend/src/legal-search/`
+  - 向量搜索或模糊匹配条文库
+  - OpenaiService (Temperature=0.1 保证精度)
+  - 返回相关条文 + AI 解释
+- **特点**：
+  - Temperature 设为 0.1（保证准确性，减少幻觉）
+  - 强制引用条文编号
+  - 拒绝不确定的回答
+- **依赖**：OpenaiService, Prisma
+
+### CaseSearchModule (案例研究分析)
+**职责**：分析案例趋势、判例分析
+- **前端**：`frontend/src/pages/CaseSearchPage.tsx`
+- **后端**：`backend/src/case-search/`
+  - OpenaiService (Temperature=0.3 允许合理推理)
+  - 案例库检索
+  - 趋势分析
+- **输出**：判例分析、风险评估、诉讼策略建议
+- **依赖**：OpenaiService, 案例数据库
+
+### CaseSummaryModule (案例总结)
+**职责**：快速总结案例要点、争议焦点、裁判理由
+- **前端**：`frontend/src/pages/CaseReviewPage.tsx`
+- **后端**：`backend/src/case-summary/`
+  - 接收案例文本或 ID
+  - OpenaiService (Temperature=0.3)
+  - 生成结构化总结
+- **输出格式**：基本信息、案件事实、法律问题、裁判理由、判决结果
+- **依赖**：OpenaiService
+
+### ComplianceModule (合规审查)
+**职责**：文件合规性检查、风险识别
+- **前端**：`frontend/src/pages/CompliancePage.tsx`
+  - 上传文件或输入文本
+  - 合规检查结果展示
+  - 风险标记与建议
+- **后端**：`backend/src/compliance/`
+  - 文件解析
+  - OpenaiService (Temperature=0.2 保守风险评估)
+  - 返回危险项目清单与修改建议
+- **检查项**：法律条款合规性、隐私条款、免责声明、强制性条款遗漏等
+- **依赖**：OpenaiService, 可选：PDF/Word 解析库
 
 ### 用户中心模块
-- **账户信息**: `frontend/src/pages/Account/AccountInfoPage.tsx`
-- **订单管理**: `frontend/src/pages/OrderList/OrderListPage.tsx`
-- **积分记录**: `frontend/src/pages/PointsRecordPage.tsx`
-- **会员管理**: `frontend/src/pages/MembershipPage.tsx`
-- **历史记录**: `frontend/src/pages/HistoryPage.tsx`
+- **账户信息**: `frontend/src/pages/Account/AccountInfoPage.tsx` - 编辑用户资料、头像、密码
+- **订单管理**: `frontend/src/pages/OrderList/OrderListPage.tsx` - 查看订单与交易历史
+- **积分记录**: `frontend/src/pages/PointsRecordPage.tsx` - 积分明细与兑换记录
+- **会员管理**: `frontend/src/pages/MembershipPage.tsx` - VIP 等级与权益说明
+- **历史记录**: `frontend/src/pages/HistoryPage.tsx` - 聊天对话历史查看
+
+## 数据库设计（Prisma Schema）
+
+### 核心表结构
+
+**User 表** - 用户基本信息
+```prisma
+model User {
+  id         Int      @id @default(autoincrement())
+  email      String   @unique
+  phone      String   @unique
+  password   String   // bcryptjs 加密 hash
+  points     Int      @default(0) // 用户积分
+  avatarUrl  String?  // 头像 URL
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  // 关系
+  chats       Chat[]
+  documents   Document[]
+  orders      Order[]
+  searchHistory SearchHistory[]
+}
+```
+
+**VerificationCode 表** - 短信或邮件验证码
+```prisma
+model VerificationCode {
+  id        Int      @id @default(autoincrement())
+  phone     String
+  code      String   // 6 位验证码
+  expiresAt DateTime // 过期时间
+  used      Boolean  @default(false) // 是否已使用
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([phone, code])
+}
+```
+
+**Chat 表** - 聊天会话
+```prisma
+model Chat {
+  id        Int           @id @default(autoincrement())
+  userId    Int
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title     String        // 对话标题（可自动生成）
+  messages  ChatMessage[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ChatMessage {
+  id      Int     @id @default(autoincrement())
+  chatId  Int
+  chat    Chat    @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  
+  role    String  // "user" | "assistant"
+  content String  @db.Text
+  tokens  Int?    // 此消息的 token 数
+  
+  createdAt DateTime @default(now())
+}
+```
+
+**Document 表** - 生成的法律文档
+```prisma
+model Document {
+  id        Int     @id @default(autoincrement())
+  userId    Int
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type      String  // "合同", "诉状", "答辩状", "调解协议" 等
+  title     String
+  content   String  @db.Text // Markdown 格式
+  version   Int     @default(1) // 版本号
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+```
+
+**Order 表** - 订单（会员、文档包等）
+```prisma
+model Order {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type      String   // "vip_month", "doc_pack_10", "points_100" 等
+  amount    Float
+  description String // 订单描述
+  status    String   // "pending", "paid", "completed", "canceled"
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+```
+
+**SearchHistory 表** - 搜索历史
+```prisma
+model SearchHistory {
+  id        Int     @id @default(autoincrement())
+  userId    Int
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type      String  // "legal", "case", "compliance"
+  query     String
+  results   String? @db.Text // 搜索结果摘要
+  
+  createdAt DateTime @default(now())
+}
+```
+
+## 系统架构总览
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      客户端 (Browser)                           │
+├─────────────────────────────────────────────────────────────────┤
+│  React App (Vite)                                               │
+│  ├─ Router (React Router)                                       │
+│  ├─ State (Zustand)                                             │
+│  ├─ Components (Ant Design + Tailwind)                          │
+│  └─ API Layer (axios via request.ts)                            │
+└──────────────┬──────────────────────────────────────────────────┘
+               │ HTTP(S)
+               ↓
+┌──────────────────────────────────────────────────────────────────┐
+│             后端 API (NestJS on Node.js)                        │
+├──────────────────────────────────────────────────────────────────┤
+│  AppModule                                                        │
+│  ├─ [Global] ConfigModule → 环境变量                            │
+│  ├─ [Global] PrismaModule → PostgreSQL                          │
+│  ├─ [Global] OpenaiModule → 大语言模型                          │
+│  │                                                               │
+│  └─ Business Modules (7个)                                      │
+│     ├─ AuthModule          → JWT + bcryptjs                    │
+│     ├─ ChatModule          → SSE 流式聊天                       │
+│     ├─ DocumentModule      → AI 文档生成                        │
+│     ├─ LegalSearchModule   → 法律条文搜索                       │
+│     ├─ CaseSearchModule    → 案例分析                           │
+│     ├─ CaseSummaryModule   → 案例总结                           │
+│     └─ ComplianceModule    → 合规检查                           │
+└───────┬─────────────────┬──────────────────────────────────────┘
+        │                 │
+        ↓                 ↓
+┌────────────────┐   ┌──────────────────┐
+│  PostgreSQL    │   │  OpenAI API      │
+│  (Prisma ORM)  │   │  (GPT-4/4 Mini)  │
+└────────────────┘   └──────────────────┘
+```
+
+## 关键架构特性
+
+### 1. 分层依赖关系
+- **全局层**：ConfigModule, PrismaModule, OpenaiModule
+- **业务层**：各功能模块共享全局依赖
+- **无循环依赖**：单向依赖关系
+
+### 2. AI 集成方式 (Strategy Pattern)
+```typescript
+每个模块定义业务定制的 SystemPrompt
+      ↓
+通过 OpenaiService 创建完成请求
+      ↓
+根据场景设置 Temperature（0.1-0.3）
+      ↓
+返回结果给前端
+```
+
+### 3. 认证流程
+```
+用户登录页面
+      ↓
+验证码验证（SMS/邮箱）
+      ↓
+JWT Token 签发
+      ↓
+前端存储 Token（localStorage）
+      ↓
+后续请求自动携带 Authorization 头
+      ↓
+AuthGuard 中间件校验
+```
 
 ## 开发规范
 
@@ -265,5 +610,6 @@ npx prisma generate
 
 ---
 
-*最后更新: 2026年3月23日*
-*版本: 1.0.0*
+*最后更新: 2026年3月25日*
+*版本: 2.0.0*
+*更新说明: 重新梳理架构、补充模块详解、优化文档结构*
