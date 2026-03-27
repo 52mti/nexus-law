@@ -101,7 +101,7 @@ export const AIChatPage = () => {
     setIsStreaming(true)
 
     try {
-      await fetchEventSource('http://localhost:3000/api/chat/stream', {
+      await fetchEventSource('/api/chat/stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
