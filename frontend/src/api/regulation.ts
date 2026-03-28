@@ -17,5 +17,5 @@ interface SearchRegulationResponse {
 // 3. 导出请求函数
 export const searchRegulationApi = (data: SearchRegulationParams) => {
   // 因为你的拦截器直接 return 了 response.data，所以这里泛型传入即可
-  return request.post<any, SearchRegulationResponse>('/regulation/search', data)
+  return request.post<any, SearchRegulationResponse>('/api/regulation/search', data)
 }

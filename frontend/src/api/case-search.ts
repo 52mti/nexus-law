@@ -18,5 +18,5 @@ interface CaseSearchResponse {
 
 // 3. 导出请求函数 (纯 JSON 请求，不需要 FormData)
 export const searchCaseApi = (data: SearchCaseParams) => {
-  return request.post<any, CaseSearchResponse>('/case-search/search', data)
+  return request.post<any, CaseSearchResponse>('/api/case-search/search', data)
 }

@@ -10,7 +10,7 @@ interface CaseReviewResponse {
 // 🚀 导出请求函数 (注意入参是 FormData 类型)
 export const analyzeCaseSummaryApi = (formData: FormData) => {
   return request.post<any, CaseReviewResponse>(
-    '/case-summary/analyze',
+    '/api/case-summary/analyze',
     formData,
     {
       // 💡 告诉 axios 这是一个包含文件的表单请求

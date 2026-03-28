@@ -103,6 +103,7 @@ export const AIChatPage = () => {
     try {
       await fetchEventSource('/api/chat/stream', {
         method: 'POST',
+        openWhenHidden: true,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -136,9 +137,13 @@ export const AIChatPage = () => {
         
         onclose() {
           setIsStreaming(false);
+          throw new Error('STOP_RETRY');
         },
         
         onerror(err) {
+          if (err.message === 'STOP_RETRY') {
+             return; // 拦截我们自定义的正常结束信号，不做错误处理
+          }
           console.error('流式输出中断:', err);
           message.error('网络连接异常，AI 回复中断');
           setIsStreaming(false);

@@ -12,7 +12,6 @@ async function bootstrap() {
   });
   app.useGlobalPipes(new ValidationPipe());
   app.useGlobalFilters(new BusinessExceptionFilter());
-  app.enableCors();
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap().catch(console.error);

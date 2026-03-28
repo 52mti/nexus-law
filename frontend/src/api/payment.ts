@@ -36,7 +36,7 @@ export interface PaymentStatusResponse {
  */
 export const fetchPaymentUrl = (data: ChapaPaymentRequest): Promise<ChapaPaymentResponse> => {
   // 这里的 '/payment/chapa/generate-url' 请替换为你后端实际定义的路由
-  return request.post('/payment/chapa/generate-url', data)
+  return request.post('/api/payment/chapa/generate-url', data)
 }
 
 /**
@@ -45,5 +45,5 @@ export const fetchPaymentUrl = (data: ChapaPaymentRequest): Promise<ChapaPayment
  */
 export const checkPaymentStatus = (txRef: string): Promise<PaymentStatusResponse> => {
   // 通常查单使用 GET 请求，将订单号拼在 URL 后面
-  return request.get(`/payment/chapa/status/${txRef}`)
+  return request.get(`/api/payment/chapa/status/${txRef}`)
 }
