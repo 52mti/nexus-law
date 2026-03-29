@@ -71,6 +71,12 @@ export const PhoneLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
         password: values.code,
         grantType: 'sms', // 短信验证码登录
       })
+      // 修改兼容后端的真实数据包裹层，以避免 TypeScript 类型校验报错
+      const token = (response as any)?.data?.accessToken || (response as any)?.accessToken
+      if (token) {
+        localStorage.setItem('token', token)
+      }
+
       setUser(response)
       setErrorData(null)
       navigate('/')

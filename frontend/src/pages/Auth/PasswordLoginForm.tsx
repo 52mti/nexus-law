@@ -39,6 +39,12 @@ export const PasswordLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
         loginType: 'member_password',
         code: '123456'
       })
+      // 修改兼容后端的真实数据包裹层，以避免 TypeScript 类型校验报错
+      const token = (response as any)?.data?.accessToken || (response as any)?.accessToken
+      if (token) {
+        localStorage.setItem('token', token)
+      }
+
       // 保存用户信息到全局store
       setUser(response)
       setErrorData(null)
