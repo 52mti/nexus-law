@@ -11,7 +11,8 @@ import {
 } from '@ant-design/icons'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import { useParams, useNavigate } from 'react-router-dom'
-import { saveOrUpdateConsultation, saveOrUpdateConsultationSession, getConsultationHistory } from '@/api/chat'
+// 🚀 1. 移除了 saveOrUpdateConsultation
+import { saveOrUpdateConsultationSession, getConsultationHistory } from '@/api/chat'
 
 const { Content } = Layout
 
@@ -24,7 +25,7 @@ interface ChatMessage {
 
 export const AIChatPage = () => {
   const { message } = App.useApp()
-  // 获取 URL 路由参数（注意：App.tsx 里定义的是 path='chat/:id?'，因此必须取 id）
+  // 获取 URL 路由参数
   const { id } = useParams<{ id: string }>()
   const sessionId = id;
   const navigate = useNavigate()
@@ -73,7 +74,7 @@ export const AIChatPage = () => {
     } finally {
       setLoadingHistory(false)
     }
-  }, [])
+  }, [message])
 
   // 监听路由变化，加载历史记录
   useEffect(() => {
@@ -83,7 +84,7 @@ export const AIChatPage = () => {
       return
     }
 
-    // ⭐ 核心修复：如果是自己在聊天组件内部发起的 navigate（比如首句话产生新 ID），我们必须拦截这里的强刷，否则它会把正在流式输出的气泡给覆盖掉！
+    // ⭐ 核心修复：如果是自己在聊天组件内部发起的 navigate，拦截这里的强刷
     if (isNavigatingRef.current) {
       console.log('拦截一次历史记录拉取（因为是自己产生的 sessionId）');
       isNavigatingRef.current = false; // 消费掉标记
@@ -136,29 +137,28 @@ export const AIChatPage = () => {
       let aiFullResponse = '';
 
       try {
-        // 1. 如果是完全新的对话，首先利用第一个问题创建主咨询单
+        // 🚀 2. 如果是完全新的对话，前端直接生成 UUID 作为 Session ID
         if (!currentSessionId) {
-          const res = await saveOrUpdateConsultation({ content: userText });
-          const newId = res?.data?.id || res?.data?.consultationId || res?.id || res?.consultationId;
-          if (newId && typeof newId === 'string') {
-            currentSessionId = newId;
-            activeSessionIdRef.current = newId; //及时更新全局
+          // 现代浏览器原生支持 crypto.randomUUID()
+          currentSessionId = crypto.randomUUID();
+          activeSessionIdRef.current = currentSessionId; // 及时更新全局
 
-            isNavigatingRef.current = true; // 拦截 useEffect 强刷
-            navigate(`/chat/${currentSessionId}`, { replace: true });
-          }
+          isNavigatingRef.current = true; // 拦截 useEffect 强刷
+          navigate(`/chat/${currentSessionId}`, { replace: true });
         }
 
-        // 2. 无论是否第一次，都将当前用户的提问作为 session 的一部分存储（type 0 为用户）
-        if (currentSessionId) {
-          await saveOrUpdateConsultationSession({ consultationId: currentSessionId, content: userText, type: 0 });
-        }
+        // 🚀 3. 直接保存用户的提问内容（type 0 为用户）
+        await saveOrUpdateConsultationSession({
+          consultationId: currentSessionId,
+          content: userText,
+          type: 0
+        });
       } catch (err) {
-        console.error('保存对话记录失败', err);
+        console.error('保存用户提问失败', err);
         message.warning('无法同步您的对话到历史记录');
       }
 
-      // 3. 开始向后端大模型请求流式返回
+      // 4. 开始向后端大模型请求流式返回
       const token = localStorage.getItem('token');
       await fetchEventSource(`${import.meta.env.VITE_API_BASE_URL}/api/chat/stream`, {
         method: 'POST',
@@ -169,16 +169,16 @@ export const AIChatPage = () => {
         },
         body: JSON.stringify({
           prompt: userText,
-          sessionId: currentSessionId || null // 把当前的 sessionId 传给后端
+          sessionId: currentSessionId // 将前端确定的 ID 传给后端
         }),
 
         onmessage(ev) {
-          // 拦截后端发来的 sessionId（如果有必要同步）
+          // （如果后端依然会发回 session_id 事件，这里做个兜底，但通常不再需要了）
           if (ev.event === 'session_id') {
             const newSessionId = ev.data;
             if (!activeSessionIdRef.current) {
               activeSessionIdRef.current = newSessionId;
-              isNavigatingRef.current = true; // 拦截 useEffect 强刷
+              isNavigatingRef.current = true;
               navigate(`/chat/${newSessionId}`, { replace: true });
             }
             return;
@@ -202,10 +202,13 @@ export const AIChatPage = () => {
         },
 
         onclose() {
-          // 4. 流正常结束时，保存 AI 的一次性完整回复（type 1 为 AI）
+          // 🚀 5. 流正常结束时，保存 AI 的完整回复（type 1 为 AI）
           if (currentSessionId && aiFullResponse.trim()) {
-            saveOrUpdateConsultationSession({ consultationId: currentSessionId, content: aiFullResponse, type: 1 })
-              .catch(err => console.error('保存 AI 回复记录失败', err));
+            saveOrUpdateConsultationSession({
+              consultationId: currentSessionId,
+              content: aiFullResponse,
+              type: 1
+            }).catch(err => console.error('保存 AI 回复记录失败', err));
           }
           setIsStreaming(false);
           throw new Error('STOP_RETRY');
@@ -228,7 +231,7 @@ export const AIChatPage = () => {
   }
 
   const handleResend = () => {
-
+    // 这里可以后续实现重新生成的逻辑
   }
 
   const handleCopy = (content: string) => {
