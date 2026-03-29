@@ -12,7 +12,7 @@ import {
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import { useParams, useNavigate } from 'react-router-dom'
 // 🚀 1. 移除了 saveOrUpdateConsultation
-import { saveOrUpdateConsultationSession, getConsultationHistory } from '@/api/chat'
+import { saveOrUpdateConsultationSession, getConsultationHistory, saveOrUpdateConsultation } from '@/api/chat'
 
 const { Content } = Layout
 
@@ -142,6 +142,11 @@ export const AIChatPage = () => {
           // 现代浏览器原生支持 crypto.randomUUID()
           currentSessionId = crypto.randomUUID();
           activeSessionIdRef.current = currentSessionId; // 及时更新全局
+
+          saveOrUpdateConsultation({
+            id: currentSessionId,
+            content: userText
+          });
 
           isNavigatingRef.current = true; // 拦截 useEffect 强刷
           navigate(`/chat/${currentSessionId}`, { replace: true });

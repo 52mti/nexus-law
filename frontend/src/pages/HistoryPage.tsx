@@ -1,38 +1,17 @@
-import React, { useState } from 'react'
-import { Input, Modal, App } from 'antd' // 🚀 1. 引入 Modal 和 message
+import React, { useState, useEffect } from 'react'
+import { Input, App, Spin } from 'antd' // 🚀 引入 Spin 用于加载动画
 import {
   SearchOutlined,
   FileTextOutlined,
   ClockCircleOutlined,
   DeleteOutlined,
-  ExclamationCircleFilled, // 🚀 引入警告图标用于弹窗
+  ExclamationCircleFilled,
 } from '@ant-design/icons'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { useNavigate } from 'react-router-dom'
 
-// ==========================================
-// 1. 模拟数据 (我们将它作为初始状态)
-// ==========================================
-const initialMockData = [
-  {
-    date: '06-25',
-    items: [
-      { id: '1', title: '民事合同-个人借款', desc: '朋友接我100块钱,帮我出个借条', detail: '拼多多崛起的深度复盘...', time: '06-25 2:00' },
-      { id: '2', title: '民事合同-个人借款', desc: '朋友接我100块钱,帮我出个借条', detail: '拼多多崛起的深度复盘...', time: '06-25 2:00' },
-      { id: '3', title: '民事合同-个人借款', desc: '朋友接我100块钱,帮我出个借条', detail: '拼多多崛起的深度复盘...', time: '06-25 2:00' },
-      { id: '4', title: '民事合同-个人借款', desc: '朋友接我100块钱,帮我出个借条', detail: '拼多多崛起的深度复盘...', time: '06-25 2:00' },
-      { id: '5', title: '民事合同-个人借款', desc: '朋友接我100块钱,帮我出个借条', detail: '拼多多崛起的深度复盘...', time: '06-25 2:00' },
-      { id: '6', title: '民事合同-个人借款', desc: '朋友接我100块钱,帮我出个借条', detail: '拼多多崛起的深度复盘...', time: '06-25 2:00' },
-    ],
-  },
-  {
-    date: '06-22',
-    items: [
-      { id: '7', title: '民事合同-房屋租赁', desc: '租客违约，要求退租', detail: '相关租赁合同纠纷细节...', time: '06-22 3:00' },
-      { id: '8', title: '民事合同-房屋租赁', desc: '租客违约，要求退租', detail: '相关租赁合同纠纷细节...', time: '06-22 3:00' },
-    ],
-  },
-]
+// 引入三个接口
+import { getConsultationList, getDocumentList, getComplianceReviewList } from '@/api/common'
 
 // 顶部分类 Tabs
 const TABS = [
@@ -51,11 +30,105 @@ const tabToRouteMap: Record<string, string> = {
 export const HistoryPage: React.FC = () => {
   const { message, modal } = App.useApp()
   const [activeTab, setActiveTab] = useState('doc')
-  // 🚀 2. 将静态数据转为状态，这样删除后才能触发页面重新渲染
-  const [historyData, setHistoryData] = useState(initialMockData) 
+
+  // 🚀 1. 新增：加载状态与动态数据
+  const [loading, setLoading] = useState(false)
+  const [historyData, setHistoryData] = useState<any[]>([])
+
   const navigate = useNavigate()
 
-  // 🚀 3. 核心：删除确认弹窗逻辑
+  // ==========================================
+  // 🚀 2. 核心数据转换引擎：把后端拉平的数据，按日期分组
+  // ==========================================
+  const formatHistoryData = (records: any[], tabType: string) => {
+    const groups: Record<string, any[]> = {}
+
+    records.forEach(item => {
+      // 提取日期 (假设后端返回 createTime: '2026-06-25 14:30:00')
+      const fullTime = item.createTime || item.createdAt || ''
+      const dateMatch = fullTime.match(/\d{4}-(\d{2}-\d{2})/)
+      const dateKey = dateMatch ? dateMatch[1] : '未知时间' // 提取 '06-25'
+
+      const timeMatch = fullTime.match(/\d{4}-\d{2}-\d{2} (\d{2}:\d{2})/)
+      const timeVal = timeMatch ? timeMatch[1] : '' // 提取 '14:30'
+
+      if (!groups[dateKey]) {
+        groups[dateKey] = []
+      }
+
+      // 💡 架构师提示：这里需要根据你三个接口实际返回的字段名进行微调！
+      // 假设这三个接口返回的 标题 和 内容 字段名不同，我们在这里做兼容适配
+      let title = '历史记录'
+      let desc = item.content || item.description || item.summary || '-'
+      let detail = item.content || '-'
+
+      if (tabType === 'doc') {
+        title = item.title || item.docName || '法律文书生成'
+      } else if (tabType === 'consult') {
+        title = item.title || '智能法律咨询'
+      } else if (tabType === 'compliance') {
+        title = item.fileName || item.title || '合同合规审查'
+      }
+
+      groups[dateKey].push({
+        id: item.id,
+        title: title,
+        desc: desc,
+        detail: detail,
+        time: `${dateKey} ${timeVal}`,
+        raw: item // 保留原始数据备用
+      })
+    })
+
+    // 将对象转为数组，并按日期倒序排列 (最新的日期在前面)
+    const result = Object.keys(groups).map(date => ({
+      date,
+      items: groups[date]
+    }))
+
+    result.sort((a, b) => b.date.localeCompare(a.date))
+    return result
+  }
+
+  // ==========================================
+  // 🚀 3. 监听 activeTab 变化，请求对应接口
+  // ==========================================
+  useEffect(() => {
+    const fetchHistory = async () => {
+      setLoading(true)
+      try {
+        let res: any;
+        const pageParams = { current: 1, size: 50 }; // 获取最近的 50 条记录
+
+        // 根据当前的 Tab 调用不同的 API
+        if (activeTab === 'doc') {
+          res = await getDocumentList(pageParams)
+        } else if (activeTab === 'consult') {
+          res = await getConsultationList(pageParams)
+        } else if (activeTab === 'compliance') {
+          res = await getComplianceReviewList(pageParams)
+        }
+
+        if (res?.successful && res?.data?.records) {
+          // 清洗数据并赋值
+          const formattedData = formatHistoryData(res.data.records, activeTab)
+          setHistoryData(formattedData)
+        } else {
+          setHistoryData([])
+        }
+      } catch (error) {
+        console.error('获取历史记录异常:', error)
+        message.error('无法获取历史记录')
+        setHistoryData([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchHistory()
+  }, [activeTab, message]) // 当 activeTab 变化时，重新触发请求
+
+  // 核心：删除确认弹窗逻辑
   const showDeleteConfirm = (idToDelete: string) => {
     modal.confirm({
       title: '确定要删除这条历史记录吗？',
@@ -67,30 +140,36 @@ export const HistoryPage: React.FC = () => {
       onOk() {
         return new Promise((resolve) => {
           setTimeout(() => {
+            // 💡 提示：在真实业务中，这里还需要 await deleteApi(idToDelete) 调用后端删除接口
+
+            // 乐观更新：直接在前端状态中移除该项
             const newData = historyData
               .map(group => ({
                 ...group,
-                items: group.items.filter(item => item.id !== idToDelete)
+                items: group.items.filter((item: any) => item.id !== idToDelete)
               }))
-              .filter(group => group.items.length > 0);
-            
-            setHistoryData(newData);
-            
-            // 🚀 3. 使用 hooks 实例的 message 方法
-            message.success('删除成功'); 
-            resolve(true);
-          }, 500); 
-        });
+              .filter(group => group.items.length > 0)
+
+            setHistoryData(newData)
+            message.success('删除成功')
+            resolve(true)
+          }, 500)
+        })
       },
-      onCancel() {
-        console.log('取消删除');
-      },
-    });
-  };
+    })
+  }
 
   return (
     <PageContainer>
-      <div className='flex-1 flex flex-col overflow-hidden'>
+      <div className='flex-1 flex flex-col overflow-hidden relative'>
+
+        {/* 🚀 4. 全局 Loading 遮罩 */}
+        {loading && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/60 backdrop-blur-[1px]">
+            <Spin size="large" tip="正在加载历史记录..." />
+          </div>
+        )}
+
         {/* 1. 顶部：导航与搜索区 */}
         <div className='flex justify-between items-center mb-8 shrink-0'>
           <div className='flex items-center gap-2'>
@@ -99,12 +178,11 @@ export const HistoryPage: React.FC = () => {
               return (
                 <div
                   key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`px-5 py-2 rounded-full text-[14px] cursor-pointer transition-all ${
-                    isActive
-                      ? 'bg-primary text-white font-medium shadow-md shadow-indigo-500/20'
-                      : 'text-gray-600 hover:bg-gray-200/50'
-                  }`}
+                  onClick={() => !loading && setActiveTab(tab.key)} // 加载时禁止切换
+                  className={`px-5 py-2 rounded-full text-[14px] cursor-pointer transition-all ${isActive
+                    ? 'bg-primary text-white font-medium shadow-md shadow-indigo-500/20'
+                    : 'text-gray-600 hover:bg-gray-200/50'
+                    }`}
                 >
                   {tab.label}
                 </div>
@@ -121,8 +199,8 @@ export const HistoryPage: React.FC = () => {
 
         {/* 2. 主体：时间轴 + 卡片网格 */}
         <div className='flex-1 overflow-y-auto custom-scrollbar pr-4'>
-          {/* 🚀 如果数据被删空了，给个空状态提示 */}
-          {historyData.length === 0 ? (
+          {/* 如果数据被删空了，给个空状态提示 */}
+          {!loading && historyData.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-gray-400">
               <FileTextOutlined className="text-6xl mb-4 text-gray-200" />
               <p>暂无历史记录</p>
@@ -143,7 +221,7 @@ export const HistoryPage: React.FC = () => {
                   </div>
 
                   <div className='flex-1 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5'>
-                    {group.items.map((item) => (
+                    {group.items.map((item: any) => (
                       <div
                         key={item.id}
                         onClick={() => {
@@ -156,13 +234,13 @@ export const HistoryPage: React.FC = () => {
                       >
                         <div className='flex items-center gap-2 mb-3'>
                           <FileTextOutlined className='text-primary text-lg' />
-                          <span className='font-bold text-gray-800'>
+                          <span className='font-bold text-gray-800 line-clamp-1'>
                             {item.title}
                           </span>
                         </div>
 
                         <div className='flex-1 mb-6'>
-                          <div className='text-[13px] text-gray-800 mb-2'>
+                          <div className='text-[13px] text-gray-800 mb-2 line-clamp-1'>
                             <span className='font-bold'>内容描述：</span>
                             {item.desc}
                           </div>
@@ -179,7 +257,7 @@ export const HistoryPage: React.FC = () => {
                             className='text-gray-300 hover:text-red-500 transition-colors text-base'
                             onClick={(e) => {
                               e.stopPropagation(); // 阻止冒泡，避免触发卡片跳转
-                              showDeleteConfirm(item.id); // 🚀 4. 调用弹窗函数
+                              showDeleteConfirm(item.id);
                             }}
                           />
                         </div>
