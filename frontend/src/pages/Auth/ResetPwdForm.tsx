@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Form, Input, Button, Steps } from 'antd'
+import { Form, Input, Button, Steps, App } from 'antd'
 import {
   MobileOutlined,
   MailOutlined,
@@ -8,6 +8,8 @@ import {
 } from '@ant-design/icons'
 // 🚀 引入公共报错组件和类型
 import { FormErrorMessage, type ErrorState } from '@/components/FormErrorMessage'
+import { getVerificationCode, checkCode, changePassword } from '@/api/auth'
+import { useUserStore } from '@/store/useUserStore'
 
 interface Props {
   onSwitchMode: (
@@ -16,6 +18,8 @@ interface Props {
 }
 
 export const ResetPwdForm: React.FC<Props> = ({ onSwitchMode }) => {
+  const { message } = App.useApp()
+  const user = useUserStore((state) => state.user)
   const [currentStep, setCurrentStep] = useState(0)
 
   const [formStep0] = Form.useForm()
@@ -34,7 +38,11 @@ export const ResetPwdForm: React.FC<Props> = ({ onSwitchMode }) => {
     try {
       // 🚀 优先校验手机号字段
       await formStep0.validateFields(['phone'])
-      
+      const phone = formStep0.getFieldValue('phone')
+
+      await getVerificationCode({ mobile: phone })
+      message.success('验证码已发送')
+
       setErrorData(null)
       setCountdown(60)
       const timer = setInterval(() => {
@@ -57,19 +65,38 @@ export const ResetPwdForm: React.FC<Props> = ({ onSwitchMode }) => {
   }
 
   // 步骤 1：验证手机号提交
-  const onFinishStep0 = (values: any) => {
+  const onFinishStep0 = async (values: any) => {
     console.log('Step 0 (Phone verified):', values)
     setErrorData(null) // 成功进入下一步前清空报错
-    // TODO: 调用后端接口验证验证码是否正确，假设错误可调用 setErrorData({msg: '验证码错误', type: 'error'})
-    setCurrentStep(1)
+    try {
+      await checkCode({ mobile: values.phone, code: values.code })
+      setCurrentStep(1)
+    } catch (err: any) {
+      console.error(err)
+      const errorMsg = err.response?.data?.message || err.message || '验证码错误'
+      setErrorData({ msg: errorMsg, type: 'warning' })
+      setShakeKey(Date.now())
+    }
   }
 
   // 步骤 2：设置新密码提交
-  const onFinishStep1 = (values: any) => {
+  const onFinishStep1 = async (values: any) => {
     console.log('Step 1 (New password set):', values)
     setErrorData(null) // 成功进入下一步前清空报错
-    // TODO: 调用后端接口提交新密码
-    setCurrentStep(2)
+    try {
+      // 尝试从 Store 中提取 username，这里做了 any 强转是因为 LoginResp 类型中未显式声明 username
+      const username = (user as any)?.username || (user as any)?.account || 'test';
+      if (!username) {
+        throw new Error('未获取到您的账户信息，请确保此时存在可用的用户信息');
+      }
+      await changePassword({ username, password: values.password })
+      setCurrentStep(2)
+    } catch (err: any) {
+      console.error(err)
+      const errorMsg = err.response?.data?.message || err.message || '密码修改失败'
+      setErrorData({ msg: errorMsg, type: 'warning' })
+      setShakeKey(Date.now())
+    }
   }
 
   // 🚀 统一的失败处理函数，两个表单都可以复用
@@ -157,11 +184,10 @@ export const ResetPwdForm: React.FC<Props> = ({ onSwitchMode }) => {
               suffix={
                 <span
                   onClick={handleGetCode}
-                  className={`text-[14px] transition-colors select-none ${
-                    countdown > 0
-                      ? 'text-gray-400 cursor-not-allowed'
-                      : 'text-blue-500 hover:text-blue-600 cursor-pointer'
-                  }`}
+                  className={`text-[14px] transition-colors select-none ${countdown > 0
+                    ? 'text-gray-400 cursor-not-allowed'
+                    : 'text-blue-500 hover:text-blue-600 cursor-pointer'
+                    }`}
                 >
                   {countdown > 0 ? `${countdown}s后重发` : '获取验证码'}
                 </span>

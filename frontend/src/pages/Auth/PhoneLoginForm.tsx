@@ -6,6 +6,9 @@ import {
   ExclamationCircleOutlined,
   CloseCircleOutlined,
 } from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
+import { login } from '@/api/auth'
+import { useUserStore } from '@/store/useUserStore'
 
 // 错误提示的状态结构
 interface ErrorState {
@@ -20,6 +23,9 @@ interface Props {
 }
 
 export const PhoneLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
+  const navigate = useNavigate()
+  const setUser = useUserStore((state) => state.setUser)
+  const [loading, setLoading] = useState(false)
   const [form] = Form.useForm()
   const [countdown, setCountdown] = useState(0)
 
@@ -57,17 +63,24 @@ export const PhoneLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
     }
   }
 
-  // 模拟提交登录
-  const onFinish = (values: any) => {
-    // 【模拟接口校验】：假设验证码不正确，触发红色错误提示
-    if (values.code !== '123456') {
-      setErrorData({ msg: '验证码不正确或已过期', type: 'error' })
+  const onFinish = async (values: any) => {
+    try {
+      setLoading(true)
+      const response = await login({
+        username: values.phone,
+        password: values.code,
+        grantType: 'sms', // 短信验证码登录
+      })
+      setUser(response)
+      setErrorData(null)
+      navigate('/')
+    } catch (err) {
+      console.error(err)
+      setErrorData({ msg: '登录失败，请检查手机号或验证码', type: 'error' })
       setShakeKey(Date.now())
-      return
+    } finally {
+      setLoading(false)
     }
-
-    setErrorData(null)
-    console.log('Phone Login Success:', values)
   }
 
   // 捕获表单前端校验失败事件 (必填项没填)
@@ -157,6 +170,7 @@ export const PhoneLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
           <Button
             type='primary'
             htmlType='submit'
+            loading={loading}
             className='w-full h-12 bg-primary hover:bg-secondary border-none rounded-lg text-[16px] font-medium tracking-wide shadow-md shadow-indigo-500/20'
           >
             登录

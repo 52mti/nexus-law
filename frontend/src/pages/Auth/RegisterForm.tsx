@@ -1,12 +1,8 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Form, Input, Checkbox, Button } from 'antd'
-// 🚀 引入公共报错组件和类型
-import {
-  FormErrorMessage,
-  type ErrorState,
-} from '@/components/FormErrorMessage'
-import { getVerificationCode, register } from '@/api/auth'
+import { Form, Input, Checkbox, Button, App } from 'antd'
+import { FormErrorMessage, type ErrorState } from '@/components/FormErrorMessage'
+import { register, getVerificationCode } from '@/api/auth'
 
 interface Props {
   onSwitchMode: (
@@ -16,6 +12,7 @@ interface Props {
 
 export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
   const navigate = useNavigate()
+  const { message } = App.useApp()
   const [form] = Form.useForm()
   const [countdown, setCountdown] = useState(0)
 
@@ -31,8 +28,10 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
       // 🚀 先校验手机号字段
       await form.validateFields(['phone'])
       const phone = form.getFieldValue('phone')
+      console.log(phone)
 
-      getVerificationCode({ phone })
+      // 注意：真实接口未定义
+      getVerificationCode({ mobile: phone })
 
       // 校验通过，清空错误，开始倒计时
       setErrorData(null)
@@ -59,16 +58,22 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
   const onFinish = async (values: any) => {
     // 成功提交时清空报错
     setErrorData(null)
-    console.log('Register Form Submitted:', values)
     try {
-      const response = await register({
-        ...values,
-        verificationCode: values.code,
+      await register({
+        username: values.username,
+        nickName: values.username,
+        email: values.email,
+        password: values.password,
+        mobile: values.phone,
+        code: values.code,
       })
-      navigate('/')
-      console.log(response)
-    } catch (err) {
+      message.success('注册成功，请登录！')
+      onSwitchMode('pwd_login')
+    } catch (err: any) {
       console.error(err)
+      const errorMsg = err.response?.data?.message || err.message || '注册失败，请稍后再试'
+      setErrorData({ msg: errorMsg, type: 'warning' })
+      setShakeKey(Date.now())
     }
   }
 
@@ -170,11 +175,10 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
             suffix={
               <span
                 onClick={handleGetCode}
-                className={`text-[14px] transition-colors select-none ${
-                  countdown > 0
-                    ? 'text-gray-400 cursor-not-allowed'
-                    : 'text-blue-500 hover:text-blue-600 cursor-pointer'
-                }`}
+                className={`text-[14px] transition-colors select-none ${countdown > 0
+                  ? 'text-gray-400 cursor-not-allowed'
+                  : 'text-blue-500 hover:text-blue-600 cursor-pointer'
+                  }`}
               >
                 {countdown > 0 ? `${countdown}s后重发` : '获取验证码'}
               </span>

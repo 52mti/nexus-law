@@ -1,11 +1,11 @@
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
-import type { AuthResponse } from '@/api/auth'
+import type { LoginResp } from '@/api/auth'
 
 export interface UserState {
-  user: AuthResponse | null
+  user: LoginResp | null
   isAuthenticated: boolean
-  setUser: (user: AuthResponse | null) => void
+  setUser: (user: LoginResp | null) => void
   logout: () => void
 }
 

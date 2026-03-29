@@ -27,14 +27,17 @@ export const PasswordLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
   const [loading, setLoading] = useState<boolean>(false)
   const setUser = useUserStore((state) => state.setUser)
 
-  // 模拟登录提交
   const onFinish = async (values: formValue) => {
     try {
       setLoading(true)
       const response = await login({
-        email: values.email,
+        username: values.email, // 映射到真实的接口 username
         password: values.password,
-        rememberMe: values.remember,
+        grantType: 'password', // 默认密码授权模式
+        clientId: 'pc-web',
+        clientSecret: 'pc-web',
+        loginType: 'member_password',
+        code: '123456'
       })
       // 保存用户信息到全局store
       setUser(response)
@@ -43,6 +46,7 @@ export const PasswordLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
     } catch (err) {
       console.error(err)
       setErrorData({ msg: '登录失败，请检查邮箱和密码', type: 'error' })
+      setShakeKey(Date.now())
     } finally {
       setLoading(false)
     }

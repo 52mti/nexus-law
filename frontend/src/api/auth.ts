@@ -16,6 +16,26 @@ export interface LoginReq {
   clientId?: string;
   /** 客户端密钥 */
   clientSecret?: string;
+  /** 登录类型 (例如: slider) */
+  loginType?: string;
+  /** 验证码 */
+  code?: string;
+}
+
+/** 注册请求参数 */
+export interface RegisterReq {
+  /** 用户名 */
+  username: string;
+  /** 昵称 */
+  nickName: string;
+  /** 密码 */
+  password: string;
+  /** 邮箱 */
+  email: string;
+  /** 手机号 */
+  mobile: string;
+  /** 验证码 */
+  code: string;
 }
 
 /** 登录响应结果 */
@@ -40,12 +60,8 @@ export interface LoginResp {
 
 /** 修改密码请求参数 */
 export interface ChangePasswordReq {
-  /** 旧密码 */
-  currentPassword: string;
-  /** 新密码 */
-  newPassword: string;
-  /** 确认密码 */
-  confirmPassword: string;
+  username: string;
+  password: string;
 }
 
 /** 修改用户基本信息请求参数 */
@@ -62,9 +78,48 @@ export interface ChangeUserInfoReq {
   description?: string;
 }
 
+export interface GetVerificationCodeReq {
+  /** 手机号 */
+  mobile: string;
+}
+
+export interface CheckCodeReq {
+  /** 手机号 */
+  mobile: string;
+  /** 验证码 */
+  code: string;
+}
+
 // ==========================================
 // 2. 接口定义 (API Functions)
 // ==========================================
+
+/**
+ * 获取验证码
+ * @param data 手机号
+ * @returns 
+ */
+export const getVerificationCode = (data: GetVerificationCodeReq) => {
+  return request.post<any, void>('/member/getCode', data);
+};
+
+/**
+ * 校验验证码
+ * @param data 手机号和验证码
+ * @returns 
+ */
+export const checkCode = (data: CheckCodeReq) => {
+  return request.post<any, void>('/member/validCode', data);
+};
+
+/**
+ * 用户注册
+ * @param data 注册参数
+ * @returns 
+ */
+export const register = (data: RegisterReq) => {
+  return request.post<any, RegisterReq>('/member/register', data);
+};
 
 /**
  * 用户登录
@@ -72,22 +127,22 @@ export interface ChangeUserInfoReq {
  */
 export const login = (data: LoginReq) => {
   // 注意：根据你的拦截器 <T> 返回值推断，可以直接指定泛型或者包裹在统一的 ApiResponse 中
-  return request.post<any, LoginResp>('/token/login', data);
+  return request.post<any, LoginResp>('/member/login', data);
 };
 
 /**
  * 退出登录
  */
 export const logout = () => {
-  return request.delete<any, void>('/token/logout');
+  return request.delete<any, void>('/member/logout');
 };
 
 /**
  * 修改密码
- * @param data 密码信息
+ * @param data 用户名和密码
  */
 export const changePassword = (data: ChangePasswordReq) => {
-  return request.put<any, void>('/token/change_password', data);
+  return request.post<any, void>('/member/modifyPassword', data);
 };
 
 /**
@@ -95,7 +150,7 @@ export const changePassword = (data: ChangePasswordReq) => {
  * @param data 用户信息
  */
 export const changeInfo = (data: ChangeUserInfoReq) => {
-  return request.put<any, void>('/token/change_info', data);
+  return request.put<any, void>('/member/change_info', data);
 };
 
 /**
@@ -103,5 +158,5 @@ export const changeInfo = (data: ChangeUserInfoReq) => {
  * @param token 要强退的访问令牌
  */
 export const forceLogout = (token: string) => {
-  return request.delete<any, void>(`/token/${token}`);
+  return request.delete<any, void>(`/member/${token}`);
 };
