@@ -40,7 +40,7 @@ export const AIChatPage = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [loadingHistory, setLoadingHistory] = useState(false)
-  
+
   // 阻止发散：拦截创建新对话时被动触发的历史纪录强刷
   const isNavigatingRef = useRef(false)
 
@@ -55,7 +55,7 @@ export const AIChatPage = () => {
     try {
       const res = await getConsultationHistory(sessionId)
       console.log('====== 历史聊天记录接口返回数据 ======', res)
-      
+
       const records = res?.data?.records || []
       // 后端默认按时间倒序（最新的在最前），前端聊天流需要顺序展示（最旧的在最前）
       const historyMessages = records
@@ -143,7 +143,7 @@ export const AIChatPage = () => {
           if (newId && typeof newId === 'string') {
             currentSessionId = newId;
             activeSessionIdRef.current = newId; //及时更新全局
-            
+
             isNavigatingRef.current = true; // 拦截 useEffect 强刷
             navigate(`/chat/${currentSessionId}`, { replace: true });
           }
@@ -159,11 +159,13 @@ export const AIChatPage = () => {
       }
 
       // 3. 开始向后端大模型请求流式返回
+      const token = localStorage.getItem('token');
       await fetchEventSource(`${import.meta.env.VITE_API_BASE_URL}/api/chat/stream`, {
         method: 'POST',
         openWhenHidden: true,
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           prompt: userText,
