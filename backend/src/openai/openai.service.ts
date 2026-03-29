@@ -22,7 +22,7 @@ export class OpenaiService {
   }
 
   // 🚀 支持接收 sessionId 参数，并推送会话 ID
-  createChatStream(prompt: string, sessionId?: string): Observable<any> {
+  createChatStream(prompt: string, sessionId?: string, systemPrompt?: string): Observable<any> {
     return new Observable((subscriber) => {
       (async () => {
         try {
@@ -32,10 +32,16 @@ export class OpenaiService {
           // 2. 告诉前端当前的 Session ID
           subscriber.next({ type: 'session_id', data: currentSessionId });
 
+          const messages: any[] = [];
+          if (systemPrompt) {
+            messages.push({ role: 'system', content: systemPrompt });
+          }
+          messages.push({ role: 'user', content: prompt });
+
           // 3. 开始大模型流式调用
           const stream = await this.openai.chat.completions.create({
             model: 'deepseek-chat', // 保持我们调通的模型名称
-            messages: [{ role: 'user', content: prompt }],
+            messages: messages,
             stream: true, // 开启流式输出
           });
 
