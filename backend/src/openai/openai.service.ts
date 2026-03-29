@@ -6,7 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { Observable } from 'rxjs';
-import * as crypto from 'crypto'; // 引入 Node 原生 crypto 生成唯一 ID
+import * as crypto from 'crypto';
 
 @Injectable()
 export class OpenaiService {
@@ -21,35 +21,30 @@ export class OpenaiService {
     });
   }
 
-  // 🚀 支持接收 sessionId 参数，并推送会话 ID
-  createChatStream(prompt: string, sessionId?: string, systemPrompt?: string): Observable<any> {
+  // ==========================================
+  // 🚀 改造入参：直接接收外部组装好的 messages 数组
+  // ==========================================
+  createChatStream(messages: any[], sessionId?: string): Observable<any> {
     return new Observable((subscriber) => {
       (async () => {
         try {
-          // 1. 生成或复用 Session ID
+          // 1. 生成或复用 Session ID（前端现在会传自己生成的 UUID 过来）
           const currentSessionId = sessionId || crypto.randomUUID();
 
-          // 2. 告诉前端当前的 Session ID
+          // 2. 告诉前端当前的 Session ID（保留这个机制，作为前端的兜底保障）
           subscriber.next({ type: 'session_id', data: currentSessionId });
 
-          const messages: any[] = [];
-          if (systemPrompt) {
-            messages.push({ role: 'system', content: systemPrompt });
-          }
-          messages.push({ role: 'user', content: prompt });
-
-          // 3. 开始大模型流式调用
+          // 🚀 3. 开始大模型流式调用（直接透传 messages）
           const stream = await this.openai.chat.completions.create({
-            model: 'deepseek-chat', // 保持我们调通的模型名称
-            messages: messages,
-            stream: true, // 开启流式输出
+            model: 'deepseek-chat',
+            messages: messages, // 👈 核心变化：直接把上层拼好的包含 System 和多轮对话的数组塞进来
+            stream: true,
           });
 
           // 遍历 OpenAI 吐出来的数据块
           for await (const chunk of stream) {
             const content = chunk.choices[0]?.delta?.content || '';
             if (content) {
-              // 按照 NestJS SSE 的标准格式，把数据发射给前端
               subscriber.next({ data: content });
             }
           }
@@ -80,8 +75,8 @@ export class OpenaiService {
       this.logger.log(`正在调用大模型，设定温度: ${temperature}`);
 
       const response = await this.openai.chat.completions.create({
-        model: 'deepseek-chat', // 或根据成本考虑使用 gpt-4o-mini
-        temperature: temperature, // 🚀 法律文书需要严谨，不能让 AI 太“放飞自我”
+        model: 'deepseek-chat',
+        temperature: temperature,
         messages: [
           {
             role: 'system',
@@ -109,12 +104,11 @@ export class OpenaiService {
 
   /**
    * 生成文本向量 (Embeddings)
-   * 用于后续 RAG 的知识存取对比。通常文本相似度首选 text-embedding-ada-002
    */
   async createEmbedding(text: string): Promise<number[]> {
     try {
       const response = await this.openai.embeddings.create({
-        model: 'text-embedding-ada-002', 
+        model: 'text-embedding-ada-002',
         input: text,
       });
       return response.data[0].embedding;

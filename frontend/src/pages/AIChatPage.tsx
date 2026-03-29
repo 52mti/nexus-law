@@ -168,7 +168,10 @@ export const AIChatPage = () => {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          prompt: userText,
+          prompt: [...messages, newUserMsg].slice(-6).map(msg => ({
+            role: msg.role === 'ai' ? 'system' : 'user',
+            content: msg.content
+          })),
           sessionId: currentSessionId // 将前端确定的 ID 传给后端
         }),
 

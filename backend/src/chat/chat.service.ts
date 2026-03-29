@@ -10,25 +10,27 @@ export class ChatService {
   constructor(
     private readonly openaiService: OpenaiService,
     private readonly ragService: RagService,
-  ) {}
+  ) { }
 
-  // 🚀 核心魔法：返回一个可以持续发射数据的 Observable
-  streamChat(prompt: string, sessionId?: string): Observable<any> {
+  // 🚀 1. 入参改造：接收前端传来的 messages 数组
+  streamChat(messages: any[], sessionId?: string): Observable<any> {
     return new Observable((subscriber) => {
       (async () => {
         try {
+          // 🚀 2. 提取用户最新的提问，用于 RAG 检索
+          // 假设前端传来的格式是 [{role: 'user', content: '你好'}, {role: 'ai', content: '你好啊'}, {role: 'user', content: '离婚怎么分财产'}]
+          const latestPrompt = messages[messages.length - 1]?.content || '';
+
           // ================================
-          // 1. RAG 检索阶段 (寻找最相关的法条或案件)
+          // 1. RAG 检索阶段 (拿着最新的一句话去搜法条)
           // ================================
-          const references = await this.ragService.searchContext(prompt, 3);
-          
-          // 如果找到了相关参考资料，我们先给前端发一条特殊事件 `references` 通知 UI 准备渲染引用卡片
+          const references = await this.ragService.searchContext(latestPrompt, 3);
+
           if (references && references.length > 0) {
             const referenceMetadata = references.map(ref => ref.metadata || {});
             subscriber.next({ type: 'references', data: referenceMetadata });
           }
 
-          // 构建额外的上下文文本
           let contextAddon = '';
           if (references && references.length > 0) {
             const contextText = references.map((r, i) => `【参考知识 ${i + 1}】:\n${r.content}`).join('\n\n');
@@ -56,10 +58,19 @@ ${contextText}
 4. 【边界防御】遇与法律完全无关的话题，极简拒绝：“抱歉，本顾问仅处理法律咨询事务。”${contextAddon}`;
 
           // ================================
-          // 3. 转接流式处理
+          // 🚀 3. 拼接终极剧本 (System + 前端传来的对话记录)
           // ================================
-          const chatStream$ = this.openaiService.createChatStream(prompt, sessionId, aiSystemRole);
-          
+          const finalMessages = [
+            { role: 'system', content: aiSystemRole },
+            ...messages // 展开前端传来的上下文
+          ];
+
+          // ================================
+          // 4. 转接流式处理
+          // ================================
+          // 🚀 注意这里：把拼接好的 finalMessages 数组发给底层的 OpenAI Service
+          const chatStream$ = this.openaiService.createChatStream(finalMessages, sessionId);
+
           chatStream$.subscribe({
             next: (val) => subscriber.next(val),
             error: (err) => subscriber.error(err),

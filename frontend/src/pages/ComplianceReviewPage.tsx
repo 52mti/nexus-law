@@ -12,13 +12,15 @@ import { useReactToPrint } from 'react-to-print'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-// 🚀 1. 引入刚刚创建的真实 API
+// 🚀 1. 引入文件上传和合规审查的 API
+import { upload } from '@/api/file'
+import { saveOrUpdateComplianceReviewSession } from '@/api/saveOrUpdate'
 import { analyzeComplianceApi } from '@/api/compliance'
 
 const contractReviewSchema: SidebarSchema = {
   title: '合规审查',
   submitText: '开始审查',
-  hasSceneSwitch: false, // 纯表单页，没列表
+  hasSceneSwitch: false,
   categories: [
     {
       id: 'contract_review',
@@ -47,7 +49,6 @@ const contractReviewSchema: SidebarSchema = {
   ],
 }
 
-// 💡 建议页面组件改名为 ComplianceReviewPage 以符合语义
 export const ComplianceReviewPage = () => {
   const { message } = App.useApp()
   const { id } = useParams<{ id: string }>()
@@ -68,7 +69,6 @@ export const ComplianceReviewPage = () => {
     }
   }, [id])
 
-  // 历史记录逻辑暂留
   const fetchHistoryData = async (documentId: string) => {
     setLoading(true)
     try {
@@ -93,42 +93,81 @@ export const ComplianceReviewPage = () => {
     }
   }
 
-  // 🚀 2. 重构提交表单逻辑
+  // ==========================================
+  // 🚀 2. 重构核心逻辑：先上传 OSS，再调合规接口
+  // ==========================================
   const handleSubmit = async (values: any) => {
     try {
       setLoading(true)
-      
+
       const formData = new FormData()
 
-      // 提取文件并组装 (对应后端的 FilesInterceptor('files'))
-      if (values.contractFile && values.contractFile.length > 0) {
-        values.contractFile.forEach((fileItem: any) => {
-          const actualFile = fileItem.originFileObj || fileItem
-          formData.append('files', actualFile)
-        })
-      } else {
+      // 第一步验证必填项
+      if (!values.contractFile || values.contractFile.length === 0) {
         message.warning('请先上传至少一份合同或协议资料')
         setLoading(false)
         return
       }
-
-      // 提取审查角度 (对应后端的 AnalyzeComplianceDto)
-      if (values.reviewAngle) {
-        formData.append('reviewAngle', values.reviewAngle)
-      } else {
+      if (!values.reviewAngle) {
         message.warning('请选择审查角度')
         setLoading(false)
         return
       }
+      values.contractFile.forEach((fileItem: any) => {
+        const actualFile = fileItem.originFileObj || fileItem
+        formData.append('files', actualFile)
+      })
+      formData.append('reviewAngle', values.reviewAngle)
 
-      // 🚀 发起真实请求
+      // ------------------------------------------
+      // 🚀 步骤 A: 遍历并调用 upload 接口上传文件
+      // ------------------------------------------
+      const uploadedFileUrls: string[] = [] // 用于存放上传成功后的文件链接 (或者 ID)
+
+      // 使用 for...of 保证按顺序 await 上传
+      for (const fileItem of values.contractFile) {
+        const actualFile = fileItem.originFileObj || fileItem
+
+        // 调用刚刚改写好的 upload 接口
+        const uploadRes = await upload(actualFile, 'file')
+
+        if (uploadRes.successful && uploadRes.data) {
+          // 💡 这里取 URL 还是 ID，取决于你后端合规接口想要什么。通常传 URL 或 ID 过去即可。
+          uploadedFileUrls.push(uploadRes.data.url!)
+        } else {
+          message.destroy('uploading')
+          message.error(`文件 ${actualFile.name} 上传失败`)
+          setLoading(false)
+          return // 只要有一个文件上传失败，就立刻阻断流程
+        }
+      }
+
+      message.success({ content: '文件上传成功，正在呼叫 AI 进行深度审查...', key: 'uploading' })
+
+      // 发起真实请求
       const res = await analyzeComplianceApi(formData)
 
-      if (res.code === 0) {
+      if (res.code === 200 || res.code === 0) {
         setDocData({
           title: '法律合规审查报告',
-          markdownContent: res.data, 
+          markdownContent: res.data,
         })
+
+        // ------------------------------------------
+        // 🚀 步骤 C: 保存本次审查的结果、文件和角度
+        // ------------------------------------------
+        try {
+          await saveOrUpdateComplianceReviewSession({
+            reviewAngle: values.reviewAngle, // 审查角度
+            fileUrls: uploadedFileUrls,      // 上传的源文件地址(或ID)数组
+            content: res.data                // AI生成的Markdown审查报告
+            // 如果接口还需要其他的标识（如 consultationId），你可以在这里一并传入
+          })
+        } catch (saveErr) {
+          console.error('保存审查历史记录失败:', saveErr)
+          // 仅打印日志，不阻断页面正常渲染，你也可以按需 message.warning 提示用户
+        }
+
         message.success('合规审查完毕，已扣除 2 积分')
       } else {
         message.error(res.message || '审查失败')
@@ -136,6 +175,7 @@ export const ComplianceReviewPage = () => {
 
     } catch (error) {
       console.error('合规审查请求异常:', error)
+      message.destroy('uploading') // 兜底清理提示框
     } finally {
       setLoading(false)
     }
@@ -168,7 +208,6 @@ export const ComplianceReviewPage = () => {
       </PortalSidebar>
 
       <div className='flex-1 overflow-y-auto p-8 flex flex-col items-center relative'>
-        
         {loading && (
           <div className='flex flex-col h-full items-center justify-center text-center animate-fade-in'>
             <div className='mb-6'>

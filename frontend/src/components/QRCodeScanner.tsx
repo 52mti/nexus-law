@@ -3,11 +3,11 @@ import React from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 // 2. 移除了 AntD 的支付宝和微信图标，改为引入 Chapa 的 Icon (或你可以用文字代替)
 // 这里假设你项目里有 Chapa 的 Logo 图片，如果没有，我下面提供了文字版本的备选方案
-import chapaLogo from '@/assets/chapa-logo.png'; 
+import chapaLogo from '@/assets/chapa-logo.png';
 
 interface ChapaQRCodeScannerProps {
   /** Chapa 返回的真实的支付页面地址 (checkout_url) */
-  checkoutUrl?: string; 
+  checkoutUrl?: string;
   /** 可选：订单总额，展示在二维码下方增强体验 */
   amount?: number | string;
   /** 可选：货币符号，默认为 ETB */
@@ -16,13 +16,13 @@ interface ChapaQRCodeScannerProps {
   loading?: boolean;
 }
 
-export const QRCodeScanner: React.FC<ChapaQRCodeScannerProps> = ({ 
-  checkoutUrl, 
-  amount, 
+export const QRCodeScanner: React.FC<ChapaQRCodeScannerProps> = ({
+  checkoutUrl,
+  amount,
   currency = 'ETB',
   loading = false
 }) => {
-  
+
   // 3. 定义一个占位链接，用于没有传入真实的 url 时展示原型
   const placeholderUrl = "https://chapa.co";
 
@@ -30,13 +30,13 @@ export const QRCodeScanner: React.FC<ChapaQRCodeScannerProps> = ({
     <div className="flex flex-col items-center">
       {/* 1. 二维码容器 (保持了原有的扫描线动画和样式) */}
       <div className="relative w-50 h-50 border border-gray-100 rounded-xl p-3 mb-3 shadow-sm overflow-hidden bg-white flex items-center justify-center">
-        
+
         {loading ? (
           // 4. 新增：加载状态展示
           <div className="text-gray-400 text-xs animate-pulse">正在生成支付二维码...</div>
         ) : (
           // 5. 黑科技：替换 <img> 为真实的二维码生成组件
-          <QRCodeSVG 
+          <QRCodeSVG
             value={checkoutUrl || placeholderUrl} // 真实的 URL
             size={176} // 适配 w-50 (200px) 扣除 p-3*2 后的尺寸
             level={"H"} // 高容错率，保证复杂环境下也能扫出
@@ -52,7 +52,7 @@ export const QRCodeScanner: React.FC<ChapaQRCodeScannerProps> = ({
             }}
           />
         )}
-        
+
         {/* 🚀 黑科技：保持高亮扫描线动画 */}
         {!loading && checkoutUrl && (
           <div className="absolute left-0 right-0 h-0.5 bg-primary shadow-[0_0_12px_3px_rgba(102,108,255,0.4)] animate-scan-line" />

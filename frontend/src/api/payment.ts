@@ -47,3 +47,7 @@ export const checkPaymentStatus = (txRef: string): Promise<PaymentStatusResponse
   // 通常查单使用 GET 请求，将订单号拼在 URL 后面
   return request.get(`/api/payment/chapa/status/${txRef}`)
 }
+
+export const issueOrder = (data: { id: string }) => {
+  return request.post('/order/add', data)
+}

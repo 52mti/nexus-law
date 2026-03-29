@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { App, Button } from 'antd'
 import {
   CopyOutlined,
@@ -12,14 +12,15 @@ import { useReactToPrint } from 'react-to-print'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-// 🚀 1. 引入我们刚刚定义好的真实 API 函数
-import { searchRegulationApi } from '@/api/regulation'
+// 🚀 1. 引入定义好的 API 函数
+import { searchRegulationApi, fetchDocType } from '@/api/regulation'
 
-const docSchema: SidebarSchema = {
+// 🚀 2. 剥离出静态的基础配置（把 options 置空，等待动态注入）
+const baseDocSchema: SidebarSchema = {
   title: '条文检索',
   submitText: '开始检索',
-  submitHint: '(消耗1点积分)', 
-  hasSceneSwitch: false, 
+  submitHint: '(消耗1点积分)',
+  hasSceneSwitch: false,
   categories: [
     {
       id: 'legal_search',
@@ -30,25 +31,18 @@ const docSchema: SidebarSchema = {
           label: '条文类型',
           type: 'select',
           placeholder: '请选择相关法律门类',
-          options: [
-            { label: '民法典', value: '1' },
-            { label: '劳动法/劳动合同法', value: '2' },
-            { label: '刑法', value: '3' },
-            { label: '公司法', value: '4' },
-            { label: '行政诉讼法', value: '5' },
-            { label: '不限/综合匹配', value: '' },
-          ],
+          options: [], // 这里置空，稍后由组件内部动态填充
         },
-        { 
-          name: 'partyA', 
-          label: '条款编号', 
+        {
+          name: 'partyA',
+          label: '条款编号',
           type: 'input',
           placeholder: '例如：第一千零四十二条',
         },
-        { 
-          name: 'partyB', 
-          label: '案情或关键词描述', 
-          type: 'textarea', 
+        {
+          name: 'partyB',
+          label: '案情或关键词描述',
+          type: 'textarea',
           maxLength: 300,
           placeholder: '请输入您遇到的具体案情，或直接输入法律概念（如：彩礼返还、竞业限制、抽逃出资）',
           required: true,
@@ -62,6 +56,12 @@ export const LegalSearchPage = () => {
   const { message } = App.useApp()
   const { id } = useParams<{ id: string }>()
   const [loading, setLoading] = useState(Boolean(id))
+
+  // 🚀 3. 新增状态：存放动态获取的法律下拉选项
+  const [docTypeOptions, setDocTypeOptions] = useState<{ label: string; value: string }[]>([
+    { label: '数据加载中...', value: '' } // 默认占位符
+  ])
+
   const [docData, setDocData] = useState<{
     title: string
     markdownContent: string
@@ -69,6 +69,44 @@ export const LegalSearchPage = () => {
   const [historyFormValues, setHistoryFormValues] = useState<any>(null)
   const paperRef = useRef<HTMLDivElement>(null)
 
+  // 🚀 4. 组件挂载时，请求法律门类接口
+  useEffect(() => {
+    const loadOptions = async () => {
+      try {
+        const res = await fetchDocType();
+        if (res.successful && res.data?.records) {
+          // 将后端的 records 映射成前端需要的 { label, value } 格式
+          const options = res.data.records.map(record => ({
+            label: record.name,
+            // 💡 神级优化：直接拿 name 当 value，这样表单 submit 时直接就是中文，无需再做 Map 映射！
+            value: record.name
+          }));
+          setDocTypeOptions(options);
+        }
+      } catch (err) {
+        console.error('获取条文类型失败:', err);
+        message.error('无法加载法律分类数据');
+      }
+    };
+
+    loadOptions();
+  }, [message]);
+
+  // 🚀 5. 使用 useMemo 动态拼装最终的 Sidebar Schema
+  const dynamicSchema = useMemo(() => {
+    return {
+      ...baseDocSchema,
+      categories: baseDocSchema.categories.map(cat => ({
+        ...cat,
+        formFields: cat.formFields.map(field =>
+          // 找到 docType 这个字段，把刚刚请求回来的 options 塞进去
+          field.name === 'docType' ? { ...field, options: docTypeOptions } : field
+        )
+      }))
+    };
+  }, [docTypeOptions]);
+
+  // 页面初始化 & 历史记录拉取
   useEffect(() => {
     if (id) {
       fetchHistoryData(id)
@@ -78,14 +116,14 @@ export const LegalSearchPage = () => {
     }
   }, [id])
 
-  // 这里保留历史记录的 Mock，后面你做历史记录接口时再替换
   const fetchHistoryData = async (documentId: string) => {
     setLoading(true)
     try {
       setTimeout(() => {
         const mockResponse = {
           formValues: {
-            docType: '1',
+            // 注意：因为 value 变成了中文，历史记录的回显这里也应该是中文
+            docType: '民法典',
             partyA: '',
             partyB: '结婚后彩礼要怎么退还？',
           },
@@ -104,55 +142,46 @@ export const LegalSearchPage = () => {
     }
   }
 
-  // 🚀 2. 重构提交表单：对接真实后端
+  // 🚀 6. 极简版 Submit，无需再维护 lawMap
   const handleSubmit = async (values: any) => {
     try {
       setLoading(true)
-      
-      // 提取表单数据并映射成后端需要的 lawType 字符串
-      const lawMap: Record<string, string> = { 
-        '1': '民法典', 
-        '2': '劳动法', // 配合后端的提示词，简化为标准法律名称
-        '3': '刑法', 
-        '4': '公司法', 
-        '5': '行政诉讼法', 
-        '': '不限' 
+
+      // 因为我们把 value 直接设置成了 record.name，所以 values.docType 拿到的直接是 "公司法"、"不限/综合匹配" 等
+      let lawTypeStr = values.docType || '不限'
+
+      // 稍微处理一下后端的特殊名称兜底
+      if (lawTypeStr === '不限/综合匹配' || lawTypeStr === 'ANY') {
+        lawTypeStr = '不限'
       }
-      
-      const lawTypeStr = lawMap[values.docType] || '不限'
+
       const articleNumberStr = values.partyA || undefined
       const keywordStr = values.partyB
 
-      // 🚀 发起真实的 API 请求
+      // 发起真实的 API 请求
       const res = await searchRegulationApi({
         lawType: lawTypeStr,
         articleNumber: articleNumberStr,
         keyword: keywordStr,
       })
 
-      // 根据你的拦截器，如果 HTTP 状态码不是 2xx 会抛出错误走 catch
-      // 如果正常返回，拦截器直接抛出 response.data，所以这里可以直接取 res.code
-      if (res.code === 0) {
+      if (res.code === 200 || res.code === 0) {
         setDocData({
           title: '法条检索与AI适用解析报告',
-          markdownContent: res.data, // 🚀 后端生成的 Markdown 正文就在这里
+          markdownContent: res.data,
         })
         message.success('法条检索完毕，已扣除 1 积分')
       } else {
-        // 处理业务级报错 (如积分不足等，通常由拦截器或这里统一提示)
         message.error(res.message || '检索失败')
       }
 
     } catch (error) {
-      // 网络级别的报错（401, 500 等）已经被 globalMessage 拦截并提示了
-      // 这里只需要把 loading 关掉即可，不需要额外弹窗
       console.error('检索请求异常:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  // 复制内容功能
   const handleCopy = () => {
     if (!paperRef.current) return
     const textToCopy = paperRef.current.innerText
@@ -162,7 +191,6 @@ export const LegalSearchPage = () => {
       .catch(() => message.error('复制失败，请手动选择复制'))
   }
 
-  // 导出 PDF 功能
   const handleDownloadPDF = useReactToPrint({
     contentRef: paperRef,
     documentTitle: docData?.title || '法条检索报告',
@@ -173,7 +201,7 @@ export const LegalSearchPage = () => {
     <div className='flex h-full bg-gray-50'>
       <PortalSidebar>
         <SmartSidebar
-          schema={docSchema}
+          schema={dynamicSchema} // 🚀 传入动态生成的 schema
           onSubmit={handleSubmit}
           isLoading={loading}
           initialValues={historyFormValues}
@@ -181,7 +209,6 @@ export const LegalSearchPage = () => {
       </PortalSidebar>
 
       <div className='flex-1 overflow-y-auto p-8 flex flex-col items-center relative'>
-        
         {loading && (
           <div className='flex flex-col h-full items-center justify-center text-center animate-fade-in'>
             <div className='mb-6'>
