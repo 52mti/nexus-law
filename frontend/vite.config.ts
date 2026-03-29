@@ -19,11 +19,16 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      // 代理 /api 开头的请求到后端服务
-      '/auth': {
-        target: 'http://localhost:3000', // 后端服务地址，根据需要修改端口
+      '/agent/api': {
+        target: 'http://localhost:3000',
         changeOrigin: true,
-        // rewrite: (path) => path.replace(/^\/api/, '/api'), // 保持路径不变，如需修改可调整
+        rewrite(path) {
+          return path.replace('/agent/api', '/api')
+        },
+      },
+      '/agent': {
+        target: 'https://api.sh-zktx.com',
+        changeOrigin: true,
       },
     },
   },

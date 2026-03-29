@@ -106,4 +106,21 @@ export class OpenaiService {
       throw new InternalServerErrorException('AI 引擎暂时开小差了，请稍后再试');
     }
   }
+
+  /**
+   * 生成文本向量 (Embeddings)
+   * 用于后续 RAG 的知识存取对比。通常文本相似度首选 text-embedding-ada-002
+   */
+  async createEmbedding(text: string): Promise<number[]> {
+    try {
+      const response = await this.openai.embeddings.create({
+        model: 'text-embedding-ada-002', 
+        input: text,
+      });
+      return response.data[0].embedding;
+    } catch (error) {
+      this.logger.error('获取文本向量失败', error);
+      throw new InternalServerErrorException('向量化文本失败，请检查模型名称和配置是否正确支持。');
+    }
+  }
 }

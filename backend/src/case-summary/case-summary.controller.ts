@@ -18,7 +18,7 @@ export class CaseSummaryController {
   // 🚀 核心：使用 FilesInterceptor 接收名为 'files' 的文件数组，最大限制 10 个文件
   @UseInterceptors(FilesInterceptor('files', 10))
   async analyze(
-    @UploadedFiles() files: Array<MulterFile>,
+    @UploadedFiles() files: Array<Express.Multer.File>,
     @Body() dto: SummarizeCaseDto,
   ) {
     if (!files || files.length === 0) {

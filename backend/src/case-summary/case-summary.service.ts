@@ -12,7 +12,7 @@ export class CaseSummaryService {
 
   constructor(private readonly openaiService: OpenaiService) {}
 
-  async summarize(files: Array<MulterFile>, dto: SummarizeCaseDto) {
+  async summarize(files: Array<Express.Multer.File>, dto: SummarizeCaseDto) {
     // 1. 📂 核心逻辑：遍历解析所有文件，将内容拼接起来
     let combinedCaseContent = '';
 
@@ -50,7 +50,7 @@ export class CaseSummaryService {
   /**
    * 🛠️ 核心升级：支持 PDF、Word(docx)、TXT 真实解析
    */
-  private async extractTextFromFile(file: MulterFile): Promise<string> {
+  private async extractTextFromFile(file: Express.Multer.File): Promise<string> {
     const extension = file.originalname.split('.').pop()?.toLowerCase() || '';
 
     try {

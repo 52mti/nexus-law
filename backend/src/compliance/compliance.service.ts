@@ -6,23 +6,13 @@ import { AnalyzeComplianceDto } from './dto/analyze-compliance.dto';
 import { PDFParse } from 'pdf-parse';
 import * as mammoth from 'mammoth';
 
-// 🚀 保持纯净：继续沿用我们自己定义的类型，防 ESLint 报错
-export interface MulterFile {
-  fieldname: string;
-  originalname: string;
-  encoding: string;
-  mimetype: string;
-  size: number;
-  buffer: Buffer;
-}
-
 @Injectable()
 export class ComplianceService {
   private readonly logger = new Logger(ComplianceService.name);
 
-  constructor(private readonly openaiService: OpenaiService) {}
+  constructor(private readonly openaiService: OpenaiService) { }
 
-  async analyze(files: Array<MulterFile>, dto: AnalyzeComplianceDto) {
+  async analyze(files: Array<Express.Multer.File>, dto: AnalyzeComplianceDto) {
     // 1. 📂 提取所有文件内容
     let combinedContent = '';
     for (const file of files) {
@@ -65,7 +55,7 @@ export class ComplianceService {
   /**
    * 🛠️ 直接复用我们完美打磨过的多文件解析方法
    */
-  private async extractTextFromFile(file: MulterFile): Promise<string> {
+  private async extractTextFromFile(file: Express.Multer.File): Promise<string> {
     const extension = file.originalname.split('.').pop()?.toLowerCase() || '';
 
     try {

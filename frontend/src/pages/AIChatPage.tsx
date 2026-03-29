@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import { useParams, useNavigate } from 'react-router-dom'
+import { saveOrUpdateConsultation, saveOrUpdateConsultationSession, getConsultationHistory } from '@/api/chat'
 
 const { Content } = Layout
 
@@ -23,43 +24,72 @@ interface ChatMessage {
 
 export const AIChatPage = () => {
   const { message } = App.useApp()
-  // 获取 URL 路由参数
-  const { sessionId } = useParams<{ sessionId: string }>()
+  // 获取 URL 路由参数（注意：App.tsx 里定义的是 path='chat/:id?'，因此必须取 id）
+  const { id } = useParams<{ id: string }>()
+  const sessionId = id;
   const navigate = useNavigate()
+
+  // 由于流式请求和保存接口使用了 history.replaceState 静默更新URL，
+  // 导致 useParams 无法感知最新 sessionId，因此使用 useRef 保存实际的 activeSessionId
+  const activeSessionIdRef = useRef<string | undefined>(sessionId)
+  useEffect(() => {
+    activeSessionIdRef.current = sessionId
+  }, [sessionId])
 
   const [inputValue, setInputValue] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [loadingHistory, setLoadingHistory] = useState(false)
   
-  const chatContainerRef = useRef<HTMLDivElement>(null)
-  const isEmpty = messages.length === 0
+  // 阻止发散：拦截创建新对话时被动触发的历史纪录强刷
+  const isNavigatingRef = useRef(false)
 
-  // 模拟请求历史记录
+  const chatContainerRef = useRef<HTMLDivElement>(null)
+  // 如果路径上有 sessionId，说明是已有对话哪怕此时刚刷新还没拿到数据，也不应该展示首次中间居中的 UI
+  const isEmpty = messages.length === 0 && !sessionId
+
+  // 请求真实历史记录（仅打印不渲染）
   const loadChatHistory = useCallback(async (sessionId: string) => {
+    console.log('🚗 开始请求历史记录, sessionId:', sessionId)
     setLoadingHistory(true)
     try {
-      // TODO: 这里未来换成你真实的后端 Axios 请求
-      await new Promise(resolve => setTimeout(resolve, 500)) 
-      setMessages([
-        { id: '1', role: 'user', content: '之前问过的一个问题' },
-        { id: '2', role: 'ai', content: '这是之前 AI 的历史回复。' }
-      ])
+      const res = await getConsultationHistory(sessionId)
+      console.log('====== 历史聊天记录接口返回数据 ======', res)
+      
+      const records = res?.data?.records || []
+      // 后端默认按时间倒序（最新的在最前），前端聊天流需要顺序展示（最旧的在最前）
+      const historyMessages = records
+        .map((item: any) => ({
+          id: item.id || Date.now().toString() + Math.random(),
+          role: item.type === 0 ? 'user' : 'ai',
+          content: item.content || ''
+        }))
+        .reverse()
+
+      setMessages(historyMessages)
     } catch (error) {
       console.error(error)
       message.error('拉取历史记录失败')
-      navigate('/chat', { replace: true })
     } finally {
       setLoadingHistory(false)
     }
-  }, [navigate])
+  }, [])
 
   // 监听路由变化，加载历史记录
   useEffect(() => {
+    console.log('🧐 useEffect 侦测到路由变动, 当前的 sessionId =', sessionId);
     if (!sessionId) {
       setMessages([])
       return
     }
+
+    // ⭐ 核心修复：如果是自己在聊天组件内部发起的 navigate（比如首句话产生新 ID），我们必须拦截这里的强刷，否则它会把正在流式输出的气泡给覆盖掉！
+    if (isNavigatingRef.current) {
+      console.log('拦截一次历史记录拉取（因为是自己产生的 sessionId）');
+      isNavigatingRef.current = false; // 消费掉标记
+      return;
+    }
+
     loadChatHistory(sessionId)
   }, [sessionId, loadChatHistory])
 
@@ -74,6 +104,7 @@ export const AIChatPage = () => {
   const handleNewChat = () => {
     setMessages([])
     setIsStreaming(false)
+    activeSessionIdRef.current = undefined // 清空当前会话ID引用
     navigate('/chat') // 清空路由参数，回到纯净状态
   }
 
@@ -101,48 +132,86 @@ export const AIChatPage = () => {
     setIsStreaming(true)
 
     try {
-      await fetchEventSource('/api/chat/stream', {
+      let currentSessionId = activeSessionIdRef.current;
+      let aiFullResponse = '';
+
+      try {
+        // 1. 如果是完全新的对话，首先利用第一个问题创建主咨询单
+        if (!currentSessionId) {
+          const res = await saveOrUpdateConsultation({ content: userText });
+          const newId = res?.data?.id || res?.data?.consultationId || res?.id || res?.consultationId;
+          if (newId && typeof newId === 'string') {
+            currentSessionId = newId;
+            activeSessionIdRef.current = newId; //及时更新全局
+            
+            isNavigatingRef.current = true; // 拦截 useEffect 强刷
+            navigate(`/chat/${currentSessionId}`, { replace: true });
+          }
+        }
+
+        // 2. 无论是否第一次，都将当前用户的提问作为 session 的一部分存储（type 0 为用户）
+        if (currentSessionId) {
+          await saveOrUpdateConsultationSession({ consultationId: currentSessionId, content: userText, type: 0 });
+        }
+      } catch (err) {
+        console.error('保存对话记录失败', err);
+        message.warning('无法同步您的对话到历史记录');
+      }
+
+      // 3. 开始向后端大模型请求流式返回
+      await fetchEventSource(`${import.meta.env.VITE_API_BASE_URL}/api/chat/stream`, {
         method: 'POST',
         openWhenHidden: true,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           prompt: userText,
-          sessionId: sessionId || null // 把当前的 sessionId 传给后端
+          sessionId: currentSessionId || null // 把当前的 sessionId 传给后端
         }),
-        
+
         onmessage(ev) {
-          // 🚀 拦截后端发来的 sessionId 事件
+          // 拦截后端发来的 sessionId（如果有必要同步）
           if (ev.event === 'session_id') {
-            const newSessionId = ev.data
-            window.history.replaceState(null, '', `/chat/${newSessionId}`)
-            return 
+            const newSessionId = ev.data;
+            if (!activeSessionIdRef.current) {
+              activeSessionIdRef.current = newSessionId;
+              isNavigatingRef.current = true; // 拦截 useEffect 强刷
+              navigate(`/chat/${newSessionId}`, { replace: true });
+            }
+            return;
           }
 
           // 正常文本流处理
-          const content = ev.data; 
+          const content = ev.data;
           if (!content) return;
 
-          setMessages((prev) => 
+          const parsedContent = content.replace(/\\n/g, '\n');
+          aiFullResponse += parsedContent; // 实时累积 AI 发出的话
+
+          setMessages((prev) =>
             prev.map((msg) => {
               if (msg.id === aiMsgId) {
-                const parsedContent = content.replace(/\\n/g, '\n')
                 return { ...msg, content: msg.content + parsedContent };
               }
               return msg;
             })
           );
         },
-        
+
         onclose() {
+          // 4. 流正常结束时，保存 AI 的一次性完整回复（type 1 为 AI）
+          if (currentSessionId && aiFullResponse.trim()) {
+            saveOrUpdateConsultationSession({ consultationId: currentSessionId, content: aiFullResponse, type: 1 })
+              .catch(err => console.error('保存 AI 回复记录失败', err));
+          }
           setIsStreaming(false);
           throw new Error('STOP_RETRY');
         },
-        
+
         onerror(err) {
           if (err.message === 'STOP_RETRY') {
-             return; // 拦截我们自定义的正常结束信号，不做错误处理
+            throw err;
           }
           console.error('流式输出中断:', err);
           message.error('网络连接异常，AI 回复中断');
@@ -207,16 +276,16 @@ export const AIChatPage = () => {
                       <div className='text-gray-700 leading-relaxed whitespace-pre-wrap text-[15px]'>
                         {msg.content}
                         {isStreaming && msg.content === '' && (
-                           <span className="inline-block w-2 h-4 bg-gray-400 animate-pulse ml-1" />
+                          <span className="inline-block w-2 h-4 bg-gray-400 animate-pulse ml-1" />
                         )}
                       </div>
                       <div className='flex items-center gap-4 mt-6 text-gray-400'>
                         {!isStreaming && (
                           <>
                             <span className='flex items-center gap-1.5 cursor-pointer hover:text-primary transition-colors text-sm'>
-                              <SyncOutlined  onClick={handleResend} /> 重新生成
+                              <SyncOutlined onClick={handleResend} /> 重新生成
                             </span>
-                            <span 
+                            <span
                               className='flex items-center gap-1.5 cursor-pointer hover:text-primary transition-colors text-sm'
                               onClick={() => handleCopy(msg.content)}
                             >
@@ -245,9 +314,8 @@ export const AIChatPage = () => {
 
       {/* ================= 2. 输入与核心控制区域 ================= */}
       <div
-        className={`w-full px-8 transition-all duration-500 flex flex-col ${
-          isEmpty ? 'flex-1 items-center justify-center pb-30' : 'shrink-0 pt-2 pb-6'
-        }`}
+        className={`w-full px-8 transition-all duration-500 flex flex-col ${isEmpty ? 'flex-1 items-center justify-center pb-30' : 'shrink-0 pt-2 pb-6'
+          }`}
       >
         <div className='w-full max-w-4xl mx-auto relative'>
           {isEmpty && (
@@ -264,7 +332,7 @@ export const AIChatPage = () => {
               <Button
                 shape='round'
                 icon={<PlusOutlined />}
-                disabled={isStreaming} 
+                disabled={isStreaming}
                 className='bg-white/60 border-gray-200 text-gray-600 hover:bg-white transition-all shadow-sm'
                 onClick={handleNewChat}
               >
@@ -274,16 +342,15 @@ export const AIChatPage = () => {
           )}
 
           <div
-            className={`relative bg-white rounded-2xl transition-all duration-300 shadow-sm ${
-              isEmpty
-                ? 'border border-primary h-40'
-                : 'border border-transparent focus-within:border-primary h-32'
-            } ${isStreaming ? 'opacity-70' : ''}`} 
+            className={`relative bg-white rounded-2xl transition-all duration-300 shadow-sm ${isEmpty
+              ? 'border border-primary h-40'
+              : 'border border-transparent focus-within:border-primary h-32'
+              } ${isStreaming ? 'opacity-70' : ''}`}
           >
             <textarea
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              disabled={isStreaming} 
+              disabled={isStreaming}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
@@ -297,23 +364,21 @@ export const AIChatPage = () => {
             />
 
             <div className='absolute bottom-3 right-3 flex items-center gap-4'>
-              <AudioOutlined 
-                className={`text-2xl transition-colors ${
-                  isStreaming ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 cursor-pointer hover:text-primary'
-                }`} 
+              <AudioOutlined
+                className={`text-2xl transition-colors ${isStreaming ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 cursor-pointer hover:text-primary'
+                  }`}
               />
               <div
                 onClick={handleSend}
-                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-                  inputValue.trim() && !isStreaming
-                    ? 'bg-primary shadow-md shadow-indigo-500/30 hover:bg-secondary'
-                    : 'bg-indigo-400 cursor-not-allowed'
-                }`}
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${inputValue.trim() && !isStreaming
+                  ? 'bg-primary shadow-md shadow-indigo-500/30 hover:bg-secondary'
+                  : 'bg-indigo-400 cursor-not-allowed'
+                  }`}
               >
                 {isStreaming ? (
-                   <SyncOutlined spin className='text-white scale-125' />
+                  <SyncOutlined spin className='text-white scale-125' />
                 ) : (
-                   <SendOutlined className='text-white text-lg ml-0.5' />
+                  <SendOutlined className='text-white text-lg ml-0.5' />
                 )}
               </div>
             </div>
