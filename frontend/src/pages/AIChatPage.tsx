@@ -174,7 +174,7 @@ export const AIChatPage = () => {
         },
         body: JSON.stringify({
           prompt: [...messages, newUserMsg].slice(-6).map(msg => ({
-            role: msg.role === 'ai' ? 'system' : 'user',
+            role: msg.role === 'ai' ? 'assistant' : 'user',
             content: msg.content
           })),
           sessionId: currentSessionId // 将前端确定的 ID 传给后端
