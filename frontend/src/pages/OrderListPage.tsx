@@ -97,16 +97,27 @@ const mapOrderStatus = (backendStatus: string): OrderStatus => {
 }
 
 // ==========================================
+// 🚀 核心转换函数：后端订单类目 -> 前端 UI 文本
+// ==========================================
+const mapOrderCategory = (category: string): string => {
+  switch (category) {
+    case 'POINTS': return '购买积分'
+    case 'MEMBER': return '购买高级会员'
+    default: return '购买服务' // 兜底防抖，防止后端增加新类型前端显示空白
+  }
+}
+
+// ==========================================
 // 3. 主页面组件
 // ==========================================
 export const OrderListPage: React.FC = () => {
   const { message } = App.useApp()
 
-  // 🚀 状态管理
+  // 状态管理
   const [loading, setLoading] = useState(false)
   const [orders, setOrders] = useState<OrderRecord[]>([])
 
-  // 🚀 分页管理
+  // 分页管理
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
@@ -118,7 +129,7 @@ export const OrderListPage: React.FC = () => {
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
   const [currentOrder, setCurrentOrder] = useState<OrderRecord | null>(null)
 
-  // 🚀 请求订单列表接口
+  // 请求订单列表接口
   const fetchOrderList = async (current = 1, size = 10) => {
     setLoading(true)
     try {
@@ -130,8 +141,8 @@ export const OrderListPage: React.FC = () => {
         const formattedOrders: OrderRecord[] = res.data.records.map((item: any) => ({
           key: item.id, // antd 表格必需的 key
           orderId: item.id,
-          // 后端没直接返回套餐名，暂时统一显示为“会员订阅”，或者你可以根据 membershipPlanId 做本地字典映射
-          orderType: '购买高级会员',
+          // 🚀 使用新增的映射函数处理 orderCategory
+          orderType: mapOrderCategory(item.orderCategory),
           amount: item.amount,
           status: mapOrderStatus(item.status), // 转换状态码 "W" -> "pending"
           orderTime: item.createTime || '-',
@@ -156,12 +167,12 @@ export const OrderListPage: React.FC = () => {
     }
   }
 
-  // 🚀 组件挂载时拉取第一页数据
+  // 组件挂载时拉取第一页数据
   useEffect(() => {
     fetchOrderList(pagination.current, pagination.pageSize)
   }, [])
 
-  // 🚀 监听表格底部的分页器点击事件
+  // 监听表格底部的分页器点击事件
   const handleTableChange = (newPagination: TablePaginationConfig) => {
     fetchOrderList(newPagination.current || 1, newPagination.pageSize || 10)
     // 更新本地分页状态，主要是为了切换 pageSize 时记住
@@ -185,7 +196,7 @@ export const OrderListPage: React.FC = () => {
         setIsPaymentModalOpen(false)
         setIsSuccessModalOpen(true)
         message.success('模拟支付成功！')
-        // 🚀 支付成功后，重新刷新一下当前页的列表状态！
+        // 支付成功后，重新刷新一下当前页的列表状态！
         fetchOrderList(pagination.current, pagination.pageSize)
       }, 3000)
     }
@@ -204,9 +215,9 @@ export const OrderListPage: React.FC = () => {
           <div className='flex-1 [&_.ant-table-thead>tr>th]:bg-[#f7f8fb] [&_.ant-table-thead>tr>th]:text-gray-600 [&_.ant-table-thead>tr>th]:font-bold [&_.ant-table-thead>tr>th]:border-b-0 [&_.ant-table-cell]:py-4'>
             <Table
               columns={getColumns(handlePayClick)}
-              dataSource={orders} // 🚀 使用真实数据
-              loading={loading}   // 🚀 加上加载遮罩
-              onChange={handleTableChange} // 🚀 绑定分页切换事件
+              dataSource={orders} // 使用真实数据
+              loading={loading}   // 加上加载遮罩
+              onChange={handleTableChange} // 绑定分页切换事件
               pagination={{
                 current: pagination.current,
                 pageSize: pagination.pageSize,
@@ -231,7 +242,7 @@ export const OrderListPage: React.FC = () => {
           open={isPaymentModalOpen}
           onCancel={() => setIsPaymentModalOpen(false)}
           amount={currentOrder?.amount || 0}
-          orderId={currentOrder?.orderId || ''} // 🚀 传入刚才要求的 orderId
+          orderId={currentOrder?.orderId || ''}
         />
 
         {/* 2. 支付成功弹窗 */}

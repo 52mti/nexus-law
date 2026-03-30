@@ -14,7 +14,7 @@ import remarkGfm from 'remark-gfm'
 
 // 🚀 1. 引入文件上传和合规审查的 API
 import { upload } from '@/api/file'
-import { saveOrUpdateComplianceReviewSession } from '@/api/saveOrUpdate'
+import { saveOrUpdateComplianceReview } from '@/api/saveOrUpdate'
 import { analyzeComplianceApi } from '@/api/compliance'
 
 const contractReviewSchema: SidebarSchema = {
@@ -157,9 +157,9 @@ export const ComplianceReviewPage = () => {
         // 🚀 步骤 C: 保存本次审查的结果、文件和角度
         // ------------------------------------------
         try {
-          await saveOrUpdateComplianceReviewSession({
-            reviewAngle: values.reviewAngle, // 审查角度
-            fileUrls: uploadedFileUrls,      // 上传的源文件地址(或ID)数组
+          await saveOrUpdateComplianceReview({
+            angleId: values.reviewAngle, // 审查角度
+            attachments: uploadedFileUrls.join(','),      // 上传的源文件地址(或ID)数组
             content: res.data                // AI生成的Markdown审查报告
             // 如果接口还需要其他的标识（如 consultationId），你可以在这里一并传入
           })

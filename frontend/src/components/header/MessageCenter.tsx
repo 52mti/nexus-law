@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Drawer, Modal, Button } from 'antd'
 import { BellOutlined, ClockCircleOutlined } from '@ant-design/icons'
+import { getMessageNotification } from '@/api/common'
 
 interface Props {
   open: boolean

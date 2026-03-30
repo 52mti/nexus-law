@@ -21,7 +21,7 @@ import {
   type SchemaField,
 } from '@/components/SmartSidebar'
 import { useParams } from 'react-router-dom'
-import { getDocument } from '@/api/document'
+import { getDocument, saveDocument } from '@/api/document'
 import { useReactToPrint } from 'react-to-print'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm' // 支持表格、中划线等
@@ -210,15 +210,42 @@ export const DocPage = () => {
     try {
       setLoading(true)
 
+      // 1. 调用生成接口
       const res = await getDocument(values)
-      if (res.code === 0) {
+
+      if (res.code === 0 || res.code === 200) {
         setDocData(res.data)
+
+        // ==========================================
+        // 🚀 2. 异步保存到历史记录
+        // ==========================================
+        try {
+          // 根据要求进行字段映射
+          const savePayload = {
+            senseId: values.category || values.categoryId, // 视你 SmartSidebar 传出的字段名为准（通常是 category）
+            typeId: values.docType,
+            partyA: values.partyA,
+            partyB: values.partyB,
+            content: values.content,
+            // 💡 架构师提示：如果后端还需要保存生成的 Markdown 结果，你可以在这里追加：
+            result: res.data.markdownContent
+          }
+
+          await saveDocument(savePayload)
+          console.log('✅ 历史记录保存成功', savePayload)
+        } catch (saveError) {
+          console.error('❌ 保存历史记录失败:', saveError)
+          // 这里通常只打日志，不 return，因为文书已经生成成功了，不要打断用户的核心体验
+        }
+
+        message.success('文书生成成功，已扣除 2 积分')
+      } else {
+        message.error(res.message || '生成失败，请稍后重试')
       }
 
-      message.success('文书生成成功，已扣除 2 积分')
-      setLoading(false)
     } catch (error) {
-      console.error(error)
+      console.error('文书生成请求异常:', error)
+      message.error('网络连接异常，文书生成失败')
     } finally {
       setLoading(false)
     }

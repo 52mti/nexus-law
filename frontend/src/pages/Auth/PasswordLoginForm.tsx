@@ -33,10 +33,7 @@ export const PasswordLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
       const response = await login({
         username: values.email, // 映射到真实的接口 username
         password: values.password,
-        grantType: 'password', // 默认密码授权模式
-        clientId: 'pc-web',
-        clientSecret: 'pc-web',
-        loginType: 'member_password',
+        loginType: 'password',
         code: '123456'
       })
       // 修改兼容后端的真实数据包裹层，以避免 TypeScript 类型校验报错

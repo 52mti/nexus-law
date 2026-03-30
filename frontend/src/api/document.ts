@@ -20,3 +20,14 @@ export const getDocument = (data: {
 }): Promise<DocumentResponse> => {
   return request.post('/api/document/generate', data)
 }
+
+// 保存文书
+export const saveDocument = (data: {
+  senseId: string
+  typeId: string
+  partyA: string
+  partyB: string
+  content: string
+}) => {
+  return request.post('/legalDocumentTranslation/saveOrUpdate', data)
+}

@@ -51,3 +51,7 @@ export const checkPaymentStatus = (txRef: string): Promise<PaymentStatusResponse
 export const issueOrder = (data: { id: string }) => {
   return request.post('/order/add', data)
 }
+
+export const buyPoints = (data: { id: string }) => {
+  return request.post('/order/buyPoints', data)
+}
