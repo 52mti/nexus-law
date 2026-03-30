@@ -9,6 +9,7 @@ import {
 } from '@ant-design/icons'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { useNavigate } from 'react-router-dom'
+import { deleteConsultation, deleteDoc, deleteCompliance } from '@/api/delete'
 
 // 引入三个接口
 import { getConsultationList, getDocumentList, getComplianceReviewList } from '@/api/common'
@@ -137,24 +138,43 @@ export const HistoryPage: React.FC = () => {
       okText: '确认删除',
       okType: 'danger',
       cancelText: '取消',
-      onOk() {
-        return new Promise((resolve) => {
-          setTimeout(() => {
-            // 💡 提示：在真实业务中，这里还需要 await deleteApi(idToDelete) 调用后端删除接口
+      // 🚀 修改点：将 onOk 改为 async 函数，直接请求后端接口
+      async onOk() {
+        try {
+          let res: any;
 
-            // 乐观更新：直接在前端状态中移除该项
+          // 根据当前所在的 Tab 调用对应的删除接口，传入卡片 id
+          if (activeTab === 'doc') {
+            res = await deleteDoc(idToDelete);
+          } else if (activeTab === 'consult') {
+            res = await deleteConsultation(idToDelete);
+          } else if (activeTab === 'compliance') {
+            res = await deleteCompliance(idToDelete);
+          }
+
+          // 判断接口是否调用成功（这里根据你之前接口的返回结构判断）
+          if (res?.successful || res?.code === 200) {
+            // 接口删除成功后，执行乐观更新：直接在前端状态中移除该项
             const newData = historyData
               .map(group => ({
                 ...group,
                 items: group.items.filter((item: any) => item.id !== idToDelete)
               }))
-              .filter(group => group.items.length > 0)
+              .filter(group => group.items.length > 0); // 如果某一天的数据都被删光了，就把这一天也过滤掉
 
-            setHistoryData(newData)
-            message.success('删除成功')
-            resolve(true)
-          }, 500)
-        })
+            setHistoryData(newData);
+            message.success('删除成功');
+          } else {
+            // 后端返回业务错误
+            message.error(res?.message || res?.msg || '删除失败，请稍后重试');
+            // 返回 Promise.reject() 可以阻止弹窗自动关闭，让用户看到错误
+            return Promise.reject(new Error('删除失败'));
+          }
+        } catch (error) {
+          console.error('删除操作异常:', error);
+          message.error('网络异常，删除失败');
+          return Promise.reject(error);
+        }
       },
     })
   }

@@ -75,11 +75,11 @@ export const MembershipPage: React.FC = () => {
               pointsDesc: record.code === 'BJHY' ? '约生成4210张图片或320个标准视频' : '',
               // 共同的权益说明，后端暂无此字段，前端先统一配置
               features: [
-                '智能法律咨询：每日文字咨询不限制',
-                '条文检索：每日限 20 次基础检索',
-                '案例检索匹配：每日限 20 次检索',
-                '法律文书生成：每日不限 次算力限制',
-                '每月赠送 500 基础算力（用完需充值）'
+                `智能法律咨询：每日文字咨询${record.consultationCount === -1 ? '不限制' : `限 ${record.consultationCount} 次`}`,
+                `条文检索：每日${record.legalProvisionsCount === -1 ? '不限制' : `限 ${record.legalProvisionsCount} 次`}基础检索`,
+                `案例检索匹配：每日${record.caseCount === -1 ? '不限制' : `限 ${record.caseCount} 次`}检索`,
+                `法律文书生成：每日${record.legalDocumentTranslationCount === -1 ? '不限' : `限 ${record.legalDocumentTranslationCount} 次`}算力限制`,
+                `每月赠送 ${record.computingPowerCount || 0} 基础算力（用完需充值）`
               ],
               originalData: record // 藏匿原始数据
             };
