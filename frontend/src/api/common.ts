@@ -29,3 +29,11 @@ export const getComplianceReviewList = () => {
 export const pointPlan = () => {
     return request.post('/pointsConfig/pageList', {})
 }
+
+// 标记已读
+export const markReaded = (ids: string[]) => {
+    return request.post('/message-notify/batchRead', {
+        idList: ids
+    })
+}
+
