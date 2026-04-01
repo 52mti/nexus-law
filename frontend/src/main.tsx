@@ -1,5 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import './i18n'
 import { ConfigProvider, App as AntdApp } from 'antd'
 import { StyleProvider } from '@ant-design/cssinjs'
 import App from './App.tsx'

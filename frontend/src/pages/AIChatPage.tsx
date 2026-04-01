@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next';
 // 🚀 1. 移除了 saveOrUpdateConsultation
 import { saveOrUpdateConsultationSession, getConsultationHistory, saveOrUpdateConsultation } from '@/api/chat'
 
@@ -24,6 +25,7 @@ interface ChatMessage {
 }
 
 export const AIChatPage = () => {
+  const { t } = useTranslation();
   const { message } = App.useApp()
   // 获取 URL 路由参数
   const { id } = useParams<{ id: string }>()
@@ -70,7 +72,7 @@ export const AIChatPage = () => {
       setMessages(historyMessages)
     } catch (error) {
       console.error(error)
-      message.error('拉取历史记录失败')
+      message.error(t('3C2NIj12xCevPmtyzZwZL'))
     } finally {
       setLoadingHistory(false)
     }
@@ -160,7 +162,7 @@ export const AIChatPage = () => {
         });
       } catch (err) {
         console.error('保存用户提问失败', err);
-        message.warning('无法同步您的对话到历史记录');
+        message.warning(t('gS-6Edz0gfpkzfx85zRbK'));
       }
 
       // 4. 开始向后端大模型请求流式返回
@@ -227,7 +229,7 @@ export const AIChatPage = () => {
             throw err;
           }
           console.error('流式输出中断:', err);
-          message.error('网络连接异常，AI 回复中断');
+          message.error(t('pR5PPuOZ-nttTh54MM61X'));
           setIsStreaming(false);
           throw err;
         },
@@ -244,7 +246,7 @@ export const AIChatPage = () => {
 
   const handleCopy = (content: string) => {
     navigator.clipboard.writeText(content).then(() => {
-      message.success('复制成功');
+      message.success(t('Un10bKsoL0mVYYwo8YsAL'));
     });
   };
 
@@ -253,7 +255,7 @@ export const AIChatPage = () => {
       {/* 历史记录加载动画遮罩 */}
       {loadingHistory && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#f5f6f9]/80 backdrop-blur-sm">
-          <Spin size="large" description="正在同步历史记录..." />
+          <Spin size="large" description={t('JpaI47UfcXIj686504RyN')} />
         </div>
       )}
 
@@ -296,13 +298,13 @@ export const AIChatPage = () => {
                         {!isStreaming && (
                           <>
                             <span className='flex items-center gap-1.5 cursor-pointer hover:text-primary transition-colors text-sm'>
-                              <SyncOutlined onClick={handleResend} /> 重新生成
+                              <SyncOutlined onClick={handleResend} /> {t('1uuruWmc27wCV-iBY3Uh6')}
                             </span>
                             <span
                               className='flex items-center gap-1.5 cursor-pointer hover:text-primary transition-colors text-sm'
                               onClick={() => handleCopy(msg.content)}
                             >
-                              <CopyOutlined /> 复制
+                              <CopyOutlined /> {t('XgXC4-p2h_nCpQBgD9bma')}
                             </span>
                           </>
                         )}
@@ -334,9 +336,8 @@ export const AIChatPage = () => {
           {isEmpty && (
             <div className='text-center mb-10 animate-fade-in'>
               <h1 className='text-[28px] font-bold text-gray-800 mb-3 tracking-wider'>
-                法律问题智能问答
-              </h1>
-              <p className='text-base text-gray-500'>你的专属智能法律小助手</p>
+                {t('7wxxUzdOZ5afzuT5Qq3Pk')} </h1>
+              <p className='text-base text-gray-500'>{t('BAZrn84y7bJqZdudEEU0A')}</p>
             </div>
           )}
 
@@ -349,8 +350,7 @@ export const AIChatPage = () => {
                 className='bg-white/60 border-gray-200 text-gray-600 hover:bg-white transition-all shadow-sm'
                 onClick={handleNewChat}
               >
-                新建对话
-              </Button>
+                {t('_UWbNL6-YX--61ut9d5xn')} </Button>
             </div>
           )}
 
@@ -372,7 +372,7 @@ export const AIChatPage = () => {
                   }
                 }
               }}
-              placeholder={isStreaming ? 'AI 正在思考并回答中...' : '请输入您的问题或需求'}
+              placeholder={isStreaming ? t('lxLlCb3xZMrxKR5pEkFfj') : t('ZRqISwfsItag5j6jnkXZN')}
               className={`w-full h-full p-4 pb-12 resize-none outline-none bg-transparent rounded-2xl text-[15px] ${isStreaming ? 'cursor-not-allowed' : ''}`}
             />
 
@@ -399,8 +399,7 @@ export const AIChatPage = () => {
 
           {!isEmpty && (
             <div className='text-center text-[12px] text-gray-400 mt-4 animate-fade-in tracking-wide'>
-              所有内容均由人工智能模型生成，其生成内容的准确性和完整性无法保证
-            </div>
+              {t('lnbOXxiqcEnYcSpxC_Qyi')} </div>
           )}
         </div>
       </div>

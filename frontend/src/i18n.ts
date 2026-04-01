@@ -2,29 +2,21 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 
-// 1. 准备你的翻译资源 (实际项目中建议抽离成单独的 JSON 文件)
+// 🚀 1. 引入你刚刚用 i18n Ally 提取生成的语言包 JSON
+import zhCN from './locales/zh-CN.json';
+import amET from './locales/am-ET.json';
+import enUS from './locales/en-US.json'
+
+// 🚀 2. 定义资源字典
 const resources = {
-  en: {
-    translation: {
-      "menu": {
-        "legal_consult": "Legal Consult",
-        "history": "History"
-      },
-      "header": {
-        "quota": "Remaining Quota"
-      }
-    }
+  'zh-CN': {
+    translation: zhCN, // 这里的 translation 是默认命名空间
   },
-  zh: {
-    translation: {
-      "menu": {
-        "legal_consult": "法律咨询",
-        "history": "历史记录"
-      },
-      "header": {
-        "quota": "剩余额度"
-      }
-    }
+  'am-ET': {
+    translation: amET,
+  },
+  'en-US': {
+    translation: enUS
   }
 };
 
@@ -36,7 +28,7 @@ i18n
   // 初始化 i18next
   .init({
     resources,
-    fallbackLng: 'zh', // 默认备用语言
+    fallbackLng: 'zh-CN', // 默认备用语言
     interpolation: {
       escapeValue: false, // React 已经自带防 XSS 注入，这里设置为 false 即可
     }

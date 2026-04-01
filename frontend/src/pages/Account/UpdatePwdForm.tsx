@@ -1,24 +1,26 @@
-import React from 'react';
-import { Form, Input, Button, App } from 'antd';
-
+import React from "react";
+import { Form, Input, Button, App } from "antd";
+import { useTranslation } from "react-i18next";
 interface UpdatePwdFormProps {
   onClose: () => void; // 用于点击取消或修改成功后关闭弹窗
 }
 
 export const UpdatePwdForm: React.FC<UpdatePwdFormProps> = ({ onClose }) => {
-  const { message } = App.useApp()
+  const { t } = useTranslation();
+  const { message } = App.useApp();
   const [form] = Form.useForm();
 
   const onFinish = (values: any) => {
-    console.log('提交的密码表单:', values);
+    console.log("提交的密码表单:", values);
     // TODO: 调用后端接口修改密码
     // 模拟成功后的交互
-    message.success('密码修改成功，请重新登录！');
-    onClose(); 
+    message.success(t("SMBWM52NMOTifNaIEW_uN"));
+    onClose();
   };
 
   // 统一的无边框浅灰底输入框样式 (移除前缀图标，高度稍微紧凑一点为 h-11)
-  const inputStyles = "rounded-lg h-11 bg-[#f7f8fa] border-transparent hover:border-transparent focus:bg-white focus:border-primary  transition-all";
+  const inputStyles =
+    "rounded-lg h-11 bg-[#f7f8fa] border-transparent hover:border-transparent focus:bg-white focus:border-primary  transition-all";
 
   return (
     // 使用 layout="vertical" 让标签在上方，并用 Tailwind 强行加粗所有 label
@@ -32,11 +34,11 @@ export const UpdatePwdForm: React.FC<UpdatePwdFormProps> = ({ onClose }) => {
       {/* 1. 旧密码 */}
       <Form.Item
         name="oldPassword"
-        label="旧登录密码"
-        rules={[{ required: true, message: '请输入旧登录密码' }]}
+        label={t("D_QUhGPhceepd92L3xdfg")}
+        rules={[{ required: true, message: t("o4B1kPp5pmwtQCsvmUWia") }]}
       >
         <Input.Password
-          placeholder="请输入旧登录密码"
+          placeholder={t("o4B1kPp5pmwtQCsvmUWia")}
           className={inputStyles}
         />
       </Form.Item>
@@ -44,14 +46,14 @@ export const UpdatePwdForm: React.FC<UpdatePwdFormProps> = ({ onClose }) => {
       {/* 2. 新密码 */}
       <Form.Item
         name="newPassword"
-        label="新登录密码"
+        label={t("8dOul593jEZQ00LVgvy7R")}
         rules={[
-          { required: true, message: '请输入新登录密码' },
-          { min: 6, message: '密码长度至少为6位' }
+          { required: true, message: t("BPgCQ5Jpl87Ri88thWlwZ") },
+          { min: 6, message: t("TDu1A9D9uQ5C1EeRh5faN") },
         ]}
       >
         <Input.Password
-          placeholder="请输入新登录密码"
+          placeholder={t("BPgCQ5Jpl87Ri88thWlwZ")}
           className={inputStyles}
         />
       </Form.Item>
@@ -59,40 +61,40 @@ export const UpdatePwdForm: React.FC<UpdatePwdFormProps> = ({ onClose }) => {
       {/* 3. 确认新密码 (带一致性校验) */}
       <Form.Item
         name="confirmPassword"
-        label="确认新密码"
-        dependencies={['newPassword']}
+        label={t("j3AwQDfpKunZ2mXpfDeH2")}
+        dependencies={["newPassword"]}
         rules={[
-          { required: true, message: '请再次输入新密码' },
+          { required: true, message: t("MzZ165fMk6NNTck9m_70W") },
           ({ getFieldValue }) => ({
             validator(_, value) {
-              if (!value || getFieldValue('newPassword') === value) {
+              if (!value || getFieldValue("newPassword") === value) {
                 return Promise.resolve();
               }
-              return Promise.reject(new Error('两次输入的密码不一致！'));
+              return Promise.reject(new Error(t("MFsmqmV4yNMD2D4Wi072G")));
             },
           }),
         ]}
       >
         <Input.Password
-          placeholder="请再次输入新密码"
+          placeholder={t("MzZ165fMk6NNTck9m_70W")}
           className={inputStyles}
         />
       </Form.Item>
 
       {/* 底部按钮组：居中对齐 */}
       <div className="flex justify-center gap-4 mt-8 mb-2">
-        <Button 
+        <Button
           onClick={onClose}
           className="w-28 h-10 rounded-lg text-gray-600 border-gray-300 hover:text-primary hover:border-primary transition-colors"
         >
-          取消
+          {t("_GHogb_X8_F5-Yq_WFMNL")}
         </Button>
-        <Button 
-          type="primary" 
+        <Button
+          type="primary"
           htmlType="submit"
           className="w-28 h-10 bg-primary hover:bg-secondary border-none rounded-lg text-white shadow-md shadow-indigo-500/20"
         >
-          确定
+          {t("VyRCMyezcXKEj2kLYHRVd")}
         </Button>
       </div>
     </Form>
