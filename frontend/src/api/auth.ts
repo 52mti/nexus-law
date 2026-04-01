@@ -160,3 +160,11 @@ export const changeInfo = (data: ChangeUserInfoReq) => {
 export const forceLogout = (token: string) => {
   return request.delete<any, void>(`/member/${token}`);
 };
+
+/**
+ * 获取会员信息
+ * 
+ */
+export const getMemberInfo = () => {
+  return request.post<any, void>(`/member/getMemberInfo`);
+};
