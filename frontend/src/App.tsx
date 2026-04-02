@@ -1,6 +1,6 @@
-import { Suspense, lazy } from 'react' // 1. 引入 React 懒加载双雄
+import { Suspense, lazy, useMemo } from 'react' // 🚀 1. 这里加了一个 useMemo
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { ConfigProvider, Spin } from 'antd' // 引入 Spin 做加载动画
+import { ConfigProvider, Spin } from 'antd'
 import type { ThemeConfig } from 'antd/lib/config-provider'
 import { useTranslation } from 'react-i18next'
 import { useThemeColor } from './hooks/useThemeColor'
@@ -8,12 +8,14 @@ import { useThemeColor } from './hooks/useThemeColor'
 // 引入 Ant Design 的语言包
 import zhCN from 'antd/locale/zh_CN'
 import enUS from 'antd/locale/en_US'
+// 🚀 2. 引入我们刚才伪造的阿姆哈拉语包
+import amET from './locales/antd-am-ET'
 
-// 2. 静态引入核心骨架（千万别懒加载 Layout，否则一进页面连外壳都没有，体验极差）
+// 静态引入核心骨架
 import MainLayout from './layouts/MainLayout'
 
 // ==========================================
-// 3. 🚀 核心魔法：将所有页面级组件改为动态 import
+// 动态按需加载页面组件 (保持不变)
 // ==========================================
 const AuthPage = lazy(() => import('./pages/Auth/AuthPage'))
 const AIChatPage = lazy(() => import('./pages/AIChatPage'))
@@ -30,8 +32,8 @@ const PointsRecordPage = lazy(() => import('./pages/PointsRecordPage'))
 
 // 全局的加载动画组件
 const PageLoader = () => (
-  <div className='flex h-full w-full items-center justify-center min-h-[50vh]'>
-    <Spin size='large' />
+  <div className="flex h-full w-full items-center justify-center min-h-[50vh]">
+    <Spin size="large" />
   </div>
 )
 
@@ -39,9 +41,20 @@ function App() {
   const { i18n } = useTranslation()
   const primaryColor = useThemeColor('--brand-primary', '#666cff')
 
-  const currentLang = i18n.language || 'zh'
-  const antdLocale = currentLang.startsWith('en') ? enUS : zhCN
+  // 🚀 3. 核心改造：使用 useMemo 动态匹配当前语言，支持阿姆哈拉语
+  const antdLocale = useMemo(() => {
+    const currentLang = i18n.language || 'zh-CN'
 
+    if (currentLang.startsWith('en')) {
+      return enUS
+    } else if (currentLang === 'am-ET') {
+      return amET
+    }
+
+    return zhCN // 默认兜底中文
+  }, [i18n.language])
+
+  // 主题配置 (保持不变)
   const antdTheme: ThemeConfig = {
     token: {
       colorPrimary: primaryColor,
@@ -71,29 +84,27 @@ function App() {
   return (
     <ConfigProvider locale={antdLocale} theme={antdTheme}>
       <BrowserRouter>
-        {/* 4. 🚀 用 Suspense 包裹你的路由。当路由切换、页面文件还在下载时，就会展示 fallback 里的 Loading 动画 */}
         <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* 独立页面 */}
-            <Route path='/login' element={<AuthPage />} />
+            <Route path="/login" element={<AuthPage />} />
 
             {/* MainLayout 里的嵌套页面 */}
-            <Route path='/' element={<MainLayout />}>
-              <Route index element={<Navigate to='/chat' replace />} />
+            <Route path="/" element={<MainLayout />}>
+              <Route index element={<Navigate to="/chat" replace />} />
 
-              {/* 这里的子路由现在全部变成按需加载了！ */}
-              <Route path='chat/:id?' element={<AIChatPage />} />
-              <Route path='history' element={<HistoryPage />} />
-              <Route path='account' element={<AccountInfoPage />} />
-              <Route path='doc/:id?' element={<DocPage />} />
-              <Route path='law' element={<LegalSearchPage />} />
-              <Route path='case_search' element={<CaseSearchPage />} />
-              <Route path='case_review' element={<CaseReviewPage />} />
-              <Route path='compliance_review/:id?' element={<ComplianceReviewPage />} />
-              {/* 注意：你原来代码里有两遍 history，这里我删掉了一个重复的 */}
-              <Route path='vip' element={<MembershipPage />} />
-              <Route path='orders' element={<OrderListPage />} />
-              <Route path='points' element={<PointsRecordPage />} />
+              {/* 子路由 */}
+              <Route path="chat/:id?" element={<AIChatPage />} />
+              <Route path="history" element={<HistoryPage />} />
+              <Route path="account" element={<AccountInfoPage />} />
+              <Route path="doc/:id?" element={<DocPage />} />
+              <Route path="law" element={<LegalSearchPage />} />
+              <Route path="case_search" element={<CaseSearchPage />} />
+              <Route path="case_review" element={<CaseReviewPage />} />
+              <Route path="compliance_review/:id?" element={<ComplianceReviewPage />} />
+              <Route path="vip" element={<MembershipPage />} />
+              <Route path="orders" element={<OrderListPage />} />
+              <Route path="points" element={<PointsRecordPage />} />
             </Route>
           </Routes>
         </Suspense>
