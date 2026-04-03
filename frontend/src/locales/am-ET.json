@@ -1,5 +1,18 @@
 {
+  "vip.search_unlimited": "የአንቀጽ ፍለጋ፡ በቀን ያልተገደበ መሰረታዊ ፍለጋ",
+  "vip.search_limited": "የአንቀጽ ፍለጋ፡ በቀን እስከ {{count}} ጊዜ መሰረታዊ ፍለጋ",
+  
+  "vip.case_unlimited": "የጉዳይ ፍለጋ ማዛመድ፡ በቀን ያልተገደበ ፍለጋ",
+  "vip.case_limited": "የጉዳይ ፍለጋ ማዛመድ፡ በቀን እስከ {{count}} ጊዜ ፍለጋ",
+  
+  "vip.doc_unlimited": "የህግ ሰነድ ፈጠራ፡ በቀን ያልተገደበ የማስላት አቅም",
+  "vip.doc_limited": "የህግ ሰነድ ፈጠራ፡ በቀን እስከ {{count}} ጊዜ የማስላት አቅም",
+  
+  "vip.bonus_power": "በየወሩ {{count}} መሰረታዊ የማስላት አቅም ስጦታ (ሲያልቅ መሙላት ያስፈልጋል)",
+  "haMa5NKgtArvQU6lZ5LHR": "በየወሩ {{count}} ነጥቦችን ያግኙ",
   "EQYTcDCN5wpUaylPv-Ktn": "በ {{countdown}} ሰከንዶች ውስጥ እንደገና ላክ",
+  "3gbfChGAla4chIHCIG9v3": "ፋይል {{fileName}} መጫን አልተሳካም",
+  "qUdlcEfyqonQ-gEzyF7ab": "እባክዎ {{label}} ይሙሉ",
   "-12qwY0PC7PpbQh4_MKXF": "የአንቀጽ ፍለጋ",
   "-53FdczzsCVuhoCMrOAiF": "ከስራ ጋር የተያያዙ ውሎች",
   "-ZBMD7RdKnBp5zkjsba2X": "(1 ነጥብ ይቀንሳል)",

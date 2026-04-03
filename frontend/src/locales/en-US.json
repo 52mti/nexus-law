@@ -1,5 +1,18 @@
 {
+  "vip.search_unlimited": "Clause Retrieval: Unlimited basic searches daily",
+  "vip.search_limited": "Clause Retrieval: Limited to {{count}} basic searches daily",
+  
+  "vip.case_unlimited": "Case Search Match: Unlimited searches daily",
+  "vip.case_limited": "Case Search Match: Limited to {{count}} searches daily",
+  
+  "vip.doc_unlimited": "Legal Document Generation: Unlimited computing power daily",
+  "vip.doc_limited": "Legal Document Generation: Limited to {{count}} computing limits daily",
+  
+  "vip.bonus_power": "Monthly bonus of {{count}} basic computing power (recharge required when exhausted)",
+  "haMa5NKgtArvQU6lZ5LHR": "Receive {{count}} points monthly",
   "EQYTcDCN5wpUaylPv-Ktn": "Resend in {{countdown}}s",
+  "3gbfChGAla4chIHCIG9v3": "File {{fileName}} upload failed",
+  "qUdlcEfyqonQ-gEzyF7ab": "Please fill in {{label}}",
   "-12qwY0PC7PpbQh4_MKXF": "Clause Retrieval",
   "-53FdczzsCVuhoCMrOAiF": "Labor Related Contracts",
   "-ZBMD7RdKnBp5zkjsba2X": "(Consumes 1 point)",

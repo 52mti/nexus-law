@@ -1,160 +1,159 @@
-import React, { useState, useEffect } from "react";
-import { Form, Input, Select, Button, DatePicker, Upload } from "antd";
-import { RightOutlined, CloudUploadOutlined } from "@ant-design/icons";
-import { SidebarSkeleton } from "@/components/Skeleton/SidebarSkeleton"; // 根据你的实际路径调整
-import { useTranslation } from "react-i18next";
+import React, { useState, useEffect } from 'react'
+import { Form, Input, Select, Button, DatePicker, Upload } from 'antd'
+import { RightOutlined, CloudUploadOutlined } from '@ant-design/icons'
+import { SidebarSkeleton } from '@/components/Skeleton/SidebarSkeleton' // 根据你的实际路径调整
+import { useTranslation } from 'react-i18next'
 
-const { TextArea } = Input;
-const { RangePicker } = DatePicker;
-const { Dragger } = Upload;
+const { TextArea } = Input
+const { RangePicker } = DatePicker
+const { Dragger } = Upload
 
 // ==========================================
 // 1. 类型定义 (Type Definitions)
 // ==========================================
 export type FormFieldType =
-  | "input"
-  | "textarea"
-  | "select"
-  | "date-range"
-  | "grid-radio"
-  | "upload-dragger"
-  | "color-radio";
+  | 'input'
+  | 'textarea'
+  | 'select'
+  | 'date-range'
+  | 'grid-radio'
+  | 'upload-dragger'
+  | 'color-radio'
 
 export interface SchemaField {
-  name: string;
-  label: string;
-  type: FormFieldType;
-  required?: boolean;
-  placeholder?: string;
-  maxLength?: number;
-  options?: { label: string; value: string | number }[];
-  minRows?: number;
-  maxRows?: number;
+  name: string
+  label: string
+  type: FormFieldType
+  required?: boolean
+  placeholder?: string
+  maxLength?: number
+  options?: { label: string; value: string | number }[]
+  minRows?: number
+  maxRows?: number
 }
 
 export interface CategorySchema {
-  id: string;
-  title: string;
-  description?: string;
-  icon?: React.ReactNode;
-  formFields: SchemaField[];
+  id: string
+  title: string
+  description?: string
+  icon?: React.ReactNode
+  formFields: SchemaField[]
 }
 
 export interface SidebarSchema {
-  title: string; // 侧边栏总标题，如 "法律文书生成"
-  submitText: string; // 提交按钮文字，如 "立即生成"
-  submitHint?: string; // 提交按钮副文本，如 "(消耗2点积分)"
-  hasSceneSwitch: boolean; // 🚀 核心控制开关：是否需要场景切换功能
-  categories: CategorySchema[];
+  title: string // 侧边栏总标题，如 "法律文书生成"
+  submitText: string // 提交按钮文字，如 "立即生成"
+  submitHint?: string // 提交按钮副文本，如 "(消耗2点积分)"
+  hasSceneSwitch: boolean // 🚀 核心控制开关：是否需要场景切换功能
+  categories: CategorySchema[]
 }
 
 // ==========================================
 // 2. 自定义控件：网格单选 (GridRadio)
 // ==========================================
 const GridRadio: React.FC<{
-  value?: any;
-  onChange?: (val: any) => void;
-  options: any[];
+  value?: any
+  onChange?: (val: any) => void
+  options: any[]
 }> = ({ value, onChange, options }) => (
   <div className="grid grid-cols-3 gap-2">
     {options.map((opt) => {
-      const isSelected = value === opt.value;
+      const isSelected = value === opt.value
       return (
         <div
           key={opt.value}
           onClick={() => onChange?.(opt.value)}
           className={`flex items-center justify-center py-2 px-1 text-[13px] rounded-md cursor-pointer transition-all border ${
             isSelected
-              ? "bg-blue-50/50 border-primary text-primary"
-              : "bg-[#f7f8fb] border-transparent text-gray-600 hover:bg-[#f0f2f7]"
+              ? 'bg-blue-50/50 border-primary text-primary'
+              : 'bg-[#f7f8fb] border-transparent text-gray-600 hover:bg-[#f0f2f7]'
           }`}
         >
           {opt.label}
         </div>
-      );
+      )
     })}
   </div>
-);
+)
 
 // ==========================================
 // 🚀 自定义控件 2：色块单选 (高度还原审查角度)
 // ==========================================
 const ColorRadio: React.FC<{
-  value?: any;
-  onChange?: (val: any) => void;
-  options: any[];
+  value?: any
+  onChange?: (val: any) => void
+  options: any[]
 }> = ({ value, onChange, options }) => (
   <div className="flex items-center gap-6">
     {options.map((opt) => {
-      const isSelected = value === opt.value;
+      const isSelected = value === opt.value
       return (
         <div
           key={opt.value}
           onClick={() => onChange?.(opt.value)}
           className={`flex items-center gap-2.5 cursor-pointer transition-all ${
-            isSelected ? "text-gray-800" : "text-gray-400 hover:text-gray-600"
+            isSelected ? 'text-gray-800' : 'text-gray-400 hover:text-gray-600'
           }`}
         >
           {/* 颜色方块 */}
           <div
             className={`w-5 h-5 rounded-sm transition-colors ${
-              isSelected ? "bg-[blue]" : "bg-gray-500" // 原型图选中是高亮纯蓝，未选是深灰
+              isSelected ? 'bg-[blue]' : 'bg-gray-500' // 原型图选中是高亮纯蓝，未选是深灰
             }`}
           />
           <span className="text-[14px]">{opt.label}</span>
         </div>
-      );
+      )
     })}
   </div>
-);
+)
 // Antd Upload 需要用来提取文件列表的工具函数
 const normFile = (e: any) => {
-  if (Array.isArray(e)) return e;
-  return e?.fileList;
-};
+  if (Array.isArray(e)) return e
+  return e?.fileList
+}
 
 // ==========================================
 // 3. 智能侧边栏主组件 (SmartSidebar)
 // ==========================================
 export const SmartSidebar: React.FC<{
-  schema: SidebarSchema;
-  onSubmit: (values: any) => void;
-  isLoading?: boolean;
-  initialValues?: any; // 🚀 1. 新增：接收从历史记录拉取到的表单数据
+  schema: SidebarSchema
+  onSubmit: (values: any) => void
+  isLoading?: boolean
+  initialValues?: any // 🚀 1. 新增：接收从历史记录拉取到的表单数据
 }> = ({ schema, onSubmit, isLoading = false, initialValues }) => {
-  const { t } = useTranslation();
-  const [form] = Form.useForm();
-  const [prevInitialValues, setPrevInitialValues] = useState(initialValues);
+  const { t } = useTranslation()
+  const [form] = Form.useForm()
+  const [prevInitialValues, setPrevInitialValues] = useState(initialValues)
   // 如果不需要场景切换，默认选中第一个场景；否则初始为 null（显示列表）
   const [activeId, setActiveId] = useState<string | null>(
     schema.hasSceneSwitch ? null : schema.categories[0]?.id,
-  );
+  )
 
   // 🚀 2. 核心修复：直接在渲染期间更新状态！不再使用 useEffect
   // 完美符合 React 官方 "Adjusting state based on a prop change" 规范
   if (initialValues !== prevInitialValues) {
-    setPrevInitialValues(initialValues);
+    setPrevInitialValues(initialValues)
     if (initialValues?.docType) {
-      setActiveId(initialValues.docType);
+      setActiveId(initialValues.docType)
     }
   }
 
   // 🚀 3. Antd 表单赋值依然可以放在这里，因为它是与外部库(Antd底层)的同步
   useEffect(() => {
     if (initialValues) {
-      form.setFieldsValue(initialValues);
+      form.setFieldsValue(initialValues)
     }
-  }, [initialValues, form]);
+  }, [initialValues, form])
 
   useEffect(() => {
     if (activeId) {
-      form.resetFields();
+      form.resetFields()
     }
-  }, [activeId, form]);
+  }, [activeId, form])
 
-  const activeCategory = schema.categories.find((c) => c.id === activeId);
-  const inputStyles =
-    "rounded-lg bg-[#f7f8fb] border-transparent focus:bg-white";
+  const activeCategory = schema.categories.find((c) => c.id === activeId)
+  const inputStyles = 'rounded-lg bg-[#f7f8fb] border-transparent focus:bg-white'
 
   return (
     <div className="w-86 h-full bg-white p-5 flex flex-col overflow-y-auto custom-scrollbar animate-fade-in relative">
@@ -176,8 +175,8 @@ export const SmartSidebar: React.FC<{
               <div
                 key={item.id}
                 onClick={() => {
-                  setActiveId(item.id);
-                  form.resetFields();
+                  setActiveId(item.id)
+                  form.resetFields()
                 }}
                 className="flex items-center gap-4 p-4 h-20 rounded-xl bg-[#f7f8fb] hover:bg-[#f0f2f7] transition-all cursor-pointer group"
               >
@@ -207,21 +206,18 @@ export const SmartSidebar: React.FC<{
               onClick={() => !isLoading && setActiveId(null)}
               className={`flex items-center justify-between p-4 rounded-xl transition-all mb-6 group ${
                 isLoading
-                  ? "bg-gray-50 opacity-60 cursor-not-allowed" // loading 时的置灰状态
-                  : "bg-[#f7f8fb] hover:bg-[#f0f2f7] cursor-pointer"
+                  ? 'bg-gray-50 opacity-60 cursor-not-allowed' // loading 时的置灰状态
+                  : 'bg-[#f7f8fb] hover:bg-[#f0f2f7] cursor-pointer'
               }`}
             >
               <div className="flex items-center gap-3">
                 <div className="text-primary text-[20px] flex items-center">
                   {activeCategory.icon}
                 </div>
-                <span className="font-bold text-gray-800 text-[15px]">
-                  {activeCategory.title}
-                </span>
+                <span className="font-bold text-gray-800 text-[15px]">{activeCategory.title}</span>
               </div>
               <div className="text-[13px] text-gray-400 group-hover:text-primary transition-colors flex items-center gap-0.5">
-                {t("2OXNVjX7By70r2VKRpvS_")}{" "}
-                <RightOutlined className="text-[10px]" />
+                {t('2OXNVjX7By70r2VKRpvS_')} <RightOutlined className="text-[10px]" />
               </div>
             </div>
           )}
@@ -230,19 +226,20 @@ export const SmartSidebar: React.FC<{
           <Form
             form={form}
             layout="vertical"
-            onFinish={(formValues) =>
-              onSubmit({ ...formValues, category: activeId })
-            }
+            onFinish={(formValues) => onSubmit({ ...formValues, category: activeId })}
             disabled={isLoading}
             className="flex-1 flex flex-col [&_.ant-form-item-label>label]:font-bold [&_.ant-form-item-label>label]:text-[15px] [&_.ant-form-item-label]:pb-1.5"
           >
             <div className="flex-1">
               {activeCategory.formFields.map((field) => {
                 const rules = [
-                  { required: field.required, message: `请填写${field.label}` },
-                ];
+                  {
+                    required: field.required,
+                    message: t('qUdlcEfyqonQ-gEzyF7ab', { label: field.label }),
+                  },
+                ]
                 switch (field.type) {
-                  case "input":
+                  case 'input':
                     return (
                       <Form.Item
                         key={field.name}
@@ -257,8 +254,8 @@ export const SmartSidebar: React.FC<{
                           className={inputStyles}
                         />
                       </Form.Item>
-                    );
-                  case "textarea":
+                    )
+                  case 'textarea':
                     return (
                       <Form.Item
                         key={field.name}
@@ -278,8 +275,8 @@ export const SmartSidebar: React.FC<{
                           className={inputStyles}
                         />
                       </Form.Item>
-                    );
-                  case "select":
+                    )
+                  case 'select':
                     return (
                       <Form.Item
                         key={field.name}
@@ -295,8 +292,8 @@ export const SmartSidebar: React.FC<{
                           options={field.options}
                         ></Select>
                       </Form.Item>
-                    );
-                  case "date-range":
+                    )
+                  case 'date-range':
                     return (
                       <Form.Item
                         key={field.name}
@@ -308,14 +305,11 @@ export const SmartSidebar: React.FC<{
                         <RangePicker
                           size="large"
                           className={`w-full ${inputStyles} [&_.ant-picker-active-bar]:hidden w-full`}
-                          placeholder={[
-                            t("_R6bivQM7nE5ms5Y9ufU0"),
-                            t("DMPDGt_10Y5-qpkliXr_a"),
-                          ]}
+                          placeholder={[t('_R6bivQM7nE5ms5Y9ufU0'), t('DMPDGt_10Y5-qpkliXr_a')]}
                         />
                       </Form.Item>
-                    );
-                  case "grid-radio":
+                    )
+                  case 'grid-radio':
                     return (
                       <Form.Item
                         key={field.name}
@@ -326,9 +320,9 @@ export const SmartSidebar: React.FC<{
                       >
                         <GridRadio options={field.options || []} />
                       </Form.Item>
-                    );
+                    )
                   // 🚀 新增零件 1：拖拽上传
-                  case "upload-dragger":
+                  case 'upload-dragger':
                     return (
                       <Form.Item
                         key={field.name}
@@ -350,20 +344,18 @@ export const SmartSidebar: React.FC<{
                             <CloudUploadOutlined className="text-gray-400 text-6xl" />
                           </p>
                           <p className="ant-upload-text text-[14px] text-gray-600 mt-2">
-                            {t("zP8GVqpuSy1aMeLsFg1CN")}
-                            <span className="text-primary px-1">
-                              {t("TWAufyUFqaezZIEWxjwU9")}
-                            </span>
+                            {t('zP8GVqpuSy1aMeLsFg1CN')}
+                            <span className="text-primary px-1">{t('TWAufyUFqaezZIEWxjwU9')}</span>
                           </p>
                           <p className="ant-upload-hint text-[12px] text-gray-400 mt-2 pb-2 px-4">
-                            {field.placeholder || t("t9SEDPa3XyWRYojvGxacx")}
+                            {field.placeholder || t('t9SEDPa3XyWRYojvGxacx')}
                           </p>
                         </Dragger>
                       </Form.Item>
-                    );
+                    )
 
                   // 🚀 新增零件 2：色块单选
-                  case "color-radio":
+                  case 'color-radio':
                     return (
                       <Form.Item
                         key={field.name}
@@ -374,9 +366,9 @@ export const SmartSidebar: React.FC<{
                       >
                         <ColorRadio options={field.options || []} />
                       </Form.Item>
-                    );
+                    )
                   default:
-                    return null;
+                    return null
                 }
               })}
             </div>
@@ -389,11 +381,9 @@ export const SmartSidebar: React.FC<{
                 loading={isLoading}
                 className="w-full h-12 bg-primary hover:bg-secondary border-none rounded-lg text-[16px] font-medium "
               >
-                {isLoading ? t("d5TNTW2YxRAQIzHiaFYiC") : schema.submitText}{" "}
+                {isLoading ? t('d5TNTW2YxRAQIzHiaFYiC') : schema.submitText}{' '}
                 {!isLoading && schema.submitHint && (
-                  <span className="text-sm opacity-80">
-                    {schema.submitHint}
-                  </span>
+                  <span className="text-sm opacity-80">{schema.submitHint}</span>
                 )}
               </Button>
             </div>
@@ -401,5 +391,5 @@ export const SmartSidebar: React.FC<{
         </div>
       )}
     </div>
-  );
-};
+  )
+}
