@@ -1,115 +1,65 @@
-import React, { useState, useEffect } from "react";
-import { Drawer, Modal, Button, App, Spin, Empty } from "antd";
-import { BellOutlined, ClockCircleOutlined } from "@ant-design/icons";
-import { getMessageNotification, markReaded } from "@/api/common";
-import { useTranslation } from "react-i18next";
+import React, { useState } from 'react'
+import { Drawer, Modal, Button, App, Spin, Empty } from 'antd'
+import { BellOutlined, ClockCircleOutlined } from '@ant-design/icons'
+import { markReaded } from '@/api/common' // 注意：这里不再需要引入 getMessageNotification
+import { useTranslation } from 'react-i18next'
 
+// 🚀 1. 扩充 Props 类型，接收来自 AppHeader 的数据
 interface Props {
-  open: boolean;
-  onClose: () => void;
+  open: boolean
+  onClose: () => void
+  notifications: any[]
+  setNotifications: React.Dispatch<React.SetStateAction<any[]>>
+  loading: boolean
 }
 
-export const MessageCenter: React.FC<Props> = ({ open, onClose }) => {
-  const { t } = useTranslation();
-  const { message } = App.useApp();
+export const MessageCenter: React.FC<Props> = ({
+  open,
+  onClose,
+  notifications,
+  setNotifications,
+  loading,
+}) => {
+  const { t } = useTranslation()
+  const { message } = App.useApp()
+
+  const [isMessageDetailOpen, setIsMessageDetailOpen] = useState(false)
+  const [currentMessage, setCurrentMessage] = useState<any>(null)
 
   // ==========================================
-  // 🚀 状态管理
-  // ==========================================
-  const [isMessageDetailOpen, setIsMessageDetailOpen] = useState(false);
-  const [currentMessage, setCurrentMessage] = useState<any>(null);
-
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  // ==========================================
-  // 🚀 请求消息列表
-  // ==========================================
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      setLoading(true);
-      try {
-        // 请求参数：默认拿最新 20 条消息，后续可根据需求接入底部分页
-        const res = await getMessageNotification({ current: 1, size: 20 });
-
-        if (res?.successful && res?.data?.records) {
-          const formattedData = res.data.records.map((item: any) => {
-            // 处理时间格式，例如 "2026-03-30T15:49:46.450Z" -> "2026-03-30 15:49:46"
-            let formattedTime = item.createTime || "-";
-            if (formattedTime.includes("T")) {
-              formattedTime = formattedTime.replace("T", " ").substring(0, 19);
-            }
-
-            return {
-              id: item.id,
-              title: item.title || t("1rPK7Kh2jWTApuNa8oLbv"),
-              content: item.content || "",
-              time: formattedTime,
-              // 后端返回的 read: "1" 是已读，"0" 是未读
-              isRead: String(item.read) === "1",
-              raw: item, // 保留原始数据
-            };
-          });
-          setNotifications(formattedData);
-        } else {
-          setNotifications([]);
-        }
-      } catch (error) {
-        console.error("获取消息列表异常:", error);
-        message.error(t("4kt3c0bN7e7oESrKpHlnj"));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    // 只有当抽屉打开时，才去请求数据
-    if (open) {
-      fetchNotifications();
-    }
-  }, [open, message]);
-
-  // ==========================================
-  // 🚀 交互操作
+  // 🚀 2. 交互操作（不用改，只要记得用 props 里的 setNotifications）
   // ==========================================
   const handleViewMessageDetail = async (notice: any) => {
-    // 1. 先打开弹窗并展示详情
-    setCurrentMessage(notice);
-    setIsMessageDetailOpen(true);
+    setCurrentMessage(notice)
+    setIsMessageDetailOpen(true)
 
-    // 2. 如果消息未读，则调用标记已读接口
     if (!notice.isRead) {
       try {
-        const res = await markReaded(notice.id);
-
-        // 假设接口返回 successful 为 true，或者直接认为没报错就成功
+        const res = await markReaded(notice.id)
         if (res?.successful || res?.code === 0 || res?.code === 200) {
-          // 3. 乐观更新本地状态，消除对应列表项的未读红点
+          // 乐观更新父组件传下来的状态
           setNotifications((prev) =>
-            prev.map((item) =>
-              item.id === notice.id ? { ...item, isRead: true } : item,
-            ),
-          );
+            prev.map((item) => (item.id === notice.id ? { ...item, isRead: true } : item)),
+          )
         }
       } catch (error) {
-        console.error("标记已读状态失败:", error);
-        // message.error('网络异常，无法标记为已读') // 这里静默失败即可，没必要打断用户看消息
+        console.error('标记已读状态失败:', error)
       }
     }
-  };
+  }
 
   const handleMarkAllAsRead = () => {
-    // 💡 提示：如果后端有提供“全部已读”的接口，在此处对接
-    message.success(t("XPA9ue7_wp_bPGWxZTLSs"));
-    const updated = notifications.map((n) => ({ ...n, isRead: true }));
-    setNotifications(updated);
-  };
+    message.success(t('XPA9ue7_wp_bPGWxZTLSs'))
+    const updated = notifications.map((n) => ({ ...n, isRead: true }))
+    setNotifications(updated)
+  }
 
   return (
     <>
       <Drawer
         title={
           <div className="flex items-center gap-2 text-base">
-            <BellOutlined /> {t("6qjXDiWASM4QFoKYxn9xO")}
+            <BellOutlined /> {t('6qjXDiWASM4QFoKYxn9xO')}
           </div>
         }
         closable={false}
@@ -122,26 +72,24 @@ export const MessageCenter: React.FC<Props> = ({ open, onClose }) => {
             className="text-blue-500 text-sm cursor-pointer hover:text-blue-600 transition-colors"
             onClick={handleMarkAllAsRead}
           >
-            {t("zMChAdzPN0L2xvlCMxP2F")}
+            {t('zMChAdzPN0L2xvlCMxP2F')}
           </span>
         }
         styles={{
-          body: { backgroundColor: "#f9fafb", padding: "16px" },
-          header: { borderBottom: "1px solid #f0f0f0" },
+          body: { backgroundColor: '#f9fafb', padding: '16px' },
+          header: { borderBottom: '1px solid #f0f0f0' },
         }}
       >
         <div className="flex flex-col gap-3 relative min-h-[100px]">
-          {/* 🚀 加载状态 */}
           {loading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#f9fafb]/80 backdrop-blur-[1px]">
-              <Spin description={t("bfJ8KlxbV0DiFDkTPbmfD")} />
+              <Spin description={t('bfJ8KlxbV0DiFDkTPbmfD')} />
             </div>
           )}
 
-          {/* 🚀 列表数据 / 空状态 */}
           {!loading && notifications.length === 0 ? (
             <div className="pt-20">
-              <Empty description={t("GPIfvzlliJuVHtKcovAno")} />
+              <Empty description={t('GPIfvzlliJuVHtKcovAno')} />
             </div>
           ) : (
             notifications.map((notice) => (
@@ -168,7 +116,7 @@ export const MessageCenter: React.FC<Props> = ({ open, onClose }) => {
                     className="text-gray-500 cursor-pointer hover:text-primary transition-colors"
                     onClick={() => handleViewMessageDetail(notice)}
                   >
-                    {t("uT_w5mZsxlBhmSBdYeM3h")}
+                    {t('uT_w5mZsxlBhmSBdYeM3h')}
                   </span>
                 </div>
               </div>
@@ -177,18 +125,17 @@ export const MessageCenter: React.FC<Props> = ({ open, onClose }) => {
         </div>
       </Drawer>
 
+      {/* 详情弹窗代码完全保持原样，省略显示 */}
       <Modal
         title={
-          <span className="font-bold text-gray-800 text-base">
-            {t("KbBI_RUAQ2pR3-6eer8Yb")}
-          </span>
+          <span className="font-bold text-gray-800 text-base">{t('KbBI_RUAQ2pR3-6eer8Yb')}</span>
         }
         open={isMessageDetailOpen}
         onCancel={() => setIsMessageDetailOpen(false)}
         footer={null}
         centered
         width={480}
-        classNames={{ container: "rounded-2xl" }}
+        classNames={{ container: 'rounded-2xl' }}
       >
         {currentMessage && (
           <div className="pt-4 pb-2 animate-fade-in">
@@ -211,12 +158,12 @@ export const MessageCenter: React.FC<Props> = ({ open, onClose }) => {
                 onClick={() => setIsMessageDetailOpen(false)}
                 className="bg-primary hover:bg-secondary border-none rounded-lg px-6 h-9 text-sm tracking-widest shadow-md shadow-indigo-500/20"
               >
-                {t("Fw8SefKWcNDVHCFhUFmhk")}
+                {t('Fw8SefKWcNDVHCFhUFmhk')}
               </Button>
             </div>
           </div>
         )}
       </Modal>
     </>
-  );
-};
+  )
+}
