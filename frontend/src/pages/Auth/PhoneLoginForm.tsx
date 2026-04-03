@@ -1,116 +1,113 @@
-import React, { useState } from "react";
-import { Form, Input, Checkbox, Button } from "antd";
+import React, { useState } from 'react'
+import { Form, Input, Checkbox, Button } from 'antd'
 import {
   MobileOutlined,
   MailOutlined,
   ExclamationCircleOutlined,
   CloseCircleOutlined,
-} from "@ant-design/icons";
-import { useNavigate } from "react-router-dom";
-import { login } from "@/api/auth";
-import { useUserStore } from "@/store/useUserStore";
-import { useTranslation } from "react-i18next";
+} from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
+import { login } from '@/api/auth'
+import { useUserStore } from '@/store/useUserStore'
+import { useTranslation } from 'react-i18next'
 // 错误提示的状态结构
 interface ErrorState {
-  msg: string;
-  type: "warning" | "error";
+  msg: string
+  type: 'warning' | 'error'
 }
 
 interface Props {
-  onSwitchMode: (mode: AuthMode) => void;
+  onSwitchMode: (mode: AuthMode) => void
 }
 
 export const PhoneLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const setUser = useUserStore((state) => state.setUser);
-  const [loading, setLoading] = useState(false);
-  const [form] = Form.useForm();
-  const [countdown, setCountdown] = useState(0);
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const setUser = useUserStore((state) => state.setUser)
+  const [loading, setLoading] = useState(false)
+  const [form] = Form.useForm()
+  const [countdown, setCountdown] = useState(0)
 
   // 新增：集中式报错状态与动画触发器
-  const [errorData, setErrorData] = useState<ErrorState | null>(null);
-  const [shakeKey, setShakeKey] = useState<number>(0);
+  const [errorData, setErrorData] = useState<ErrorState | null>(null)
+  const [shakeKey, setShakeKey] = useState<number>(0)
 
   // 获取验证码逻辑 (加入前置校验)
   const handleGetCode = async () => {
-    if (countdown > 0) return;
+    if (countdown > 0) return
 
     try {
       // 🚀 核心逻辑：先触发表单手机号字段的校验
-      await form.validateFields(["phone"]);
+      await form.validateFields(['phone'])
 
       // 校验通过，清空错误并开始倒计时
-      setErrorData(null);
-      setCountdown(60);
+      setErrorData(null)
+      setCountdown(60)
       const timer = setInterval(() => {
         setCountdown((prev) => {
           if (prev <= 1) {
-            clearInterval(timer);
-            return 0;
+            clearInterval(timer)
+            return 0
           }
-          return prev - 1;
-        });
-      }, 1000);
+          return prev - 1
+        })
+      }, 1000)
     } catch (errorInfo: any) {
       // 校验不通过，捕获错误并触发底部抖动提示
-      const errorMsg = errorInfo.errorFields[0]?.errors[0];
+      const errorMsg = errorInfo.errorFields[0]?.errors[0]
       if (errorMsg) {
-        setErrorData({ msg: errorMsg, type: "warning" });
-        setShakeKey(Date.now());
+        setErrorData({ msg: errorMsg, type: 'warning' })
+        setShakeKey(Date.now())
       }
     }
-  };
+  }
 
   const onFinish = async (values: any) => {
     try {
-      setLoading(true);
+      setLoading(true)
       const response = await login({
         username: values.phone,
         password: values.code,
-        grantType: "sms", // 短信验证码登录
-      });
+        grantType: 'sms', // 短信验证码登录
+      })
       // 修改兼容后端的真实数据包裹层，以避免 TypeScript 类型校验报错
-      const token =
-        (response as any)?.data?.accessToken || (response as any)?.accessToken;
+      const token = (response as any)?.data?.accessToken || (response as any)?.accessToken
       if (token) {
-        localStorage.setItem("token", token);
+        localStorage.setItem('token', token)
       }
 
-      setUser(response);
-      setErrorData(null);
-      navigate("/");
+      setUser(response)
+      setErrorData(null)
+      navigate('/')
     } catch (err) {
-      console.error(err);
-      setErrorData({ msg: t("ENCvcvlO1_Q9pUxA_Lf6g"), type: "error" });
-      setShakeKey(Date.now());
+      console.error(err)
+      setErrorData({ msg: t('ENCvcvlO1_Q9pUxA_Lf6g'), type: 'error' })
+      setShakeKey(Date.now())
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // 捕获表单前端校验失败事件 (必填项没填)
   const onFinishFailed = (errorInfo: any) => {
-    const firstError = errorInfo.errorFields[0]?.errors[0];
+    const firstError = errorInfo.errorFields[0]?.errors[0]
     if (firstError) {
-      setErrorData({ msg: firstError, type: "warning" });
-      setShakeKey(Date.now());
+      setErrorData({ msg: firstError, type: 'warning' })
+      setShakeKey(Date.now())
     }
-  };
+  }
 
   return (
     <>
       {/* 登录方式切换头 */}
       <div className="flex justify-between items-baseline mb-6">
         {/* 注意：顺手帮你把这里修成了“手机登录” */}
-        <span className="text-[17px] font-bold text-gray-800">
-          {t("pAmyjO0PJbZ8MEO9BoOGY")}
-        </span>
+        <span className="text-[17px] font-bold text-gray-800">{t('pAmyjO0PJbZ8MEO9BoOGY')}</span>
         <a
           className="text-[14px] text-blue-500 hover:text-blue-600 transition-colors cursor-pointer"
-          onClick={() => onSwitchMode("pwd_login")}
+          onClick={() => onSwitchMode('pwd_login')}
         >
-          {t("-rJ662t2MpXbMVqGWJL8s")}
+          {t('-rJ662t2MpXbMVqGWJL8s')}
         </a>
       </div>
 
@@ -130,13 +127,13 @@ export const PhoneLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
           name="phone"
           className="mb-5"
           rules={[
-            { required: true, message: t("vQnMeRoaUdpZTxYSZfd1b") },
-            { pattern: /^1[3-9]\d{9}$/, message: t("GLqPKWbxj2tgDO3EIX9mc") },
+            { required: true, message: t('vQnMeRoaUdpZTxYSZfd1b') },
+            { pattern: /^1[3-9]\d{9}$/, message: t('GLqPKWbxj2tgDO3EIX9mc') },
           ]}
         >
           <Input
             prefix={<MobileOutlined className="text-gray-400 text-lg mr-1.5" />}
-            placeholder={t("vQnMeRoaUdpZTxYSZfd1b")}
+            placeholder={t('vQnMeRoaUdpZTxYSZfd1b')}
             className="rounded-lg h-12"
           />
         </Form.Item>
@@ -145,24 +142,24 @@ export const PhoneLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
         <Form.Item
           name="code"
           className="mb-6"
-          rules={[{ required: true, message: t("ElK_5bnTZNp2icI2YGtV1") }]}
+          rules={[{ required: true, message: t('ElK_5bnTZNp2icI2YGtV1') }]}
         >
           <Input
             prefix={<MailOutlined className="text-gray-400 text-lg mr-1.5" />}
-            placeholder={t("ElK_5bnTZNp2icI2YGtV1")}
+            placeholder={t('ElK_5bnTZNp2icI2YGtV1')}
             className="rounded-lg h-12"
             suffix={
               <span
                 onClick={handleGetCode}
                 className={`text-[14px] transition-colors select-none ${
                   countdown > 0
-                    ? "text-gray-400 cursor-not-allowed"
-                    : "text-blue-500 hover:text-blue-600 cursor-pointer"
+                    ? 'text-gray-400 cursor-not-allowed'
+                    : 'text-blue-500 hover:text-blue-600 cursor-pointer'
                 }`}
               >
                 {countdown > 0
-                  ? `${countdown}s后重发`
-                  : t("CzJkxAofKnEZhPz2Xi_Lw")}
+                  ? t('EQYTcDCN5wpUaylPv-Ktn', { countdown })
+                  : t('CzJkxAofKnEZhPz2Xi_Lw')}
               </span>
             }
           />
@@ -171,9 +168,7 @@ export const PhoneLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
         {/* 选项区 */}
         <div className="flex justify-start items-center mb-6 text-sm">
           <Form.Item name="remember" valuePropName="checked" noStyle>
-            <Checkbox className="text-gray-500">
-              {t("re8zqAWm1FpwnB0sHH5C3")}
-            </Checkbox>
+            <Checkbox className="text-gray-500">{t('re8zqAWm1FpwnB0sHH5C3')}</Checkbox>
           </Form.Item>
         </div>
 
@@ -185,7 +180,7 @@ export const PhoneLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
             loading={loading}
             className="w-full h-12 bg-primary hover:bg-secondary border-none rounded-lg text-[16px] font-medium tracking-wide shadow-md shadow-indigo-500/20"
           >
-            {t("8COh3xoW8nfdMYt2nI0HT")}
+            {t('8COh3xoW8nfdMYt2nI0HT')}
           </Button>
         </Form.Item>
 
@@ -195,12 +190,12 @@ export const PhoneLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
             <div
               key={shakeKey}
               className={`mt-4 flex items-center gap-2 rounded-md border px-4 py-3 text-[14px] animate-shake-y ${
-                errorData.type === "warning"
-                  ? "border-[#ffd591] bg-[#fffbe6] text-[#fa8c16]" // 橙色警告
-                  : "border-[#ffccc7] bg-[#fff2f0] text-[#ff4d4f]" // 红色错误
+                errorData.type === 'warning'
+                  ? 'border-[#ffd591] bg-[#fffbe6] text-[#fa8c16]' // 橙色警告
+                  : 'border-[#ffccc7] bg-[#fff2f0] text-[#ff4d4f]' // 红色错误
               }`}
             >
-              {errorData.type === "warning" ? (
+              {errorData.type === 'warning' ? (
                 <ExclamationCircleOutlined className="text-base" />
               ) : (
                 <CloseCircleOutlined className="text-base" />
@@ -211,5 +206,5 @@ export const PhoneLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
         </div>
       </Form>
     </>
-  );
-};
+  )
+}
