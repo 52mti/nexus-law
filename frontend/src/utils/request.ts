@@ -1,6 +1,8 @@
 // src/utils/request.ts
 import axios, { type AxiosResponse } from 'axios'
 import { globalMessage } from '@/utils/globalAntd';
+// 🚀 1. 核心：直接引入配置好的 i18n 实例（注意路径根据你的实际位置调整）
+import i18n from '../i18n'; 
 
 // ==========================================
 // 定义后端响应格式
@@ -15,7 +17,6 @@ interface ApiResponse<T = any> {
 // 1. 创建属于你业务后端的专属 Axios 实例
 // ==========================================
 const request = axios.create({
-  // Vite 环境变量读取方式，如果没有则默认请求本地 3000 端口
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000',
   timeout: 60 * 1000, // 10秒超时
 })
@@ -25,7 +26,6 @@ const request = axios.create({
 // ==========================================
 request.interceptors.request.use(
   (config) => {
-    // 💡 未来这里是你给 NestJS/Java 传 Token 的地方
     const token = localStorage.getItem('token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
@@ -49,31 +49,32 @@ request.interceptors.response.use(
     if (error.response) {
       switch (error.response.status) {
         case 401:
-          globalMessage.error('登录已过期，请重新登录')
+          // 🚀 2. 使用 i18n.t 替换中文
+          globalMessage.error(i18n.t('error.token_expired'))
           localStorage.removeItem('token')
           window.location.href = '/login'
           break
         case 403:
-          globalMessage.error('您没有权限访问该资源')
+          globalMessage.error(i18n.t('error.no_permission'))
           break
         case 404:
-          globalMessage.error('请求的接口不存在')
+          globalMessage.error(i18n.t('error.not_found'))
           break
         case 500:
-          globalMessage.error('服务器开了个小差，请稍后再试')
+          globalMessage.error(i18n.t('error.server_error'))
           break
         default:
-          globalMessage.error(`网络请求错误: ${error.response.status}`)
+          // 🚀 3. 动态插值：把 HTTP 状态码作为变量传进去
+          globalMessage.error(i18n.t('error.network_error_with_status', { status: error.response.status }))
       }
     } else if (error.message && error.message.includes('timeout')) {
-      globalMessage.error('请求超时，请检查您的网络环境')
+      globalMessage.error(i18n.t('error.timeout'))
     } else {
-      globalMessage.error('网络连接异常，请检查后端服务是否启动')
+      globalMessage.error(i18n.t('error.network_exception'))
     }
 
     return Promise.reject(error)
   },
 )
 
-// 最后，把这个配置好的实例暴露出去！
 export default request

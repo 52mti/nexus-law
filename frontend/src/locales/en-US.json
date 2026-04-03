@@ -1,4 +1,11 @@
 {
+  "error.token_expired": "Login expired, please log in again",
+  "error.no_permission": "You do not have permission to access this resource",
+  "error.not_found": "The requested API does not exist",
+  "error.server_error": "The server is temporarily busy, please try again later",
+  "error.network_error_with_status": "Network request error: {{status}}",
+  "error.timeout": "Request timeout, please check your network environment",
+  "error.network_exception": "Network connection exception, please check if the backend service is running",
   "vip.search_unlimited": "Clause Retrieval: Unlimited basic searches daily",
   "vip.search_limited": "Clause Retrieval: Limited to {{count}} basic searches daily",
   

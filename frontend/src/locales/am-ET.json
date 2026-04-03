@@ -1,4 +1,11 @@
 {
+  "error.token_expired": "የመግቢያ ጊዜው አልቋል፣ እባክዎ እንደገና ይግቡ",
+  "error.no_permission": "ይህን መረጃ ለማግኘት ፈቃድ የለዎትም",
+  "error.not_found": "የተጠየቀው በይነገጽ የለም",
+  "error.server_error": "አገልጋዩ ለጊዜው ስራ በዝቶበታል፣ እባክዎ ቆየት ብለው ይሞክሩ",
+  "error.network_error_with_status": "የአውታረ መረብ ጥያቄ ስህተት፡ {{status}}",
+  "error.timeout": "የጥያቄ ጊዜ አልቋል፣ እባክዎ የአውታረ መረብዎን ሁኔታ ያረጋግጡ",
+  "error.network_exception": "የአውታረ መረብ ግንኙነት ችግር፣ እባክዎ የጀርባ አገልግሎቱ እየሰራ መሆኑን ያረጋግጡ",
   "vip.search_unlimited": "የአንቀጽ ፍለጋ፡ በቀን ያልተገደበ መሰረታዊ ፍለጋ",
   "vip.search_limited": "የአንቀጽ ፍለጋ፡ በቀን እስከ {{count}} ጊዜ መሰረታዊ ፍለጋ",
   

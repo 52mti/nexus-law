@@ -1,4 +1,11 @@
 {
+  "error.token_expired": "登录已过期，请重新登录",
+  "error.no_permission": "您没有权限访问该资源",
+  "error.not_found": "请求的接口不存在",
+  "error.server_error": "服务器开了个小差，请稍后再试",
+  "error.network_error_with_status": "网络请求错误: {{status}}",
+  "error.timeout": "请求超时，请检查您的网络环境",
+  "error.network_exception": "网络连接异常，请检查后端服务是否启动",
   "-12qwY0PC7PpbQh4_MKXF": "条文检索",
   "-53FdczzsCVuhoCMrOAiF": "劳动相关合同",
   "-ZBMD7RdKnBp5zkjsba2X": "(消耗1点积分)",
