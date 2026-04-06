@@ -5,8 +5,8 @@ import request from '@/utils/request'
 export interface DocumentResponse {
   code: number
   data: {
-    title: string;
-    markdownContent: string;
+    title: string
+    markdownContent: string
   }
 }
 
@@ -28,6 +28,13 @@ export const saveDocument = (data: {
   partyA: string
   partyB: string
   content: string
+  result: string
+  id: string
 }) => {
   return request.post('/legalDocumentTranslation/saveOrUpdate', data)
+}
+
+// 获取文书详情
+export const getDocumentDetail = (id: string) => {
+  return request.post(`/legalDocumentTranslation/getById`, { id })
 }

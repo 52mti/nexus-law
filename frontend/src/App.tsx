@@ -1,4 +1,4 @@
-import { Suspense, lazy, useMemo } from 'react' // 🚀 1. 这里加了一个 useMemo
+import { Suspense, lazy, useEffect, useMemo } from 'react' // 🚀 1. 这里加了一个 useMemo
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ConfigProvider, Spin } from 'antd'
 import type { ThemeConfig } from 'antd/lib/config-provider'
@@ -13,6 +13,10 @@ import amET from './locales/antd-am-ET'
 
 // 静态引入核心骨架
 import MainLayout from './layouts/MainLayout'
+
+import { useSettingStore } from './store/useSettingStore'
+
+import { settingList } from './api/common'
 
 // ==========================================
 // 动态按需加载页面组件 (保持不变)
@@ -40,6 +44,29 @@ const PageLoader = () => (
 function App() {
   const { i18n } = useTranslation()
   const primaryColor = useThemeColor('--brand-primary', '#666cff')
+
+  // 🚀 2. 从 Zustand 中取出更新数据的方法
+  const setSettings = useSettingStore((state) => state.setSettings)
+
+  // 🚀 3. 在 useEffect 中请求配置列表
+  useEffect(() => {
+    const fetchGlobalSettings = async () => {
+      try {
+        // 传入极大的 size 以忽略分页，一次性拿完所有配置
+        const res = await settingList()
+
+        // 校验接口是否返回成功，且包含 records 数据
+        if (res?.successful && res?.data?.records) {
+          // 直接将 records 数组塞进 Zustand
+          setSettings(res.data.records)
+        }
+      } catch (error) {
+        console.error('获取全局配置失败:', error)
+      }
+    }
+
+    fetchGlobalSettings()
+  }, [setSettings]) // 把 setSettings 放入依赖数组是最佳实践
 
   // 🚀 3. 核心改造：使用 useMemo 动态匹配当前语言，支持阿姆哈拉语
   const antdLocale = useMemo(() => {

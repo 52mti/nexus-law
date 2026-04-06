@@ -44,6 +44,8 @@ export const MembershipPage: React.FC = () => {
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
   const [currentPlan, setCurrentPlan] = useState<UIPlanType | null>(null)
 
+  const MEMBERSHIP_PLANS_CACHE_KEY = 'membership_plans'
+
   // ==========================================
   // 🚀 核心：初始化加载与数据映射 (Mapping)
   // ==========================================
@@ -51,11 +53,39 @@ export const MembershipPage: React.FC = () => {
     const fetchPlans = async () => {
       setLoading(true)
       try {
-        const res = await MembershipPlan()
+        let records: PlanSubscription[] | undefined = undefined
 
-        if (res.successful && res.data?.records) {
-          // 将后端的 records 映射成前端 UI 需要的格式
-          const formattedPlans: UIPlanType[] = res.data.records.map((record) => {
+        // 1. 优先从 sessionStorage 获取缓存数据
+        const cachedData = sessionStorage.getItem(MEMBERSHIP_PLANS_CACHE_KEY)
+        if (cachedData) {
+          try {
+            const parsed = JSON.parse(cachedData)
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              records = parsed
+            }
+          } catch (e) {
+            console.error('Failed to parse cached membership plans:', e)
+          }
+        }
+
+        // 2. 如果没有缓存，则从接口获取
+        if (!records) {
+          const res = await MembershipPlan()
+
+          if (res.successful && res.data?.records) {
+            records = res.data.records
+            // 写入缓存
+            sessionStorage.setItem(MEMBERSHIP_PLANS_CACHE_KEY, JSON.stringify(records))
+          } else {
+            message.error(res.message || t('U_S_1gpnDYGeN7RYQdKEo'))
+            setLoading(false)
+            return
+          }
+        }
+
+        // 3. 将后端数据渲染为前端 UI 格式
+        if (records) {
+          const formattedPlans: UIPlanType[] = records.map((record) => {
             // 判断是否是免费体验用户 (通过价格判断，或者通过 code === 'TYYH' 判断)
             const isFree = Number(record.price) === 0
             // 判断是否是主推的高级套餐 (比如 钻石会员 ZSHY)
@@ -78,7 +108,9 @@ export const MembershipPage: React.FC = () => {
               // 共同的权益说明，后端暂无此字段，前端先统一配置
               features: [
                 // 保留你原本提取的第一句
-                t('K_CPY64x49zsOjtNMh25G'),
+                record.consultationCount === -1
+                  ? t('vip.consult_unlimited')
+                  : t('vip.consult_limited', { count: record.consultationCount }),
 
                 // 🚀 1. 条文检索逻辑：如果是 -1 就拿不限的 Key，否则拿限制的 Key 并传变量
                 record.legalProvisionsCount === -1
@@ -106,8 +138,6 @@ export const MembershipPage: React.FC = () => {
           formattedPlans.sort((a, b) => Number(a.originalData.price) - Number(b.originalData.price))
 
           setPlans(formattedPlans)
-        } else {
-          message.error(res.message || t('U_S_1gpnDYGeN7RYQdKEo'))
         }
       } catch (error) {
         console.error('获取会员套餐报错:', error)
@@ -118,7 +148,8 @@ export const MembershipPage: React.FC = () => {
     }
 
     fetchPlans()
-  }, [message])
+  }, [message, t])
+
 
   // 点击购买按钮逻辑
   const handleBuyClick = (plan: UIPlanType) => {

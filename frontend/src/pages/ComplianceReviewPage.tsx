@@ -1,22 +1,66 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { App, Button } from 'antd'
-import { CopyOutlined, DownloadOutlined, BulbOutlined } from '@ant-design/icons'
+import { App, Button, Form, Upload } from 'antd'
+import {
+  CopyOutlined,
+  DownloadOutlined,
+  BulbOutlined,
+  CloudUploadOutlined,
+} from '@ant-design/icons'
 import { PortalSidebar } from '@/components/layout/PortalSidebar'
-import { SmartSidebar, type SidebarSchema } from '@/components/SmartSidebar'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useReactToPrint } from 'react-to-print'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useTranslation } from 'react-i18next'
-// 🚀 1. 引入文件上传和合规审查的 API
 import { upload } from '@/api/file'
 import { saveOrUpdateComplianceReview } from '@/api/saveOrUpdate'
-import { analyzeComplianceApi } from '@/api/compliance'
+import { analyzeComplianceApi, getComplianceDetail } from '@/api/compliance'
+
+const { Dragger } = Upload
+
+// ==========================================
+// 🚀 WET: 私有自定义控件：色块单选
+// ==========================================
+const ColorRadio: React.FC<{
+  value?: any
+  onChange?: (val: any) => void
+  options: any[]
+}> = ({ value, onChange, options }) => (
+  <div className="flex items-center gap-6">
+    {options.map((opt) => {
+      const isSelected = value === opt.value
+      return (
+        <div
+          key={opt.value}
+          onClick={() => onChange?.(opt.value)}
+          className={`flex items-center gap-2.5 cursor-pointer transition-all ${
+            isSelected ? 'text-gray-800' : 'text-gray-400 hover:text-gray-600'
+          }`}
+        >
+          <div
+            className={`w-5 h-5 rounded-sm transition-colors ${
+              isSelected ? 'bg-[blue]' : 'bg-gray-500'
+            }`}
+          />
+          <span className="text-[14px]">{opt.label}</span>
+        </div>
+      )
+    })}
+  </div>
+)
+
+const normFile = (e: any) => {
+  if (Array.isArray(e)) return e
+  return e?.fileList
+}
 
 export const ComplianceReviewPage = () => {
   const { t } = useTranslation()
   const { message } = App.useApp()
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const isJustGenerated = useRef(false)
+
   const [loading, setLoading] = useState(Boolean(id))
   const [docData, setDocData] = useState<{
     title: string
@@ -24,117 +68,98 @@ export const ComplianceReviewPage = () => {
   } | null>(null)
   const [historyFormValues, setHistoryFormValues] = useState<any>(null)
   const paperRef = useRef<HTMLDivElement>(null)
-
-  const contractReviewSchema: SidebarSchema = {
-    title: t('arNSK77_1mBHqUKeHWOI9'),
-    submitText: t('EGxpXlGG9sxTs78GNi_tr'),
-    hasSceneSwitch: false,
-    categories: [
-      {
-        id: 'contract_review',
-        title: '',
-        formFields: [
-          {
-            name: 'contractFile',
-            label: t('LCmQthYCNmIA3U20CxtHX'),
-            type: 'upload-dragger',
-            required: true,
-            placeholder: t('t9SEDPa3XyWRYojvGxacx'),
-          },
-          {
-            name: 'reviewAngle',
-            label: t('FyUUOpqA02HNZIdsaJmz4'),
-            type: 'color-radio',
-            required: true,
-            options: [
-              { label: t('x9R1a-BqWjeY7Z2UB0z1q'), value: 'partyA' },
-              { label: t('IJILUOjKrBj3qyARlyzw_'), value: 'partyB' },
-              { label: t('yAZP_j2qBJ-w-gnNoCEV4'), value: 'neutral' },
-            ],
-          },
-        ],
-      },
-    ],
-  }
+  const [form] = Form.useForm()
 
   useEffect(() => {
     if (id) {
+      if (isJustGenerated.current) {
+        isJustGenerated.current = false
+        return
+      }
       fetchHistoryData(id)
     } else {
       setDocData(null)
       setHistoryFormValues(null)
+      form.resetFields()
     }
-  }, [id])
+  }, [id, form])
+
+  useEffect(() => {
+    if (historyFormValues) {
+      form.setFieldsValue(historyFormValues)
+    }
+  }, [historyFormValues, form])
 
   const fetchHistoryData = async (documentId: string) => {
     setLoading(true)
     try {
-      setTimeout(() => {
-        const mockResponse = {
-          formValues: {
-            reviewAngle: 'partyA',
-          },
-          generatedResult: {
-            title: t('atmo0oFvyytF9uwRncAV8'),
-            markdownContent: t('A-YQ_OXwJEkuuVjCMuhy3'),
-          },
-        }
-        setHistoryFormValues(mockResponse.formValues)
-        setDocData(mockResponse.generatedResult)
-        setLoading(false)
-      }, 800)
+      const res = await getComplianceDetail(documentId)
+
+      if ((res?.code === 200 || res?.code === 0) && res?.data) {
+        const historyData = res.data
+
+        // 🚀 1. 还原表单数据 ( reviewAngle & contractFile )
+        setHistoryFormValues({
+          reviewAngle: historyData.angleId,
+          // ⚠️ 这里对 attachments 进行解析，如果是逗号分隔的 URL
+          contractFile: historyData.attachments
+            ? historyData.attachments.split(',').map((url: string, index: number) => ({
+                uid: `-${index}`,
+                name: url.split('/').pop() || 'file',
+                status: 'done',
+                url: url,
+              }))
+            : [],
+        })
+
+        // 🚀 2. 还原审核结果
+        setDocData({
+          title: t('atmo0oFvyytF9uwRncAV8'),
+          markdownContent: historyData.content || '',
+        })
+      } else {
+        message.error(res?.message || t('7gEeqjRG-8JBLFMo_Ol_G'))
+        setDocData(null)
+      }
     } catch (error) {
+      console.error('获取合规审查记录异常:', error)
       message.error(t('7gEeqjRG-8JBLFMo_Ol_G'))
+      setDocData(null)
+    } finally {
       setLoading(false)
     }
   }
 
-  // ==========================================
-  // 🚀 2. 重构核心逻辑：先上传 OSS，再调合规接口
-  // ==========================================
   const handleSubmit = async (values: any) => {
     try {
       setLoading(true)
-
       const formData = new FormData()
 
-      // 第一步验证必填项
       if (!values.contractFile || values.contractFile.length === 0) {
         message.warning(t('kTIFKlqKgXul4cyyFSNYE'))
         setLoading(false)
         return
       }
-      if (!values.reviewAngle) {
-        message.warning(t('4JH9XWXzMcYZeMHaJMn6Z'))
-        setLoading(false)
-        return
-      }
+
       values.contractFile.forEach((fileItem: any) => {
         const actualFile = fileItem.originFileObj || fileItem
         formData.append('files', actualFile)
       })
       formData.append('reviewAngle', values.reviewAngle)
 
-      // ------------------------------------------
-      // 🚀 步骤 A: 遍历并调用 upload 接口上传文件
-      // ------------------------------------------
-      const uploadedFileUrls: string[] = [] // 用于存放上传成功后的文件链接 (或者 ID)
+      const uploadedFileUrls: string[] = []
 
-      // 使用 for...of 保证按顺序 await 上传
       for (const fileItem of values.contractFile) {
         const actualFile = fileItem.originFileObj || fileItem
+        const uploadRes = (await upload(actualFile, 'file')) as any
 
-        // 调用刚刚改写好的 upload 接口
-        const uploadRes = await upload(actualFile, 'file')
-
-        if (uploadRes.successful && uploadRes.data) {
-          // 💡 这里取 URL 还是 ID，取决于你后端合规接口想要什么。通常传 URL 或 ID 过去即可。
+        if (uploadRes.code === 0 && uploadRes.data) {
           uploadedFileUrls.push(uploadRes.data.url!)
         } else {
           message.destroy('uploading')
           message.error(t('3gbfChGAla4chIHCIG9v3', { fileName: actualFile.name }))
           setLoading(false)
-          return // 只要有一个文件上传失败，就立刻阻断流程
+          return
         }
       }
 
@@ -143,7 +168,6 @@ export const ComplianceReviewPage = () => {
         key: 'uploading',
       })
 
-      // 发起真实请求
       const res = await analyzeComplianceApi(formData)
 
       if (res.code === 200 || res.code === 0) {
@@ -152,19 +176,23 @@ export const ComplianceReviewPage = () => {
           markdownContent: res.data,
         })
 
-        // ------------------------------------------
-        // 🚀 步骤 C: 保存本次审查的结果、文件和角度
-        // ------------------------------------------
+        const sessionId = crypto.randomUUID()
+
         try {
           await saveOrUpdateComplianceReview({
-            angleId: values.reviewAngle, // 审查角度
-            attachments: uploadedFileUrls.join(','), // 上传的源文件地址(或ID)数组
-            content: res.data, // AI生成的Markdown审查报告
-            // 如果接口还需要其他的标识（如 consultationId），你可以在这里一并传入
-          })
+            id: sessionId,
+            angleId: values.reviewAngle,
+            attachments: uploadedFileUrls.join(','),
+            content: res.data,
+          } as any)
+
+          if (!id) {
+            isJustGenerated.current = true
+            // 根据路由定义，跳转到 /compliance_review/:id
+            navigate(`/compliance_review/${sessionId}`, { replace: true })
+          }
         } catch (saveErr) {
           console.error('保存审查历史记录失败:', saveErr)
-          // 仅打印日志，不阻断页面正常渲染，你也可以按需 message.warning 提示用户
         }
 
         message.success(t('cUZWWl4N9oMOBKDgRn3ZG'))
@@ -173,7 +201,7 @@ export const ComplianceReviewPage = () => {
       }
     } catch (error) {
       console.error('合规审查请求异常:', error)
-      message.destroy('uploading') // 兜底清理提示框
+      message.destroy('uploading')
     } finally {
       setLoading(false)
     }
@@ -197,12 +225,74 @@ export const ComplianceReviewPage = () => {
   return (
     <div className="flex h-full bg-gray-50">
       <PortalSidebar>
-        <SmartSidebar
-          schema={contractReviewSchema}
-          onSubmit={handleSubmit}
-          isLoading={loading}
-          initialValues={historyFormValues}
-        />
+        <div className="w-86 h-full bg-white p-5 flex flex-col overflow-y-auto custom-scrollbar animate-fade-in relative">
+          <div className="sticky top-0 bg-white z-10 pb-4 mb-2">
+            <h2 className="text-xl font-bold text-gray-800 px-1">{t('arNSK77_1mBHqUKeHWOI9')}</h2>
+          </div>
+
+          <Form
+            form={form}
+            layout="vertical"
+            onFinish={handleSubmit}
+            disabled={loading}
+            className="flex-1 flex flex-col [&_.ant-form-item-label>label]:font-bold [&_.ant-form-item-label>label]:text-[15px] [&_.ant-form-item-label]:pb-1.5"
+          >
+            <div className="flex-1">
+              {/* 合同文件上传 */}
+              <Form.Item
+                name="contractFile"
+                label={t('bR1faWtplY_I9NvQTPZh3')}
+                rules={[{ required: true, message: t('FA0VmOz2_D0D41lTmBu-m') }]}
+                valuePropName="fileList"
+                getValueFromEvent={normFile}
+                className="mb-6"
+              >
+                <Dragger
+                  name="file"
+                  multiple={false}
+                  beforeUpload={() => false}
+                  className="bg-[#f9fafc] border-gray-200 hover:border-primary transition-all"
+                >
+                  <p className="ant-upload-drag-icon pt-2">
+                    <CloudUploadOutlined className="text-gray-400 text-6xl" />
+                  </p>
+                  <p className="ant-upload-text text-[14px] text-gray-600 mt-2">
+                    {t('zP8GVqpuSy1aMeLsFg1CN')}
+                    <span className="text-primary px-1">{t('TWAufyUFqaezZIEWxjwU9')}</span>
+                  </p>
+                  <p className="ant-upload-hint text-[12px] text-gray-400 mt-2 pb-2 px-4">
+                    {t('t9SEDPa3XyWRYojvGxacx')}
+                  </p>
+                </Dragger>
+              </Form.Item>
+
+              {/* 审查维度 */}
+              <Form.Item name="reviewAngle" label={t('FyUUOpqA02HNZIdsaJmz4')} className="mb-6">
+                <ColorRadio
+                  options={[
+                    { label: t('x9R1a-BqWjeY7Z2UB0z1q'), value: 'partyA' },
+                    { label: t('IJILUOjKrBj3qyARlyzw_'), value: 'partyB' },
+                    { label: t('yAZP_j2qBJ-w-gnNoCEV4'), value: 'neutral' },
+                  ]}
+                />
+              </Form.Item>
+            </div>
+
+            <div className="sticky bottom-0 bg-white pt-4 pb-2 mt-4 z-10 border-t border-gray-50">
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={loading}
+                className="w-full h-12 bg-primary hover:bg-secondary border-none rounded-lg text-[16px] font-medium"
+              >
+                {loading ? t('d5TNTW2YxRAQIzHiaFYiC') : t('8PdBQnDRgcna1nxeZQ7pK')}
+                {!loading && (
+                  <span className="text-sm opacity-80">{t('GjNFCNGzRHYllP1yiRkkz')}</span>
+                )}
+              </Button>
+            </div>
+          </Form>
+        </div>
       </PortalSidebar>
 
       <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center relative">
