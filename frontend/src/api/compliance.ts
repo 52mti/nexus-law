@@ -30,3 +30,18 @@ export const getComplianceDetail = (id: string) => {
     { id },
   )
 }
+
+export interface ComplianceReview {
+  id?: string // ID
+  attachments?: string // 附件
+  angleId?: string // 角度
+  content?: string // 结果内容
+}
+
+/**
+ * 保存或更新
+ * @param data 请求参数
+ */
+export const saveOrUpdateComplianceReview = (data: ComplianceReview) => {
+  return request.post<any, any>('/complianceReview/saveOrUpdate', data)
+}

@@ -13,8 +13,11 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useTranslation } from 'react-i18next'
 import { upload } from '@/api/file'
-import { saveOrUpdateComplianceReview } from '@/api/saveOrUpdate'
-import { analyzeComplianceApi, getComplianceDetail } from '@/api/compliance'
+import {
+  analyzeComplianceApi,
+  getComplianceDetail,
+  saveOrUpdateComplianceReview,
+} from '@/api/compliance'
 
 const { Dragger } = Upload
 
