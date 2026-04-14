@@ -1,11 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
-import { RagModule } from '../rag/rag.module';
-import { OpenaiModule } from '../openai/openai.module';
+import { DifyModule } from './dify.module';
 
 @Module({
-  imports: [RagModule, OpenaiModule],
+  imports: [DifyModule],
   controllers: [ChatController],
   providers: [ChatService],
 })

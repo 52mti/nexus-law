@@ -1,5 +1,5 @@
 // backend/src/chat/chat.controller.ts
-import { Controller, Post, Body, Sse, MessageEvent } from '@nestjs/common';
+import { Controller, Post, Body, Sse, MessageEvent, Get, Query, Param, Delete } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { ChatService } from './chat.service';
 
@@ -10,13 +10,41 @@ export class ChatController {
   @Post('stream')
   @Sse('stream')
   stream(
-    @Body('prompt') messages: any[],
-    @Body('sessionId') sessionId?: string, // 🚀 接收前端传来的 sessionId
+    @Body('prompt') prompt: string,
+    @Body('sessionId') sessionId?: string,
+    @Body('userId') userId?: string,
   ): Observable<MessageEvent> {
-    // 传入 service
     return this.chatService.streamChat(
-      messages,
+      prompt,
       sessionId,
+      userId,
     ) as Observable<MessageEvent>;
+  }
+
+  @Get('conversations')
+  async getConversations(
+    @Query('userId') userId?: string,
+    @Query('lastId') lastId?: string,
+    @Query('limit') limit?: number,
+  ) {
+    return this.chatService.getConversations(userId || 'guest', lastId, limit);
+  }
+
+  @Get('history/:sessionId')
+  async getHistory(
+    @Param('sessionId') sessionId: string,
+    @Query('userId') userId?: string,
+    @Query('firstId') firstId?: string,
+    @Query('limit') limit?: number,
+  ) {
+    return this.chatService.getHistory(sessionId, userId || 'guest', firstId, limit);
+  }
+
+  @Delete('conversations/:sessionId')
+  async deleteConversation(
+    @Param('sessionId') sessionId: string,
+    @Query('userId') userId?: string,
+  ) {
+    return this.chatService.deleteConversation(sessionId, userId || 'guest');
   }
 }

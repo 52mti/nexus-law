@@ -10,7 +10,6 @@ import { LegalSearchModule } from './legal-search/legal-search.module';
 import { CaseSummaryModule } from './case-summary/case-summary.module';
 import { ComplianceModule } from './compliance/compliance.module';
 import { CaseSearchModule } from './case-search/case-search.module';
-import { RagModule } from './rag/rag.module';
 
 @Module({
   imports: [
@@ -26,7 +25,6 @@ import { RagModule } from './rag/rag.module';
     CaseSummaryModule,
     ComplianceModule,
     CaseSearchModule,
-    RagModule,
   ],
   controllers: [AppController],
   providers: [AppService],
