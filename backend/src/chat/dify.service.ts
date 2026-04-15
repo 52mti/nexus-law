@@ -148,4 +148,61 @@ export class DifyService {
       throw e;
     }
   }
+
+  /**
+   * 调用 Dify API 进行内容生成（非对话模式）
+   * 用于替代 OpenaiService.generateLegalMarkdown()
+   *
+   * @param systemPrompt 系统设定（角色定义、输出格式要求）
+   * @param userPrompt 用户输入（具体案情、条件等）
+   * @param temperature 创意度温度值（0.1-0.3，越低越严谨）
+   * @returns 返回生成的 Markdown 格式字符串
+   */
+  async generateMarkdown(
+    systemPrompt: string,
+    userPrompt: string,
+    temperature: number = 0.2,
+  ): Promise<string> {
+    try {
+      // 组合系统提示词和用户输入
+      const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
+
+      const body = {
+        inputs: {
+          // 可以通过 inputs 传递额外参数，如温度设置
+          temperature: Math.min(Math.max(temperature, 0), 2), // Dify 温度范围 0-2
+        },
+        query: fullPrompt,
+        user: 'system',
+        response_mode: 'blocking', // 非流式模式，等待完整响应
+      };
+
+      this.logger.log(`[Dify] Generating content with temperature: ${temperature}`);
+
+      const response = await axios.post(`${this.baseUrl}/chat-messages`, body, {
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000, // 30 秒超时
+      });
+
+      // 从响应中提取答案
+      if (response.data && response.data.answer) {
+        this.logger.log('[Dify] Content generated successfully');
+        return response.data.answer;
+      }
+
+      // 如果响应格式不同，尝试其他常见格式
+      if (response.data && response.data.text) {
+        return response.data.text;
+      }
+
+      this.logger.warn('[Dify] Unexpected response format', response.data);
+      throw new Error('Unexpected Dify API response format');
+    } catch (error) {
+      this.logger.error('[Dify] Content generation failed', error);
+      throw error;
+    }
+  }
 }

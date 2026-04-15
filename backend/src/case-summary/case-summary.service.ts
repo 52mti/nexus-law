@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { OpenaiService } from '../openai/openai.service';
+import { DifyService } from '../chat/dify.service';
 import { SummarizeCaseDto } from './dto/summarize-case.dto';
 
 // 🚀 1. 引入两员大将
@@ -10,7 +10,7 @@ import * as mammoth from 'mammoth';
 export class CaseSummaryService {
   private readonly logger = new Logger(CaseSummaryService.name);
 
-  constructor(private readonly openaiService: OpenaiService) {}
+  constructor(private readonly difyService: DifyService) {}
 
   async summarize(files: Array<Express.Multer.File>, dto: SummarizeCaseDto) {
     // 1. 📂 核心逻辑：遍历解析所有文件，将内容拼接起来
@@ -40,7 +40,7 @@ export class CaseSummaryService {
     this.logger.log(`开始快梳案件，共收到 ${files.length} 份文件`);
 
     // 4. 调用大模型 (案情梳理需要推理，温度设为 0.3 比较合适)
-    return await this.openaiService.generateLegalMarkdown(
+    return await this.difyService.generateMarkdown(
       systemPrompt,
       userPrompt,
       0.3,

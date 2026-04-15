@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ant-design/cssinjs": "^2.1.2",
     "@ant-design/icons": "^6.1.0",
     "@microsoft/fetch-event-source": "^2.0.1",
     "@tailwindcss/typography": "^0.5.19",

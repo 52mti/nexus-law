@@ -1,17 +1,25 @@
 # 阶段 1：编译
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package*.json ./
-RUN npm install
+
+# 安装 pnpm
+RUN npm install -g pnpm
+
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 COPY . .
-RUN npm run build
+RUN pnpm build
 
 # 阶段 2：运行
 FROM node:20-alpine
 WORKDIR /app
-COPY package*.json ./
+
+# 安装 pnpm
+RUN npm install -g pnpm
+
+COPY package.json pnpm-lock.yaml ./
 # 只安装生产依赖
-RUN npm install --only=production
+RUN pnpm install --prod --frozen-lockfile
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { OpenaiService } from '../openai/openai.service';
+import { DifyService } from '../chat/dify.service';
 import { AnalyzeComplianceDto } from './dto/analyze-compliance.dto';
 
 // 引入文件解析双雄
@@ -10,7 +10,7 @@ import * as mammoth from 'mammoth';
 export class ComplianceService {
   private readonly logger = new Logger(ComplianceService.name);
 
-  constructor(private readonly openaiService: OpenaiService) { }
+  constructor(private readonly difyService: DifyService) { }
 
   async analyze(files: Array<Express.Multer.File>, dto: AnalyzeComplianceDto) {
     // 1. 📂 提取所有文件内容
@@ -45,7 +45,7 @@ export class ComplianceService {
     );
 
     // 4. 合规审查需要极度严谨，温度设为较低的 0.1 或 0.2
-    return await this.openaiService.generateLegalMarkdown(
+    return await this.difyService.generateMarkdown(
       systemPrompt,
       userPrompt,
       0.1,

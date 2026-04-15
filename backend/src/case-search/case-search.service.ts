@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { OpenaiService } from '../openai/openai.service';
+import { DifyService } from '../chat/dify.service';
 import { SearchCaseDto } from './dto/search-case.dto';
 
 @Injectable()
 export class CaseSearchService {
   private readonly logger = new Logger(CaseSearchService.name);
 
-  constructor(private readonly openaiService: OpenaiService) {}
+  constructor(private readonly difyService: DifyService) {}
 
   async search(dto: SearchCaseDto) {
     // 1. 字典映射：将前端的枚举值还原为自然语言
@@ -70,7 +70,7 @@ export class CaseSearchService {
     this.logger.log(`开始类案检索: [${categoryStr}] 关键词:${keyword}`);
 
     // 4. 调用大模型 (检索类任务温度不宜过高，0.2 比较合适)
-    return await this.openaiService.generateLegalMarkdown(
+    return await this.difyService.generateMarkdown(
       systemPrompt,
       userPrompt,
       0.2,

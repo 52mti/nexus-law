@@ -1,10 +1,14 @@
 # 阶段 1：编译 React
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package*.json ./
-RUN npm install
+
+# 安装 pnpm
+RUN npm install -g pnpm
+
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 COPY . .
-RUN npm run build
+RUN pnpm build
 
 # 阶段 2：用 Nginx 部署
 FROM nginx:alpine

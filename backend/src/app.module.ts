@@ -2,8 +2,6 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config'; // 💡 1. 导入官方配置模块
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { DatabaseModule } from './database/database.module';
-import { OpenaiModule } from './openai/openai.module';
 import { ChatModule } from './chat/chat.module';
 import { DocumentModule } from './document/document.module';
 import { LegalSearchModule } from './legal-search/legal-search.module';
@@ -17,8 +15,6 @@ import { CaseSearchModule } from './case-search/case-search.module';
     ConfigModule.forRoot({
       isGlobal: true, // 开启全局模式，这样所有的 Service 都能立刻读到环境变量
     }),
-    DatabaseModule,
-    OpenaiModule,
     DocumentModule,
     ChatModule,
     LegalSearchModule,

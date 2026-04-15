@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { OpenaiService } from '../openai/openai.service';
+import { DifyService } from '../chat/dify.service';
 import { SearchRegulationDto } from './dto/search-regulation.dto';
 
 @Injectable()
 export class LegalSearchService {
-  constructor(private readonly openaiService: OpenaiService) {}
+  constructor(private readonly difyService: DifyService) {}
 
   async search(dto: SearchRegulationDto) {
     const { lawType, articleNumber, keyword } = dto;
@@ -37,7 +37,7 @@ export class LegalSearchService {
     userPrompt += `- **案情/关键词描述**：${keyword}\n`;
 
     // 3. 调大模型 (严谨检索，温度设为极低的 0.1)
-    return await this.openaiService.generateLegalMarkdown(
+    return await this.difyService.generateMarkdown(
       systemPrompt,
       userPrompt,
       0.1,

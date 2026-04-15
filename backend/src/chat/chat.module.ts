@@ -7,5 +7,6 @@ import { DifyModule } from './dify.module';
   imports: [DifyModule],
   controllers: [ChatController],
   providers: [ChatService],
+  exports: [DifyModule],
 })
 export class ChatModule {}
