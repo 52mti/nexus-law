@@ -1,9 +1,8 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { Module, Global } from '@nestjs/common';
 import { DifyService } from './dify.service';
 
+@Global()
 @Module({
-  imports: [ConfigModule],
   providers: [DifyService],
   exports: [DifyService],
 })

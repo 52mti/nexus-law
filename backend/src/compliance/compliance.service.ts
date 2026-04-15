@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DifyService } from '../chat/dify.service';
+import { DifyService } from '../dify/dify.service';
 import { AnalyzeComplianceDto } from './dto/analyze-compliance.dto';
 
 // 引入文件解析双雄

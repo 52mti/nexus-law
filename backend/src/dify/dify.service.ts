@@ -150,22 +150,27 @@ export class DifyService {
   }
 
   /**
-   * 调用 Dify API 进行内容生成（非对话模式）
+   * 调用 Dify API 进行内容生成（对话模式）
    * 用于替代 OpenaiService.generateLegalMarkdown()
    *
    * @param systemPrompt 系统设定（角色定义、输出格式要求）
    * @param userPrompt 用户输入（具体案情、条件等）
    * @param temperature 创意度温度值（0.1-0.3，越低越严谨）
+   * @param customApiKey 可选的自定义 API 密钥（用于多应用场景）
    * @returns 返回生成的 Markdown 格式字符串
    */
   async generateMarkdown(
     systemPrompt: string,
     userPrompt: string,
     temperature: number = 0.2,
+    customApiKey?: string,
   ): Promise<string> {
     try {
       // 组合系统提示词和用户输入
       const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
+
+      // 使用自定义密钥或默认密钥
+      const apiKey = customApiKey || this.apiKey;
 
       const body = {
         inputs: {
@@ -177,11 +182,11 @@ export class DifyService {
         response_mode: 'blocking', // 非流式模式，等待完整响应
       };
 
-      this.logger.log(`[Dify] Generating content with temperature: ${temperature}`);
+      this.logger.log(`[Dify] Generating content with temperature: ${temperature}, using ${customApiKey ? 'custom' : 'default'} API key`);
 
       const response = await axios.post(`${this.baseUrl}/chat-messages`, body, {
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
+          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         timeout: 30000, // 30 秒超时
@@ -204,5 +209,113 @@ export class DifyService {
       this.logger.error('[Dify] Content generation failed', error);
       throw error;
     }
+  }
+
+  /**
+   * 文书生成流式 API - 使用 Dify 平台定义的系统提示词
+   * 接收结构化的文书参数，通过 inputs 对象传递给 Dify
+   *
+   * @param inputs 结构化输入参数 { scene, document_type, party_a, party_b, content_desc }
+   * @param user 用户身份
+   * @returns Observable 流式返回内容
+   */
+  generateDocumentStream(
+    inputs: {
+      scene: string;
+      document_type: string;
+      party_a: string;
+      party_b: string;
+      content_desc: string;
+    },
+    user: string = 'guest',
+  ): Observable<any> {
+    return new Observable((subscriber) => {
+      const abortController = new AbortController();
+
+      const body = {
+        inputs, // 💡 直接传入结构化参数，由 Dify 平台的系统提示词处理
+        query: '请开始生成文书内容', // 必须要加的参数以应对 400 错误
+        response_mode: 'streaming',
+        user,
+      };
+
+      axios.post(`${this.baseUrl}/completion-messages`, body, {
+        headers: {
+          'Authorization': `Bearer ${this.configService.get<string>('DIFY_DOCUMENT_KEY')}`,
+          'Content-Type': 'application/json',
+        },
+        responseType: 'stream',
+        signal: abortController.signal,
+        timeout: 0,
+      })
+        .then((response) => {
+          let buffer = '';
+          let fullContent = ''; // 📝 累积完整内容用于最后返回完整的 markdown
+
+          response.data.on('data', (chunk: Buffer) => {
+            buffer += chunk.toString();
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              const trimmedLine = line.trim();
+              if (trimmedLine.startsWith('data: ')) {
+                const dataStr = trimmedLine.slice(6);
+                if (dataStr === '[DONE]') continue;
+
+                try {
+                  const parsed = JSON.parse(dataStr);
+                  if (parsed.event === 'message' && parsed.answer) {
+                    // 🚀 实时流式发送内容
+                    fullContent += parsed.answer;
+                    subscriber.next({
+                      type: 'content',
+                      data: parsed.answer,
+                    });
+                  } else if (parsed.event === 'message_end') {
+                    // 📋 消息结束，返回完整内容用于前端解析
+                    subscriber.next({
+                      type: 'complete',
+                      data: fullContent,
+                    });
+                  } else if (parsed.event === 'error') {
+                    this.logger.error(`[Dify Document] Error event: ${parsed.message}`);
+                    subscriber.error(new Error(parsed.message));
+                  }
+                } catch (e) {
+                  this.logger.debug(`[Dify Document] Failed to parse chunk: ${dataStr}`);
+                }
+              }
+            }
+          });
+
+          response.data.on('end', () => {
+            this.logger.log('[Dify Document] Stream ended');
+            subscriber.complete();
+          });
+
+          response.data.on('error', (err) => {
+            this.logger.error('[Dify Document] Stream error', err);
+            subscriber.error(err);
+          });
+        })
+        .catch((error) => {
+          if (axios.isCancel(error)) {
+            this.logger.log('[Dify Document] Request canceled');
+          } else {
+            this.logger.error('[Dify Document] Request failed', error);
+            // 这里加入更详细的错误捕获以方便调试
+            if (error.response?.data) {
+                this.logger.error(`[Dify Document] Error Data: ${JSON.stringify(error.response.data)}`);
+            }
+            subscriber.error(error);
+          }
+        });
+
+      return () => {
+        this.logger.log('[Dify Document] Aborting request');
+        abortController.abort();
+      };
+    });
   }
 }

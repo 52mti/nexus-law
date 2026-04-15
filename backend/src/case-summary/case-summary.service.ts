@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DifyService } from '../chat/dify.service';
+import { DifyService } from '../dify/dify.service';
 import { SummarizeCaseDto } from './dto/summarize-case.dto';
 
 // 🚀 1. 引入两员大将

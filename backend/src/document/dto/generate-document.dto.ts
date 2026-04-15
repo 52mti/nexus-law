@@ -2,25 +2,26 @@ import { IsString, IsNotEmpty, IsOptional, MaxLength } from 'class-validator';
 
 export class GenerateDocumentDto {
   @IsString()
-  @IsNotEmpty({ message: '缺少文书类型标识' })
-  category: string; // 对应前端 categories 里的 id，比如 'civil_lawsuit'
+  @IsNotEmpty({ message: '缺少合同场景' })
+  scene: string; // 例如 "商事经营合同"
 
   @IsString()
-  @IsOptional()
-  docType?: string; // 对应前端选择的具体小类，如 '个人借款'
+  @IsNotEmpty({ message: '缺少文书类型' })
+  document_type: string; // 例如 "股权转让协议"
 
   @IsString()
-  @IsOptional()
+  @IsNotEmpty({ message: '缺少甲方信息' })
   @MaxLength(500)
-  partyA?: string;
+  party_a: string; // 甲方显示名，不需要 ID
 
   @IsString()
-  @IsOptional()
+  @IsNotEmpty({ message: '缺少乙方信息' })
   @MaxLength(500)
-  partyB?: string;
+  party_b: string; // 乙方显示名，不需要 ID
 
   @IsString()
-  @IsNotEmpty({ message: '案情或文书内容描述不能为空' })
+  @IsNotEmpty({ message: '内容描述不能为空' })
   @MaxLength(2000)
-  content: string;
+  content_desc: string; // 内容描述
 }
+

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DifyService } from '../chat/dify.service';
+import { DifyService } from '../dify/dify.service';
 import { SearchCaseDto } from './dto/search-case.dto';
 
 @Injectable()

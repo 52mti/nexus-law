@@ -22,7 +22,7 @@ import { Form, Input, Select } from 'antd'
 const { TextArea } = Input
 // 🚀 1. 引入 useNavigate
 import { useParams, useNavigate } from 'react-router-dom'
-import { getDocument, saveDocument, getDocumentDetail } from '@/api/document'
+import { generateDocumentStream, parseSSEStream, saveDocument, getDocumentDetail } from '@/api/document'
 import { useReactToPrint } from 'react-to-print'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -194,7 +194,7 @@ export const DocPage = () => {
       // 注意：如果你的 API 定义是接收单个字符串，请改成 getDocumentDetail(documentId)
       const res = await getDocumentDetail(documentId)
 
-      if (res?.successful && res?.data) {
+      if (res?.data) {
         const historyData = res.data
 
         // 🚀 2. 还原左侧表单数据 (喂给 SmartSidebar 的 initialValues)
@@ -214,7 +214,7 @@ export const DocPage = () => {
           markdownContent: historyData.result || historyData.content || '',
         })
       } else {
-        message.error(res?.message || t('7gEeqjRG-8JBLFMo_Ol_G')) // 获取失败的提示
+        message.error((res as any)?.message || t('7gEeqjRG-8JBLFMo_Ol_G')) // 获取失败的提示
         setDocData(null)
       }
     } catch (error) {
@@ -226,45 +226,87 @@ export const DocPage = () => {
     }
   }
 
+  // 场景 id → 中文 scene 映射
+  const categoryToScene: Record<string, string> = {
+    civil_lawsuit: '民事起诉状',
+    civil_defense: '民事答辩状',
+    property_evidence: '财产 / 证据类申请书',
+    labor_contract: '劳动相关合同',
+    commercial_contract: '商事经营合同',
+    civil_life_contract: '民事生活合同',
+    marriage_family_agreement: '婚姻家庭协议',
+    labor_arbitration: '劳动仲裁文书',
+    administrative_document: '行政类文书',
+  }
+
+  // docType value → 中文 document_type 映射
+  const docTypeToName: Record<string, string> = {
+    '0': '个人借款',
+    '1': '房屋租凭合同',
+    '2': '房屋买卖合同',
+    '3': '赠与合同',
+    '4': '借款合同',
+    '5': '委托合同',
+    '8': '承揽合同',
+    '9': '其他',
+  }
+
   const handleSubmit = async (values: any) => {
     try {
       setLoading(true)
+      // 先清空旧内容，准备流式填充
+      setDocData({ title: t('oyui4_Zm6W2vEYCn7Gw3T'), markdownContent: '' })
 
-      const res = await getDocument(values)
-
-      if (res.code === 0 || res.code === 200) {
-        setDocData(res.data)
-        const sessionId = crypto.randomUUID()
-
-        try {
-          saveDocument({
-            senseId: values.category || values.categoryId,
-            typeId: values.docType,
-            partyA: values.partyA,
-            partyB: values.partyB,
-            content: values.content,
-            result: res.data.markdownContent,
-            id: sessionId,
-          })
-
-          if (!id) {
-            // 打上防抖标记，告诉 useEffect 不要去发请求拿数据了
-            isJustGenerated.current = true
-            // 使用 replace 替换当前 URL，这样用户点返回键时不会退回到空白表单
-            navigate(`/doc/${sessionId}`, { replace: true })
-          }
-        } catch (saveError) {
-          console.error('❌ 保存历史记录失败:', saveError)
-        }
-
-        message.success(t('CBy4zalzaA5oMw39uUxlw'))
-      } else {
-        message.error((res as any).message || t('VOKXsXqVnXQyt4Fs-AV-d'))
+      const categoryId = values.category || values.categoryId || activeCategoryId || ''
+      const apiParams = {
+        scene: categoryToScene[categoryId] || categoryId,
+        document_type: docTypeToName[values.docType] || values.docType || '',
+        party_a: values.partyA || '',
+        party_b: values.partyB || '',
+        content_desc: values.content || '',
       }
+
+      const stream = await generateDocumentStream(apiParams)
+      let fullContent = ''
+
+      for await (const event of parseSSEStream(stream)) {
+        if (event.type === 'content') {
+          fullContent += event.data
+          setDocData({ title: t('oyui4_Zm6W2vEYCn7Gw3T'), markdownContent: fullContent })
+        } else if (event.type === 'complete') {
+          fullContent = event.data
+          setDocData({ title: t('oyui4_Zm6W2vEYCn7Gw3T'), markdownContent: fullContent })
+        }
+      }
+
+      setLoading(false)
+
+      const sessionId = crypto.randomUUID()
+      try {
+        saveDocument({
+          senseId: categoryId,
+          typeId: values.docType,
+          partyA: values.partyA,
+          partyB: values.partyB,
+          content: values.content,
+          result: fullContent,
+          id: sessionId,
+        })
+
+        if (!id) {
+          // 打上防抖标记，告诉 useEffect 不要去发请求拿数据了
+          isJustGenerated.current = true
+          // 使用 replace 替换当前 URL，这样用户点返回键时不会退回到空白表单
+          navigate(`/doc/${sessionId}`, { replace: true })
+        }
+      } catch (saveError) {
+        console.error('❌ 保存历史记录失败:', saveError)
+      }
+
+      message.success(t('CBy4zalzaA5oMw39uUxlw'))
     } catch (error) {
       console.error('文书生成请求异常:', error)
       message.error(t('w78_GpuwYhHX8r7ssNAwH'))
-    } finally {
       setLoading(false)
     }
   }

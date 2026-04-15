@@ -8,6 +8,7 @@ import { LegalSearchModule } from './legal-search/legal-search.module';
 import { CaseSummaryModule } from './case-summary/case-summary.module';
 import { ComplianceModule } from './compliance/compliance.module';
 import { CaseSearchModule } from './case-search/case-search.module';
+import { DifyModule } from './dify/dify.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { CaseSearchModule } from './case-search/case-search.module';
     ConfigModule.forRoot({
       isGlobal: true, // 开启全局模式，这样所有的 Service 都能立刻读到环境变量
     }),
+    DifyModule,
     DocumentModule,
     ChatModule,
     LegalSearchModule,

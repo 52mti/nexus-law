@@ -29,12 +29,8 @@ export const saveOrUpdateConsultation = (data: Consultation) => {
   return request.post<any, any>('/consultation/saveOrUpdate', data);
 };
 
-export const getConsultationHistory = (consultationId: string) => {
-  return request.post<any, any>(`/consultationSession/pageList`, {
-      consultationId, // 咨询id
-      current: 1,
-      size: 20,
-  });
+export const getConsultationHistory = (sessionId: string, params?: { firstId?: string; limit?: number; userId?: string }) => {
+  return request.get<any, any>(`/api/chat/history/${sessionId}`, { params: { ...params, userId: params?.userId || 'guest' } });
 };
 
 /**

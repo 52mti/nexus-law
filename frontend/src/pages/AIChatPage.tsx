@@ -57,21 +57,26 @@ export const AIChatPage = () => {
   // 请求真实历史记录（仅打印不渲染）
   const loadChatHistory = useCallback(
     async (sessionId: string) => {
-      console.log('🚗 开始请求历史记录, sessionId:', sessionId)
       setLoadingHistory(true)
       try {
         const res = await getConsultationHistory(sessionId)
-        console.log('====== 历史聊天记录接口返回数据 ======', res)
 
-        const records = res?.data?.records || []
-        // 后端默认按时间倒序（最新的在最前），前端聊天流需要顺序展示（最旧的在最前）
+        const records = res?.data || []
+        // Dify 返回的数据包含 query 和 answer，需要拆分为两条消息顺序展示
         const historyMessages = records
-          .map((item: any) => ({
-            id: item.id || Date.now().toString() + Math.random(),
-            role: item.type === 0 ? 'user' : 'ai',
-            content: item.content || '',
-          }))
-          .reverse()
+          .slice()
+          .flatMap((item: any) => [
+            {
+              id: item.id + '_user',
+              role: 'user',
+              content: item.query,
+            },
+            {
+              id: item.id + '_ai',
+              role: 'ai',
+              content: item.answer,
+            },
+          ])
 
         setMessages(historyMessages)
       } catch (error) {

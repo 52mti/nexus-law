@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DifyService } from '../chat/dify.service';
+import { DifyService } from '../dify/dify.service';
 import { SearchRegulationDto } from './dto/search-regulation.dto';
 
 @Injectable()

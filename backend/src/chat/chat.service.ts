@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DifyService } from './dify.service';
+import { DifyService } from '../dify/dify.service';
 import { Observable } from 'rxjs';
 
 @Injectable()
