@@ -8,7 +8,7 @@ import {
   ExclamationCircleFilled,
 } from '@ant-design/icons'
 import { PageContainer } from '@/components/layout/PageContainer'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { deleteConsultation, deleteDoc, deleteCompliance } from '@/api/delete'
 import { useTranslation } from 'react-i18next'
 // 引入三个接口
@@ -17,7 +17,9 @@ import { getConsultationList, getDocumentList, getComplianceReviewList } from '@
 export const HistoryPage: React.FC = () => {
   const { t } = useTranslation()
   const { message, modal } = App.useApp()
-  const [activeTab, setActiveTab] = useState('doc')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialTab = searchParams.get('tab') || 'doc'
+  const [activeTab, setActiveTab] = useState(initialTab)
 
   // 🚀 1. 新增：加载状态与动态数据
   const [loading, setLoading] = useState(false)
@@ -254,7 +256,12 @@ export const HistoryPage: React.FC = () => {
               return (
                 <div
                   key={tab.key}
-                  onClick={() => !loading && setActiveTab(tab.key)} // 加载时禁止切换
+                  onClick={() => {
+                    if (!loading) {
+                      setActiveTab(tab.key)
+                      setSearchParams({ tab: tab.key })
+                    }
+                  }} // 加载时禁止切换，同步更新 URL
                   className={`px-5 py-2 rounded-full text-[14px] cursor-pointer transition-all ${
                     isActive
                       ? 'bg-primary text-white font-medium shadow-md shadow-indigo-500/20'
