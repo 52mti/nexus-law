@@ -15,6 +15,7 @@ import amET from './locales/antd-am-ET'
 import MainLayout from './layouts/MainLayout'
 
 import { useSettingStore } from './store/useSettingStore'
+import { useUserStore } from './store/useUserStore'
 
 import { settingList } from './api/common'
 
@@ -47,9 +48,13 @@ function App() {
 
   // 🚀 2. 从 Zustand 中取出更新数据的方法
   const setSettings = useSettingStore((state) => state.setSettings)
+  const isAuthenticated = useUserStore((state) => state.isAuthenticated)
 
   // 🚀 3. 在 useEffect 中请求配置列表
   useEffect(() => {
+    // 只有在已登录时才请求配置列表，防止未登录时接口报 401 导致无限重定向
+    if (!isAuthenticated) return
+
     const fetchGlobalSettings = async () => {
       try {
         // 传入极大的 size 以忽略分页，一次性拿完所有配置
@@ -66,7 +71,7 @@ function App() {
     }
 
     fetchGlobalSettings()
-  }, [setSettings]) // 把 setSettings 放入依赖数组是最佳实践
+  }, [setSettings, isAuthenticated]) // 增加 isAuthenticated 依赖，登录后立即获取配置
 
   // 🚀 3. 核心改造：使用 useMemo 动态匹配当前语言，支持阿姆哈拉语
   const antdLocale = useMemo(() => {
