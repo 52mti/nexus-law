@@ -21,6 +21,7 @@ export class DocumentService {
   generateLegalDocument(
     dto: GenerateDocumentDto,
     user: string = 'guest',
+    userToken?: string,
   ): Observable<any> {
 
     // 直接传入结构化参数给 Dify，由平台的系统提示词处理
@@ -33,6 +34,7 @@ export class DocumentService {
         content_desc: dto.content_desc,
       },
       user,
+      userToken,
     );
   }
 

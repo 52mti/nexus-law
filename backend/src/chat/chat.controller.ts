@@ -1,5 +1,5 @@
 // backend/src/chat/chat.controller.ts
-import { Controller, Post, Body, Sse, MessageEvent, Get, Query, Param, Delete } from '@nestjs/common';
+import { Controller, Post, Body, Sse, MessageEvent, Get, Query, Param, Delete, Headers } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { ChatService } from './chat.service';
 
@@ -13,21 +13,17 @@ export class ChatController {
     @Body('prompt') prompt: string,
     @Body('sessionId') sessionId?: string,
     @Body('userId') userId?: string,
+    @Headers('authorization') auth?: string,
   ): Observable<MessageEvent> {
+    // 提取 Bearer Token 用于 Dify 内部回调（如 HTTP 节点）
+    const userToken = auth?.replace('Bearer ', '');
+
     return this.chatService.streamChat(
       prompt,
       sessionId,
       userId,
+      userToken,
     ) as Observable<MessageEvent>;
-  }
-
-  @Get('conversations')
-  async getConversations(
-    @Query('userId') userId?: string,
-    @Query('lastId') lastId?: string,
-    @Query('limit') limit?: number,
-  ) {
-    return this.chatService.getConversations(userId || 'guest', lastId, limit);
   }
 
   @Get('history/:sessionId')
@@ -38,13 +34,5 @@ export class ChatController {
     @Query('limit') limit?: number,
   ) {
     return this.chatService.getHistory(sessionId, userId || 'guest', firstId, limit);
-  }
-
-  @Delete('conversations/:sessionId')
-  async deleteConversation(
-    @Param('sessionId') sessionId: string,
-    @Query('userId') userId?: string,
-  ) {
-    return this.chatService.deleteConversation(sessionId, userId || 'guest');
   }
 }

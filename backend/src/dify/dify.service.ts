@@ -13,12 +13,14 @@ export class DifyService {
     this.apiKey = this.configService.get<string>('DIFY_KEY') || '';
   }
 
-  createChatStream(query: string, user?: string, conversationId?: string): Observable<any> {
+  createChatStream(query: string, user?: string, conversationId?: string, userToken?: string): Observable<any> {
     return new Observable((subscriber) => {
       const abortController = new AbortController();
 
       const body = {
-        inputs: {},
+        inputs: {
+          user_token: userToken || '',
+        },
         query,
         user: user || 'guest',
         response_mode: 'streaming',
@@ -228,12 +230,16 @@ export class DifyService {
       content_desc: string;
     },
     user: string = 'guest',
+    userToken?: string,
   ): Observable<any> {
     return new Observable((subscriber) => {
       const abortController = new AbortController();
 
       const body = {
-        inputs, // 💡 直接传入结构化参数，由 Dify 平台的系统提示词处理
+        inputs: {
+          ...inputs,
+          user_token: userToken || '',
+        }, // 💡 注入 user_token 并合入原始结构化参数
         query: '请开始生成文书内容', // 必须要加的参数以应对 400 错误
         response_mode: 'streaming',
         user,

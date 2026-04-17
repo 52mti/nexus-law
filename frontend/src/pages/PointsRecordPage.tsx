@@ -52,9 +52,9 @@ export const PointsRecordPage: React.FC = () => {
               formattedTime = formattedTime.replace('T', ' ').substring(0, 16)
             }
 
-            // 处理变动数字（正数加 + 号）
-            const countNum = Number(item.count) || 0
-            const changeStr = countNum > 0 ? `+${countNum}` : `${countNum}`
+            // 处理变动数字（根据 changeType 判断加减）
+            const countNum = item.count || 0
+            const changeStr = item.changeType === 'ADD' ? `+${countNum}` : `-${countNum}`
 
             // 1. 提取后端返回的业务 Code
             const typeCode = item.pointsType

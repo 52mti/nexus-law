@@ -244,7 +244,7 @@ export const MembershipPage: React.FC = () => {
                     plan.buttonDisabled
                       ? 'bg-gray-100! text-gray-400!'
                       : isPrimary
-                        ? 'bg-transparent border border-white/50 text-white hover:bg-white/10 hover:border-white'
+                        ? 'bg-white text-primary hover:bg-indigo-50 shadow-lg'
                         : 'bg-primary hover:bg-secondary text-white shadow-md shadow-indigo-500/20'
                   }`}
                 >

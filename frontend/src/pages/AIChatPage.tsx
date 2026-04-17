@@ -12,11 +12,7 @@ import {
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import {
-  saveOrUpdateConsultationSession,
-  getConsultationHistory,
-  saveOrUpdateConsultation,
-} from '@/api/chat'
+import { getConsultationHistory } from '@/api/chat'
 
 const { Content } = Layout
 
@@ -35,8 +31,7 @@ export const AIChatPage = () => {
   const sessionId = id
   const navigate = useNavigate()
 
-  // 由于流式请求和保存接口使用了 history.replaceState 静默更新URL，
-  // 导致 useParams 无法感知最新 sessionId，因此使用 useRef 保存实际的 activeSessionId
+  // 使用 useRef 保存实际的 activeSessionId，以在流式请求中同步更新
   const activeSessionIdRef = useRef<string | undefined>(sessionId)
   useEffect(() => {
     activeSessionIdRef.current = sessionId
@@ -47,59 +42,55 @@ export const AIChatPage = () => {
   const [isStreaming, setIsStreaming] = useState(false)
   const [loadingHistory, setLoadingHistory] = useState(false)
 
-  // 阻止发散：拦截创建新对话时被动触发的历史纪录强刷
+  // 标记是否为内部导航，防止重复加载历史记录
   const isNavigatingRef = useRef(false)
 
   const chatContainerRef = useRef<HTMLDivElement>(null)
-  // 如果路径上有 sessionId，说明是已有对话哪怕此时刚刷新还没拿到数据，也不应该展示首次中间居中的 UI
+  
+  // 如果路径上有 sessionId，说明是已有对话，不展示首次居中 UI
   const isEmpty = messages.length === 0 && !sessionId
 
-  // 请求真实历史记录（仅打印不渲染）
+  // 加载历史记录
   const loadChatHistory = useCallback(
     async (sessionId: string) => {
       setLoadingHistory(true)
       try {
         const res = await getConsultationHistory(sessionId)
-
         const records = res?.data || []
-        // Dify 返回的数据包含 query 和 answer，需要拆分为两条消息顺序展示
-        const historyMessages = records
-          .slice()
-          .flatMap((item: any) => [
-            {
-              id: item.id + '_user',
-              role: 'user',
-              content: item.query,
-            },
-            {
-              id: item.id + '_ai',
-              role: 'ai',
-              content: item.answer,
-            },
-          ])
+        
+        // 转换 Dify 格式为前端展示格式
+        const historyMessages = records.flatMap((item: any) => [
+          {
+            id: item.id + '_user',
+            role: 'user',
+            content: item.query,
+          },
+          {
+            id: item.id + '_ai',
+            role: 'ai',
+            content: item.answer,
+          },
+        ])
 
         setMessages(historyMessages)
       } catch (error) {
-        console.error(error)
+        console.error('加载历史记录失败:', error)
         message.error(t('3C2NIj12xCevPmtyzZwZL'))
       } finally {
         setLoadingHistory(false)
       }
     },
-    [message],
+    [message, t],
   )
 
   // 监听路由变化，加载历史记录
   useEffect(() => {
-    console.log('🧐 useEffect 侦测到路由变动, 当前的 sessionId =', sessionId)
     if (!sessionId) {
       setMessages([])
       return
     }
 
-    // ⭐ 核心修复：如果是自己在聊天组件内部发起的 navigate，拦截这里的强刷
     if (isNavigatingRef.current) {
-      console.log('拦截一次历史记录拉取（因为是自己产生的 sessionId）')
       isNavigatingRef.current = false // 消费掉标记
       return
     }
@@ -118,8 +109,8 @@ export const AIChatPage = () => {
   const handleNewChat = () => {
     setMessages([])
     setIsStreaming(false)
-    activeSessionIdRef.current = undefined // 清空当前会话ID引用
-    navigate('/chat') // 清空路由参数，回到纯净状态
+    activeSessionIdRef.current = undefined
+    navigate('/chat')
   }
 
   // 核心：发送消息并接收流
@@ -147,23 +138,8 @@ export const AIChatPage = () => {
 
     try {
       let currentSessionId = activeSessionIdRef.current
-      let aiFullResponse = ''
-
-      try {
-        // 🚀 如果是已有对话，直接保存用户的提问内容
-        if (currentSessionId) {
-          await saveOrUpdateConsultationSession({
-            consultationId: currentSessionId,
-            content: userText,
-            type: 0,
-          })
-        }
-      } catch (err) {
-        console.error('保存用户提问失败', err)
-      }
-
-      // 4. 开始向后端大模型请求流式返回
       const token = localStorage.getItem('token')
+
       await fetchEventSource(`${import.meta.env.VITE_API_BASE_URL}/api/chat/stream`, {
         method: 'POST',
         openWhenHidden: true,
@@ -173,31 +149,18 @@ export const AIChatPage = () => {
         },
         body: JSON.stringify({
           prompt: userText,
-          sessionId: currentSessionId, // 如果是新对话，这里传 undefined/空
+          sessionId: currentSessionId,
         }),
 
         onmessage(ev) {
-          // 🚀 接收后端生成的新 sessionId
+          // 🚀 接收后端生成的新 sessionId 并回填到 URL
           if (ev.event === 'session_id') {
             const newId = ev.data
             if (!activeSessionIdRef.current) {
-              console.log('✅ 收到后端生成的新 sessionId:', newId)
+              console.log('收到新 sessionId:', newId)
               activeSessionIdRef.current = newId
-              currentSessionId = newId // 更新局部变量供后续使用
-
               isNavigatingRef.current = true
               navigate(`/chat/${newId}`, { replace: true })
-
-              // 补报会话基础信息及第一条用户提问
-              saveOrUpdateConsultation({
-                id: newId,
-                content: userText,
-              })
-              saveOrUpdateConsultationSession({
-                consultationId: newId,
-                content: userText,
-                type: 0,
-              })
             }
             return
           }
@@ -207,7 +170,6 @@ export const AIChatPage = () => {
           if (!data) return
 
           const parsedContent = data.replace(/\\n/g, '\n')
-          aiFullResponse += parsedContent // 实时累积 AI 发出的话
 
           setMessages((prev) =>
             prev.map((msg) => {
@@ -220,14 +182,7 @@ export const AIChatPage = () => {
         },
 
         onclose() {
-          // 🚀 5. 流正常结束时，保存 AI 的完整回复（type 1 为 AI）
-          if (currentSessionId && aiFullResponse.trim()) {
-            saveOrUpdateConsultationSession({
-              consultationId: currentSessionId,
-              content: aiFullResponse,
-              type: 1,
-            }).catch((err) => console.error('保存 AI 回复记录失败', err))
-          }
+          // 注意：此处不再手动调用保存提问/回答的接口，由 Dify 端处理持久化
           setIsStreaming(false)
           throw new Error('STOP_RETRY')
         },

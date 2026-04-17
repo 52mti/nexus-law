@@ -8,7 +8,7 @@ export class ChatService {
 
   constructor(private readonly difyService: DifyService) {}
 
-  streamChat(prompt: string, sessionId?: string, userId?: string): Observable<any> {
+  streamChat(prompt: string, sessionId?: string, userId?: string, userToken?: string): Observable<any> {
     return new Observable((subscriber) => {
       try {
         if (!prompt) {
@@ -21,6 +21,7 @@ export class ChatService {
           prompt,
           userId,
           sessionId,
+          userToken,
         );
 
         chatStream$.subscribe({
@@ -35,15 +36,10 @@ export class ChatService {
     });
   }
 
-  async getConversations(userId: string, lastId?: string, limit?: number) {
-    return this.difyService.getConversations(userId, lastId, limit);
-  }
-
+  /**
+   * 获取会话历史记录
+   */
   async getHistory(sessionId: string, userId: string, firstId?: string, limit?: number) {
     return this.difyService.getMessages(sessionId, userId, firstId, limit);
-  }
-
-  async deleteConversation(sessionId: string, userId: string) {
-    return this.difyService.deleteConversation(sessionId, userId);
   }
 }

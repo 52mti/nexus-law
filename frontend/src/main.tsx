@@ -9,7 +9,7 @@ import { AntdGlobalContext } from './components/AntdGlobalContext'
 import './index.css' // 你的基础 css（比如 tailwind 的引入）
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
+  // <React.StrictMode>
     <StyleProvider layer>
       <ConfigProvider>
         <AntdApp>
@@ -18,5 +18,5 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         </AntdApp>
       </ConfigProvider>
     </StyleProvider>
-  </React.StrictMode>,
+  // </React.StrictMode>,
 )

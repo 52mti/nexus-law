@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req, Sse } from '@nestjs/common';
+import { Controller, Post, Body, Req, Sse, Headers } from '@nestjs/common';
 import { DocumentService } from './document.service';
 import { GenerateDocumentDto } from './dto/generate-document.dto';
 
@@ -16,10 +16,12 @@ export class DocumentController {
    */
   @Post('generate')
   @Sse('generate')
-  generate(@Body() dto: GenerateDocumentDto, @Req() req: any) {
+  generate(@Body() dto: GenerateDocumentDto, @Req() req: any, @Headers('authorization') auth?: string) {
     // 获取用户身份，如果没有从请求中提取，则使用 'guest'
     const user = req.user?.id || req.user?.username || 'guest';
+    // 提取 Bearer Token 用于 Dify 内部回调（如 HTTP 节点）
+    const userToken = auth?.replace('Bearer ', '');
 
-    return this.documentService.generateLegalDocument(dto, user);
+    return this.documentService.generateLegalDocument(dto, user, userToken);
   }
 }
