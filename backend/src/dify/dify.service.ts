@@ -25,10 +25,8 @@ export class DifyService {
         query,
         user: user || 'guest',
         response_mode: 'streaming',
-        conversation_id: conversationId || '',
+        conversation_id: conversationId || undefined,
       };
-
-      this.logger.log(`[Axios] Sending query to Dify: ${query} (User: ${body.user}, Conv: ${body.conversation_id})`);
 
       axios.post(`${this.baseUrl}/chat-messages`, body, {
         headers: {
