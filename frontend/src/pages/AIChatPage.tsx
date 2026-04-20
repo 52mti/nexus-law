@@ -13,6 +13,8 @@ import { fetchEventSource } from '@microsoft/fetch-event-source'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getConsultationHistory } from '@/api/chat'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 const { Content } = Layout
 
@@ -247,8 +249,10 @@ export const AIChatPage = () => {
                     </div>
                   ) : (
                     <div className="bg-white rounded-2xl rounded-tl-sm shadow-sm border border-gray-100 p-6">
-                      <div className="text-gray-700 leading-relaxed whitespace-pre-wrap text-[15px]">
-                        {msg.content}
+                      <div className="prose prose-slate max-w-none text-gray-700 leading-relaxed text-[15px] break-words overflow-x-auto">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {msg.content + (isStreaming && msg.id === messages[messages.length - 1].id ? ' ▎' : '')}
+                        </ReactMarkdown>
                         {isStreaming && msg.content === '' && (
                           <span className="inline-block w-2 h-4 bg-gray-400 animate-pulse ml-1" />
                         )}
