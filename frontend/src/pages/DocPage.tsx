@@ -22,7 +22,8 @@ import { Form, Input, Select } from 'antd'
 const { TextArea } = Input
 // 🚀 1. 引入 useNavigate
 import { useParams, useNavigate } from 'react-router-dom'
-import { generateDocumentStream, parseSSEStream, saveDocument, getDocumentDetail } from '@/api/document'
+import { fetchEventSource } from '@microsoft/fetch-event-source'
+import { saveDocument, getDocumentDetail } from '@/api/document'
 import { useReactToPrint } from 'react-to-print'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -266,22 +267,45 @@ export const DocPage = () => {
         content_desc: values.content || '',
       }
 
-      const stream = await generateDocumentStream(apiParams)
       let fullContent = ''
+      let serverSessionId = ''
+      const token = localStorage.getItem('token')
 
-      for await (const event of parseSSEStream(stream)) {
-        if (event.type === 'content') {
-          fullContent += event.data
-          setDocData({ title: t('oyui4_Zm6W2vEYCn7Gw3T'), markdownContent: fullContent })
-        } else if (event.type === 'complete') {
-          fullContent = event.data
-          setDocData({ title: t('oyui4_Zm6W2vEYCn7Gw3T'), markdownContent: fullContent })
-        }
-      }
+      await fetchEventSource(`${import.meta.env.VITE_API_BASE_URL}/api/document/generate`, {
+        method: 'POST',
+        openWhenHidden: true,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(apiParams),
+        onmessage(ev) {
+          if (ev.event === 'session_id') {
+            serverSessionId = ev.data
+            return
+          }
 
-      setLoading(false)
+          let data = ev.data
+          if (!data) return
 
-      const sessionId = crypto.randomUUID()
+          const parsedContent = data.replace(/\\n/g, '\n')
+          fullContent += parsedContent
+          setDocData((prev) => ({
+            ...prev!,
+            markdownContent: fullContent,
+          }))
+        },
+        onclose() {
+          setLoading(false)
+        },
+        onerror(err) {
+          console.error('SSE Error:', err)
+          setLoading(false)
+          throw err
+        },
+      })
+
+      const sessionId = serverSessionId
       try {
         saveDocument({
           senseId: categoryId,
@@ -497,7 +521,8 @@ export const DocPage = () => {
 
       {/* 右侧预览区 */}
       <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center relative">
-        {loading && (
+        {/* 情况 1: 正在加载 (且还没有内容) -> 显示大 Loading */}
+        {loading && (!docData || !docData.markdownContent) && (
           <div className="flex flex-col h-full items-center justify-center text-center animate-fade-in">
             {/* 🚀 2. 替换为 Antd 的 BulbOutlined，加上呼吸灯动画 */}
             <div className="mb-6">
@@ -509,12 +534,16 @@ export const DocPage = () => {
             <p className="text-[15px] text-gray-500">{t('NeYml9t4SpB1yGU3t8r87')}</p>
           </div>
         )}
+
+        {/* 情况 2: 既没加载，也没数据 -> 显示 "请从侧边栏选择场景" */}
         {!docData && !loading && (
           <div className="flex h-full items-center justify-center text-gray-400">
             {t('VX9R6K8IPuw845fJu14ZQ')}{' '}
           </div>
         )}
-        {docData && !loading && (
+
+        {/* 情况 3: 有数据 (无论是否正在 loading) -> 显示文书预览 */}
+        {docData && docData.markdownContent && (
           <div className="w-full h-full flex flex-col gap-6 max-w-4xl">
             {/* 🌟 A4 纸张容器 */}
             <div
@@ -522,10 +551,7 @@ export const DocPage = () => {
               ref={paperRef}
               className="flex-1 bg-white shadow-lg rounded-sm p-12 text-gray-800 overflow-y-scroll custom-scrollbar animate-fade-in"
             >
-              {/* 使用 Tailwind 排版类名模拟 Markdown 样式。
-                注意：这里对 h1, h2, p, strong 进行了底层的样式覆盖，
-                以确保它看起来像一份严肃的法律文件。
-              */}
+              {/* 使用 Tailwind 排版类名模拟 Markdown 样式 */}
               <div
                 className="
                 prose prose-slate max-w-none 
@@ -536,12 +562,14 @@ export const DocPage = () => {
                 prose-strong:text-black prose-strong:font-bold
               "
               >
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{docData.markdownContent}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {docData.markdownContent + (loading ? ' ▎' : '')}
+                </ReactMarkdown>
               </div>
             </div>
 
-            {/* 悬浮操作按钮 */}
-            <div className="flex gap-4 m-auto">
+            {/* 悬浮操作按钮 - 在正在生成时半透明并禁用 */}
+            <div className={`flex gap-4 m-auto transition-opacity duration-500 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
               <Button type="primary" icon={<CopyOutlined />} onClick={handleCopy}>
                 {t('qxEoDfJTtO8dsJnMzfqyg')}{' '}
               </Button>

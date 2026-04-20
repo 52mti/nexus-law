@@ -7,10 +7,11 @@ import axios from 'axios';
 export class DifyService {
   private readonly logger = new Logger(DifyService.name);
   private readonly apiKey: string;
-  private readonly baseUrl = 'https://api.dify.ai/v1';
+  private readonly baseUrl: string;
 
   constructor(private readonly configService: ConfigService) {
     this.apiKey = this.configService.get<string>('DIFY_KEY') || '';
+    this.baseUrl = this.configService.get<string>('DIFY_BASE_URL') || 'https://api.dify.ai/v1';
   }
 
   createChatStream(query: string, user?: string, conversationId?: string, userToken?: string): Observable<any> {
@@ -239,11 +240,12 @@ export class DifyService {
         inputs: {
           ...inputs,
           user_token: userToken || '',
-        }, // 💡 注入 user_token 并合入原始结构化参数
-        query: '请开始生成文书内容', // 必须要加的参数以应对 400 错误
+        },
         response_mode: 'streaming',
         user,
       };
+
+      this.logger.log(body)
 
       axios.post(`${this.baseUrl}/completion-messages`, body, {
         headers: {
@@ -255,8 +257,8 @@ export class DifyService {
         timeout: 0,
       })
         .then((response) => {
+          let firstChunk = true;
           let buffer = '';
-          let fullContent = ''; // 📝 累积完整内容用于最后返回完整的 markdown
 
           response.data.on('data', (chunk: Buffer) => {
             buffer += chunk.toString();
@@ -271,19 +273,23 @@ export class DifyService {
 
                 try {
                   const parsed = JSON.parse(dataStr);
-                  if (parsed.event === 'message' && parsed.answer) {
-                    // 🚀 实时流式发送内容
-                    fullContent += parsed.answer;
-                    subscriber.next({
-                      type: 'content',
-                      data: parsed.answer,
-                    });
-                  } else if (parsed.event === 'message_end') {
-                    // 📋 消息结束，返回完整内容用于前端解析
-                    subscriber.next({
-                      type: 'complete',
-                      data: fullContent,
-                    });
+                  if (parsed.event === 'message') {
+                    // 🚀 处理 Session ID：如果是新会话且尚未通知前端 ID
+                    if (firstChunk && parsed.conversation_id) {
+                      this.logger.log(`[SSE] Detected new conversation ID: ${parsed.conversation_id}`);
+                      subscriber.next({
+                        type: 'session_id',
+                        data: parsed.conversation_id,
+                      });
+                      firstChunk = false;
+                    }
+
+                    // 🚀 处理内容：只有当 answer 有实际文本时才发送
+                    if (parsed.answer && parsed.answer.length > 0) {
+                      subscriber.next({
+                        data: parsed.answer,
+                      });
+                    }
                   } else if (parsed.event === 'error') {
                     this.logger.error(`[Dify Document] Error event: ${parsed.message}`);
                     subscriber.error(new Error(parsed.message));
@@ -296,7 +302,7 @@ export class DifyService {
           });
 
           response.data.on('end', () => {
-            this.logger.log('[Dify Document] Stream ended');
+            this.logger.log('[Dify Document] Stream ended normally');
             subscriber.complete();
           });
 
@@ -310,10 +316,6 @@ export class DifyService {
             this.logger.log('[Dify Document] Request canceled');
           } else {
             this.logger.error('[Dify Document] Request failed', error);
-            // 这里加入更详细的错误捕获以方便调试
-            if (error.response?.data) {
-                this.logger.error(`[Dify Document] Error Data: ${JSON.stringify(error.response.data)}`);
-            }
             subscriber.error(error);
           }
         });

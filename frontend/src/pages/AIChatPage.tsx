@@ -157,7 +157,6 @@ export const AIChatPage = () => {
           if (ev.event === 'session_id') {
             const newId = ev.data
             if (!activeSessionIdRef.current) {
-              console.log('收到新 sessionId:', newId)
               activeSessionIdRef.current = newId
               isNavigatingRef.current = true
               navigate(`/chat/${newId}`, { replace: true })
