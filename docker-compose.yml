@@ -22,7 +22,7 @@ services:
     container_name: nexus-law-frontend
     restart: always
     ports:
-      - "80:80"  # 暴露给外网的 80 端口 (HTTP)
+      - "8080:80"  # 暴露给外网的 80 端口 (HTTP)
     depends_on:
       - backend
     networks:
