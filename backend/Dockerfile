@@ -1,5 +1,5 @@
 # 阶段 1：编译
-FROM node:20-alpine AS builder
+FROM docker.1panel.live/library/node:20-alpine AS builder
 WORKDIR /app
 
 # 安装 pnpm
