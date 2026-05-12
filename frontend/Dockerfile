@@ -1,5 +1,5 @@
 # 阶段 1：编译 React
-FROM node:20-alpine AS builder
+FROM docker.1panel.live/library/node:20-alpine AS builder
 WORKDIR /app
 
 # 安装 pnpm
@@ -11,7 +11,7 @@ COPY . .
 RUN pnpm build
 
 # 阶段 2：用 Nginx 部署
-FROM nginx:alpine
+FROM docker.1panel.live/library/nginx:alpine
 # 把编译好的静态文件放进 Nginx 目录 (注意：如果是 Create React App 则是 /app/build)
 COPY --from=builder /app/dist /usr/share/nginx/html
 # 替换 Nginx 配置文件
