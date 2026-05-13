@@ -156,7 +156,7 @@ export const ComplianceReviewPage = () => {
         const actualFile = fileItem.originFileObj || fileItem
         const uploadRes = (await upload(actualFile, 'file')) as any
 
-        if (uploadRes.code === 0 && uploadRes.data) {
+        if (uploadRes.code === 200 && uploadRes.data) {
           uploadedFileUrls.push(uploadRes.data.url!)
         } else {
           message.destroy('uploading')
