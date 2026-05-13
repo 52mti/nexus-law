@@ -55,7 +55,7 @@ request.interceptors.response.use(
           localStorage.removeItem('token')
           // 同时清除 Zustand 中的用户信息，防止 App.tsx 等组件继续发起需要授权的请求
           useUserStore.getState().logout()
-          window.location.href = '/login'
+          window.location.href = `${import.meta.env.BASE_URL}login`.replace(/\/+/g, '/')
           break
         case 403:
           globalMessage.error(i18n.t('error.no_permission'))
