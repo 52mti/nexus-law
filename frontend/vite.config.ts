@@ -6,6 +6,7 @@ import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: '/nexus-law/',
   plugins: [
     react(),
     // 2. 将其添加到插件列表中

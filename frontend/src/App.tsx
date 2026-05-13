@@ -115,7 +115,7 @@ function App() {
 
   return (
     <ConfigProvider locale={antdLocale} theme={antdTheme}>
-      <BrowserRouter>
+      <BrowserRouter basename="/nexus-law">
         <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* 独立页面 */}
