@@ -9,7 +9,7 @@ export default function MainLayout() {
   return (
     <Layout className="h-screen w-full overflow-hidden">
       {/* 左侧边栏：宽度 240px，背景设为白色 */}
-      <Sider width={210} theme="light" className="border-r border-gray-200">
+      <Sider width={260} theme="light" className="border-r border-gray-200">
         <AppSidebar />
       </Sider>
 

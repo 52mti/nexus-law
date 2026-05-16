@@ -31,7 +31,7 @@ export const AuthPage: React.FC = () => {
             </svg>
           </div>
           <span className="text-[22px] font-bold text-gray-800">
-            {t("0KtebkZkc5CT2qLpLJXvu")}{" "}
+            {t("htQgdqSMQ9Gox7Sl0tdDM")}{" "}
           </span>
         </div>
 

@@ -28,7 +28,7 @@ i18n
   // 初始化 i18next
   .init({
     resources,
-    fallbackLng: 'zh-CN', // 默认备用语言
+    fallbackLng: 'en-US', // 默认备用语言
     interpolation: {
       escapeValue: false, // React 已经自带防 XSS 注入，这里设置为 false 即可
     }
