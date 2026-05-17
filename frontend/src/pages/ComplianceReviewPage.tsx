@@ -291,7 +291,12 @@ export const ComplianceReviewPage = () => {
               </Form.Item>
 
               {/* 审查维度 */}
-              <Form.Item name="reviewAngle" label={t('FyUUOpqA02HNZIdsaJmz4')} className="mb-6">
+              <Form.Item
+                name="reviewAngle"
+                label={t('FyUUOpqA02HNZIdsaJmz4')}
+                className="mb-6"
+                required
+              >
                 <ColorRadio
                   options={[
                     { label: t('x9R1a-BqWjeY7Z2UB0z1q'), value: 'partyA' },
