@@ -8,8 +8,8 @@ import { useReactToPrint } from 'react-to-print'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useTranslation } from 'react-i18next'
-// 🚀 1. 引入定义好的 API 函数
 import { searchRegulationApi, fetchDocType } from '@/api/regulation'
+import { fetchEventSource } from '@microsoft/fetch-event-source'
 
 export const LegalSearchPage = () => {
   const { t } = useTranslation()
@@ -103,6 +103,8 @@ export const LegalSearchPage = () => {
   const handleSubmit = async (values: any) => {
     try {
       setLoading(true)
+      // 先清空旧内容，准备流式填充
+      setDocData({ title: t('DY7mWmSdNrDwnPZE2zsAu'), markdownContent: '' })
 
       // 因为我们把 value 直接设置成了 record.name，所以 values.docType 拿到的直接是 "公司法"、"不限/综合匹配" 等
       let lawTypeStr = values.docType || t('Vt_O0DK8M4pHvxNTaer0C')
@@ -115,25 +117,47 @@ export const LegalSearchPage = () => {
       const articleNumberStr = values.partyA || undefined
       const keywordStr = values.partyB
 
-      // 发起真实的 API 请求
-      const res = await searchRegulationApi({
+      const apiParams = {
         lawType: lawTypeStr,
         articleNumber: articleNumberStr,
         keyword: keywordStr,
-      })
-
-      if (res.code === 200 || res.code === 0) {
-        setDocData({
-          title: t('DY7mWmSdNrDwnPZE2zsAu'),
-          markdownContent: res.data,
-        })
-        message.success(t('d1ERHF2PJJ1twOm4UtGH7'))
-      } else {
-        message.error(res.message || t('VOKXsXqVnXQyt4Fs-AV-d'))
       }
+
+      let fullContent = ''
+      const token = localStorage.getItem('token')
+
+      await fetchEventSource(`${import.meta.env.VITE_API_BASE_URL}/api/regulation/search`, {
+        method: 'POST',
+        openWhenHidden: true,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(apiParams),
+        onmessage(ev) {
+          let data = ev.data
+          if (!data) return
+
+          const parsedContent = data.replace(/\\n/g, '\n')
+          fullContent += parsedContent
+          setDocData((prev) => ({
+            ...prev!,
+            markdownContent: fullContent,
+          }))
+        },
+        onclose() {
+          setLoading(false)
+          message.success(t('d1ERHF2PJJ1twOm4UtGH7'))
+        },
+        onerror(err) {
+          console.error('SSE Error:', err)
+          setLoading(false)
+          message.error(t('VOKXsXqVnXQyt4Fs-AV-d'))
+          throw err
+        },
+      })
     } catch (error) {
       console.error('检索请求异常:', error)
-    } finally {
       setLoading(false)
     }
   }
@@ -193,7 +217,7 @@ export const LegalSearchPage = () => {
               </Form.Item>
 
               {/* 检索语境 */}
-              <Form.Item name="partyB" label={t('8XUdYlO1xq6cUK6o7U4gN')} className="mb-5">
+              <Form.Item name="partyB" label={t('8XUdYlO1xq6cUK6o7U4gN')} className="mb-5" required>
                 <TextArea
                   placeholder={t('5rkUqX0X_xjJxwZbm11gE')}
                   maxLength={500}

@@ -49,6 +49,7 @@ import { useReactToPrint } from 'react-to-print'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useTranslation } from 'react-i18next'
+import { fetchEventSource } from '@microsoft/fetch-event-source'
 
 // 🚀 1. 引入我们刚刚定义好的 API
 import { searchCaseApi } from '@/api/case-search'
@@ -236,23 +237,48 @@ export const CaseSearchPage = () => {
       }
 
       // 🚀 组装参数并调用 API
-      const res = await searchCaseApi({
-        categoryId: values.categoryId, // 如果你的 SmartSidebar 会把选中的栏目 id 混在 values 里传过来
-        docType: values.docType,
-        content: formattedDateRange,
-        partyA: values.partyA || undefined,
-        partyB: values.partyB || undefined,
-      })
+      let fullContent = ''
+      const token = localStorage.getItem('token')
 
-      if (res.code === 0) {
-        setDocData({
-          title: t('3m5i1Q2VPoDDVJFN6KqPv'),
-          markdownContent: res.data,
-        })
-        message.success(t('CBy4zalzaA5oMw39uUxlw'))
-      } else {
-        message.error(res.message || t('VOKXsXqVnXQyt4Fs-AV-d'))
-      }
+      // 先清空旧内容，准备流式填充
+      setDocData({ title: t('3m5i1Q2VPoDDVJFN6KqPv'), markdownContent: '' })
+
+      await fetchEventSource(`${import.meta.env.VITE_API_BASE_URL}/api/case-search/search`, {
+        method: 'POST',
+        openWhenHidden: true,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          categoryId: values.categoryId,
+          docType: values.docType,
+          content: formattedDateRange,
+          partyA: values.partyA || undefined,
+          partyB: values.partyB || undefined,
+        }),
+        onmessage(ev) {
+          let data = ev.data
+          if (!data) return
+
+          const parsedContent = data.replace(/\\n/g, '\n')
+          fullContent += parsedContent
+          setDocData((prev) => ({
+            ...prev!,
+            markdownContent: fullContent,
+          }))
+        },
+        onclose() {
+          setLoading(false)
+          message.success(t('CBy4zalzaA5oMw39uUxlw'))
+        },
+        onerror(err) {
+          console.error('SSE Error:', err)
+          setLoading(false)
+          message.error(t('VOKXsXqVnXQyt4Fs-AV-d'))
+          throw err
+        },
+      })
     } catch (error) {
       console.error('案例检索请求异常:', error)
       // 拦截器已经处理了全局报错，这里无需重复 toast
@@ -420,7 +446,7 @@ export const CaseSearchPage = () => {
       </PortalSidebar>
 
       <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center relative">
-        {loading && (
+        {loading && (!docData || !docData.markdownContent) && (
           <div className="flex flex-col h-full items-center justify-center text-center animate-fade-in">
             <div className="mb-6">
               <SearchOutlined className="text-[80px] text-primary animate-pulse" />
@@ -438,7 +464,7 @@ export const CaseSearchPage = () => {
           </div>
         )}
 
-        {docData && !loading && (
+        {docData && docData.markdownContent && (
           <div className="w-full h-full flex flex-col gap-6 max-w-4xl">
             <div
               id="legal-document-paper"
@@ -457,7 +483,9 @@ export const CaseSearchPage = () => {
                 prose-strong:text-black prose-strong:font-bold
               "
               >
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{docData.markdownContent}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {docData.markdownContent + (loading ? ' ▎' : '')}
+                </ReactMarkdown>
               </div>
             </div>
 

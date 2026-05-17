@@ -8,6 +8,7 @@ import {
 } from '@ant-design/icons'
 import { PortalSidebar } from '@/components/layout/PortalSidebar'
 import { useParams, useNavigate } from 'react-router-dom'
+import { fetchEventSource } from '@microsoft/fetch-event-source'
 import { useReactToPrint } from 'react-to-print'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -136,19 +137,12 @@ export const ComplianceReviewPage = () => {
   const handleSubmit = async (values: any) => {
     try {
       setLoading(true)
-      const formData = new FormData()
 
       if (!values.contractFile || values.contractFile.length === 0) {
         message.warning(t('kTIFKlqKgXul4cyyFSNYE'))
         setLoading(false)
         return
       }
-
-      values.contractFile.forEach((fileItem: any) => {
-        const actualFile = fileItem.originFileObj || fileItem
-        formData.append('files', actualFile)
-      })
-      formData.append('reviewAngle', values.reviewAngle)
 
       const uploadedFileUrls: string[] = []
 
@@ -171,36 +165,62 @@ export const ComplianceReviewPage = () => {
         key: 'uploading',
       })
 
-      const res = await analyzeComplianceApi(formData)
+      let fullContent = ''
+      const sessionId = crypto.randomUUID()
+      const token = localStorage.getItem('token')
 
-      if (res.code === 200 || res.code === 0) {
-        setDocData({
-          title: t('atmo0oFvyytF9uwRncAV8'),
-          markdownContent: res.data,
-        })
+      // 先清空旧内容，准备流式填充
+      setDocData({ title: t('atmo0oFvyytF9uwRncAV8'), markdownContent: '' })
 
-        const sessionId = crypto.randomUUID()
+      await fetchEventSource(`${import.meta.env.VITE_API_BASE_URL}/api/compliance/analyze`, {
+        method: 'POST',
+        openWhenHidden: true,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          reviewAngle: values.reviewAngle,
+          fileUrls: uploadedFileUrls,
+        }),
+        onmessage(ev) {
+          let data = ev.data
+          if (!data) return
 
-        try {
-          await saveOrUpdateComplianceReview({
-            id: sessionId,
-            angleId: values.reviewAngle,
-            attachments: uploadedFileUrls.join(','),
-            content: res.data,
-          } as any)
+          const parsedContent = data.replace(/\\n/g, '\n')
+          fullContent += parsedContent
+          setDocData((prev) => ({
+            ...prev!,
+            markdownContent: fullContent,
+          }))
+        },
+        onclose() {
+          setLoading(false)
+        },
+        onerror(err) {
+          console.error('SSE Error:', err)
+          setLoading(false)
+          message.error(t('qGKVMeZT1_gF6FoIkRlSB'))
+          throw err
+        },
+      })
 
-          if (!id) {
-            isJustGenerated.current = true
-            // 根据路由定义，跳转到 /compliance_review/:id
-            navigate(`/compliance_review/${sessionId}`, { replace: true })
-          }
-        } catch (saveErr) {
-          console.error('保存审查历史记录失败:', saveErr)
+      // 保存历史记录
+      try {
+        await saveOrUpdateComplianceReview({
+          id: sessionId,
+          angleId: values.reviewAngle,
+          attachments: uploadedFileUrls.join(','),
+          content: fullContent,
+        } as any)
+
+        if (!id) {
+          isJustGenerated.current = true
+          navigate(`/compliance_review/${sessionId}`, { replace: true })
         }
-
         message.success(t('cUZWWl4N9oMOBKDgRn3ZG'))
-      } else {
-        message.error(res.message || t('qGKVMeZT1_gF6FoIkRlSB'))
+      } catch (saveErr) {
+        console.error('保存审查历史记录失败:', saveErr)
       }
     } catch (error) {
       console.error('合规审查请求异常:', error)
@@ -299,7 +319,7 @@ export const ComplianceReviewPage = () => {
       </PortalSidebar>
 
       <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center relative">
-        {loading && (
+        {loading && (!docData || !docData.markdownContent) && (
           <div className="flex flex-col h-full items-center justify-center text-center animate-fade-in">
             <div className="mb-6">
               <BulbOutlined className="text-[80px] text-primary animate-pulse" />
@@ -317,7 +337,7 @@ export const ComplianceReviewPage = () => {
           </div>
         )}
 
-        {docData && !loading && (
+        {docData && docData.markdownContent && (
           <div className="w-full h-full flex flex-col gap-6 max-w-4xl">
             <div
               id="legal-document-paper"
@@ -335,7 +355,9 @@ export const ComplianceReviewPage = () => {
                 prose-strong:text-black prose-strong:font-bold
               "
               >
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{docData.markdownContent}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {docData.markdownContent + (loading ? ' ▎' : '')}
+                </ReactMarkdown>
               </div>
             </div>
 

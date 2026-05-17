@@ -1,4 +1,4 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, Sse } from '@nestjs/common';
 import { CaseSearchService } from './case-search.service';
 import { SearchCaseDto } from './dto/search-case.dto';
 
@@ -7,12 +7,8 @@ export class CaseSearchController {
   constructor(private readonly caseSearchService: CaseSearchService) {}
 
   @Post('search')
-  async search(@Body() dto: SearchCaseDto) {
-    const result = await this.caseSearchService.search(dto);
-    return {
-      code: 0,
-      message: '类案分析完成',
-      data: result,
-    };
+  @Sse('search')
+  search(@Body() dto: SearchCaseDto) {
+    return this.caseSearchService.search(dto);
   }
 }

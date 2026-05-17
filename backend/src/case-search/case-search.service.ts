@@ -49,31 +49,18 @@ export class CaseSearchService {
       dateRangeStr = `${dto.content[0]} 至 ${dto.content[1]}`;
     }
 
-    // 2. 🧠 系统提示词（防幻觉设计的核心所在）
-    const systemPrompt = `你是一个专业的中国法律判例检索与类案分析AI系统。
-用户将输入一系列案件检索条件，你需要输出结构化的类案检索报告。
-⚠️【极其重要】：
-1. 请尽量检索和引用真实的、具有指导意义的生效判例（如最高法指导性案例、公报案例）。
-2. 如果你的知识库中无法找到完全契合的真实案例，**允许你基于现行适用法律生成高度逼真的模拟推演案例，但必须在【案号】后明确标注“（AI模拟推演案例）”**，绝不允许将编造的案例伪装成真实案件误导用户！
-3. 请严格按照 Markdown 格式输出，重点提炼裁判要旨和法院观点。`;
-
-    // 3. 📝 组装用户输入
-    const userPrompt = `请根据以下条件进行类案匹配与检索：
-- **案件大类**：${categoryStr}
-- **核心关键词/争议焦点**：${keyword}
-- **涉案金额区间**：${amountStr}
-- **判决法院层级**：${courtStr}
-- **判决时间范围**：${dateRangeStr}
-
-请为我提供 2-3 个最相关的判例，并提取出核心的“裁判要旨”。最后给出一个简短的“检索总结与司法倾向分析”。`;
+    const inputs = {
+      categoryStr,
+      keyword,
+      amountStr,
+      courtStr,
+      dateRangeStr,
+    };
 
     this.logger.log(`开始类案检索: [${categoryStr}] 关键词:${keyword}`);
 
-    // 4. 调用大模型 (检索类任务温度不宜过高，0.2 比较合适)
-    return await this.difyService.generateMarkdown(
-      systemPrompt,
-      userPrompt,
-      0.2,
+    return this.difyService.generateMarkdown(
+      inputs,
     );
   }
 }
