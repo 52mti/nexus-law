@@ -26,7 +26,7 @@ interface ChatMessage {
 }
 
 export const AIChatPage = () => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { message } = App.useApp()
   // 获取 URL 路由参数
   const { id } = useParams<{ id: string }>()
@@ -148,6 +148,7 @@ export const AIChatPage = () => {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
+          target_language: i18n.language,
         },
         body: JSON.stringify({
           prompt: userText,

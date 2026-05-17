@@ -8,7 +8,7 @@ export class ChatService {
 
   constructor(private readonly difyService: DifyService) {}
 
-  streamChat(prompt: string, sessionId?: string, userId?: string, userToken?: string): Observable<any> {
+  streamChat(prompt: string, sessionId?: string, userId?: string, userToken?: string, targetLanguage?: string): Observable<any> {
     return new Observable((subscriber) => {
       try {
         if (!prompt) {
@@ -22,6 +22,7 @@ export class ChatService {
           userId,
           sessionId,
           userToken,
+          targetLanguage,
         );
 
         chatStream$.subscribe({

@@ -59,7 +59,7 @@ const normFile = (e: any) => {
 }
 
 export const ComplianceReviewPage = () => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { message } = App.useApp()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -178,6 +178,7 @@ export const ComplianceReviewPage = () => {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
+          target_language: i18n.language,
         },
         body: JSON.stringify({
           reviewAngle: values.reviewAngle,

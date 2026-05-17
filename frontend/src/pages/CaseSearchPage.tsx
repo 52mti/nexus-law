@@ -55,7 +55,7 @@ import { fetchEventSource } from '@microsoft/fetch-event-source'
 import { searchCaseApi } from '@/api/case-search'
 
 export const CaseSearchPage = () => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { message } = App.useApp()
   const { id } = useParams<{ id: string }>()
   const [loading, setLoading] = useState(Boolean(id))
@@ -236,6 +236,31 @@ export const CaseSearchPage = () => {
         ]
       }
 
+      const amountMap: Record<string, string> = {
+        '1': '1万以下',
+        '2': '1-5万',
+        '3': '5-20万',
+        '4': '20-100万',
+        '5': '100万以上',
+      }
+
+      const courtMap: Record<string, string> = {
+        '1': '最高法院/联邦最高法院',
+        '2': '高级人民法院/地区高等法院',
+        '3': '基层人民法院',
+        '4': '专门法院（如知产、海事法院）',
+      }
+
+      const categoryMap: Record<string, string> = {
+        civil_case: '民事案件',
+        criminal_case: '刑事案件',
+        labor_dispute: '劳动争议案件',
+        commercial_case: '商事案件',
+        administrative_case: '行政案件',
+        intellectual_property: '知识产权案件',
+        family_case: '家事案件',
+      }
+
       // 🚀 组装参数并调用 API
       let fullContent = ''
       const token = localStorage.getItem('token')
@@ -249,13 +274,14 @@ export const CaseSearchPage = () => {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
+          target_language: i18n.language,
         },
         body: JSON.stringify({
-          categoryId: values.categoryId,
-          docType: values.docType,
-          content: formattedDateRange,
-          partyA: values.partyA || undefined,
-          partyB: values.partyB || undefined,
+          categoryStr: categoryMap[values.categoryId] || '综合案件',
+          keyword: values.docType,
+          amountStr: amountMap[values.partyA] || '不限',
+          courtStr: courtMap[values.partyB] || '不限',
+          dateRangeStr: formattedDateRange ? `${formattedDateRange[0]} 至 ${formattedDateRange[1]}` : '不限',
         }),
         onmessage(ev) {
           let data = ev.data

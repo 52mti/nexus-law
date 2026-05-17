@@ -30,7 +30,7 @@ import remarkGfm from 'remark-gfm'
 import { useTranslation } from 'react-i18next'
 
 export const DocPage = () => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { message } = App.useApp()
   const { id } = useParams<{ id: string }>()
 
@@ -277,6 +277,7 @@ export const DocPage = () => {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
+          target_language: i18n.language,
         },
         body: JSON.stringify(apiParams),
         onmessage(ev) {

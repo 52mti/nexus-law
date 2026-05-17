@@ -12,7 +12,7 @@ import { searchRegulationApi, fetchDocType } from '@/api/regulation'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 
 export const LegalSearchPage = () => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { message } = App.useApp()
   const { id } = useParams<{ id: string }>()
   const [loading, setLoading] = useState(Boolean(id))
@@ -132,6 +132,7 @@ export const LegalSearchPage = () => {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
+          target_language: i18n.language,
         },
         body: JSON.stringify(apiParams),
         onmessage(ev) {
@@ -245,7 +246,7 @@ export const LegalSearchPage = () => {
       </PortalSidebar>
 
       <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center relative">
-        {loading && (
+        {loading && (!docData || !docData.markdownContent) && (
           <div className="flex flex-col h-full items-center justify-center text-center animate-fade-in">
             <div className="mb-6">
               <BookOutlined className="text-[80px] text-primary animate-pulse" />
@@ -263,7 +264,7 @@ export const LegalSearchPage = () => {
           </div>
         )}
 
-        {docData && !loading && (
+        {docData && docData.markdownContent && (
           <div className="w-full h-full flex flex-col gap-6 max-w-4xl">
             <div
               id="legal-document-paper"
@@ -282,7 +283,9 @@ export const LegalSearchPage = () => {
                 prose-strong:text-black prose-strong:font-bold
               "
               >
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{docData.markdownContent}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {docData.markdownContent + (loading ? ' ▎' : '')}
+                </ReactMarkdown>
               </div>
             </div>
 

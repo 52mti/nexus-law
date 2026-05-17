@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { DifyService } from '../dify/dify.service';
 import { AnalyzeComplianceDto } from './dto/analyze-compliance.dto';
 import axios from 'axios';
+import { ConfigService } from '@nestjs/config';
 
 // 引入文件解析双雄
 import { PDFParse } from 'pdf-parse';
@@ -11,9 +12,12 @@ import * as mammoth from 'mammoth';
 export class ComplianceService {
   private readonly logger = new Logger(ComplianceService.name);
 
-  constructor(private readonly difyService: DifyService) { }
+  constructor(
+    private readonly difyService: DifyService,
+    private readonly configService: ConfigService,
+  ) {}
 
-  async analyze(dto: AnalyzeComplianceDto) {
+  async analyze(dto: AnalyzeComplianceDto, targetLanguage?: string) {
     // 1. 📂 提取所有文件内容
     let combinedContent = '';
     for (const url of dto.fileUrls) {
@@ -40,23 +44,30 @@ export class ComplianceService {
     const currentAngle = angleMap[dto.reviewAngle] || angleMap.neutral;
 
     const inputs = {
-      currentAngle,
+      reviewAngle: currentAngle,
       combinedContent,
+      application_type: 'compliance_review',
+      target_language: targetLanguage || 'zh-CN',
     };
 
     this.logger.log(
-      `开始合规审查，视角：${currentAngle}，共收到 ${files.length} 份文件`,
+      `开始合规审查，视角：${currentAngle}，共收到 ${dto.fileUrls.length} 份文件`,
     );
 
     return this.difyService.generateMarkdown(
       inputs,
+      this.configService.get<string>('DIFY_REVIEW'),
+      'chat',
     );
   }
 
   /**
    * 🛠️ 直接复用我们完美打磨过的多文件解析方法
    */
-  private async extractTextFromFile(buffer: Buffer, originalname: string): Promise<string> {
+  private async extractTextFromFile(
+    buffer: Buffer,
+    originalname: string,
+  ): Promise<string> {
     const extension = originalname.split('.').pop()?.toLowerCase() || '';
 
     try {

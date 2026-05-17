@@ -27,7 +27,7 @@ const normFile = (e: any) => {
 }
 
 export const CaseReviewPage = () => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { message } = App.useApp()
   const { id } = useParams<{ id: string }>()
   const [loading, setLoading] = useState(Boolean(id))
@@ -118,6 +118,7 @@ export const CaseReviewPage = () => {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
+          target_language: i18n.language,
         },
         body: JSON.stringify({
           remarks: values.remarks || '',

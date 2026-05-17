@@ -21,6 +21,7 @@ export class DifyService {
     user?: string,
     conversationId?: string,
     userToken?: string,
+    targetLanguage?: string,
   ): Observable<any> {
     return new Observable((subscriber) => {
       const abortController = new AbortController();
@@ -28,6 +29,7 @@ export class DifyService {
       const body = {
         inputs: {
           user_token: userToken || '',
+          target_language: targetLanguage || 'zh-CN',
         },
         query,
         user: user || 'guest',
@@ -187,26 +189,29 @@ export class DifyService {
    * 调用 Dify API 进行内容生成（对话模式）
    * 用于替代 OpenaiService.generateLegalMarkdown()
    *
-   * @param systemPrompt 系统设定（角色定义、输出格式要求）
-   * @param userPrompt 用户输入（具体案情、条件等）
-   * @param temperature 创意度温度值（0.1-0.3，越低越严谨）
+   * @param inputs 自定义参数
    * @param customApiKey 可选的自定义 API 密钥（用于多应用场景）
+   * @param applicationType 应用类型
    * @returns 返回生成的 Markdown 格式字符串
    */
   generateMarkdown(
     inputs: Record<string, any>,
     customApiKey?: string,
+    applicationType: 'chat' | 'completion' = 'completion',
     user: string = 'system',
   ): Observable<any> {
     return new Observable((subscriber) => {
       const abortController = new AbortController();
       const apiKey = customApiKey || this.apiKey;
 
+      this.logger.log(inputs);
+      this.logger.log(`11${applicationType}11`);
+
       const body = {
         inputs,
         response_mode: 'streaming',
         user,
-        query: '',
+        query: applicationType === 'chat' ? '请开始分析' : '',
       };
 
       this.logger.log(
@@ -214,7 +219,7 @@ export class DifyService {
       );
 
       axios
-        .post(`${this.baseUrl}/completion-messages`, body, {
+        .post(`${this.baseUrl}/${applicationType}-messages`, body, {
           headers: {
             Authorization: `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
@@ -250,7 +255,8 @@ export class DifyService {
                     }
                   } else if (parsed.event === 'error') {
                     this.logger.error(`[Dify] Error event: ${parsed.message}`);
-                    subscriber.error(new Error(parsed.message));
+                    subscriber.next({ data: `[系统错误：${parsed.message}]` });
+                    subscriber.complete();
                   }
                 } catch (e) {
                   this.logger.debug(`[Dify] Failed to parse chunk: ${dataStr}`);
@@ -266,7 +272,8 @@ export class DifyService {
 
           response.data.on('error', (err) => {
             this.logger.error('[Dify] Stream error', err);
-            subscriber.error(err);
+            subscriber.next({ data: `[系统错误：流传输异常]` });
+            subscriber.complete();
           });
         })
         .catch((error) => {
@@ -274,7 +281,9 @@ export class DifyService {
             this.logger.log('[Dify] Request canceled');
           } else {
             this.logger.error('[Dify] Request failed', error);
-            subscriber.error(error);
+            const errorMsg = error.response?.data?.message || error.message;
+            subscriber.next({ data: `[系统错误：${errorMsg}]` });
+            subscriber.complete();
           }
         });
 
@@ -300,6 +309,7 @@ export class DifyService {
       party_a: string;
       party_b: string;
       content_desc: string;
+      target_language?: string;
     },
     user: string = 'guest',
     userToken?: string,

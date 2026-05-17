@@ -10,13 +10,14 @@ export class LegalSearchService {
     private readonly configService: ConfigService,
   ) {}
 
-  search(dto: SearchRegulationDto) {
+  search(dto: SearchRegulationDto, targetLanguage?: string) {
     const { lawType, articleNumber, keyword } = dto;
 
     const inputs = {
       lawType: lawType || '不限',
       articleNumber: articleNumber || '',
       keyword,
+      target_language: targetLanguage || 'zh-CN',
     };
 
     return this.difyService.generateMarkdown(

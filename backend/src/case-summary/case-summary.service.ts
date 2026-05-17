@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { DifyService } from '../dify/dify.service';
 import { SummarizeCaseDto } from './dto/summarize-case.dto';
 import axios from 'axios';
+import { ConfigService } from '@nestjs/config';
 
 // 🚀 1. 引入两员大将
 import { PDFParse } from 'pdf-parse';
@@ -11,11 +12,14 @@ import * as mammoth from 'mammoth';
 export class CaseSummaryService {
   private readonly logger = new Logger(CaseSummaryService.name);
 
-  constructor(private readonly difyService: DifyService) {}
+  constructor(
+    private readonly difyService: DifyService,
+    private readonly configService: ConfigService,
+  ) {}
 
-  async summarize(dto: SummarizeCaseDto) {
+  async summarize(dto: SummarizeCaseDto, targetLanguage?: string) {
     // 1. 📂 核心逻辑：遍历解析所有文件，将内容拼接起来
-    let combinedCaseContent = '';
+    let combinedContent = '';
 
     for (const url of dto.fileUrls) {
       try {
@@ -25,29 +29,36 @@ export class CaseSummaryService {
         const originalname = url.split('/').pop() || 'file';
 
         const fileText = await this.extractTextFromFile(buffer, originalname);
-        combinedCaseContent += `\n\n【文件名称】：${originalname}\n【文件内容】：\n${fileText}\n---`;
+        combinedContent += `\n\n【文件名称】：${originalname}\n【文件内容】：\n${fileText}\n---`;
       } catch (error) {
         this.logger.error(`下载文件失败: ${url}`, error);
-        combinedCaseContent += `\n\n【文件名称】：${url}\n【文件内容】：\n[系统提示：文件下载失败]\n---`;
+        combinedContent += `\n\n【文件名称】：${url}\n【文件内容】：\n[系统提示：文件下载失败]\n---`;
       }
     }
 
     const inputs = {
-      combinedCaseContent,
+      combinedContent,
       remarks: dto.remarks || '',
+      application_type: 'case_review',
+      target_language: targetLanguage || 'zh-CN',
     };
 
     this.logger.log(`开始快梳案件，共收到 ${dto.fileUrls.length} 份文件`);
 
     return this.difyService.generateMarkdown(
       inputs,
+      this.configService.get<string>('DIFY_REVIEW'),
+      'chat',
     );
   }
 
   /**
    * 🛠️ 核心升级：支持 PDF、Word(docx)、TXT 真实解析
    */
-  private async extractTextFromFile(buffer: Buffer, originalname: string): Promise<string> {
+  private async extractTextFromFile(
+    buffer: Buffer,
+    originalname: string,
+  ): Promise<string> {
     const extension = originalname.split('.').pop()?.toLowerCase() || '';
 
     try {

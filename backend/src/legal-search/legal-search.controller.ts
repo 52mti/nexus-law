@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Sse } from '@nestjs/common';
+import { Controller, Post, Body, Sse, Headers } from '@nestjs/common';
 import { LegalSearchService } from './legal-search.service';
 import { SearchRegulationDto } from './dto/search-regulation.dto';
 
@@ -8,7 +8,10 @@ export class LegalSearchController {
 
   @Post('search')
   @Sse('search')
-  search(@Body() dto: SearchRegulationDto) {
-    return this.regulationService.search(dto);
+  search(
+    @Body() dto: SearchRegulationDto,
+    @Headers('target_language') targetLanguage: string,
+  ) {
+    return this.regulationService.search(dto, targetLanguage);
   }
 }
