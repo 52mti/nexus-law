@@ -14,7 +14,7 @@ export class ChatController {
     @Body('sessionId') sessionId?: string,
     @Body('userId') userId?: string,
     @Headers('authorization') auth?: string,
-    @Headers('target_language') targetLanguage?: string,
+    @Headers('target-language') targetLanguage?: string,
   ): Observable<MessageEvent> {
     // 提取 Bearer Token 用于 Dify 内部回调（如 HTTP 节点）
     const userToken = auth?.replace('Bearer ', '');

@@ -148,7 +148,7 @@ export const AIChatPage = () => {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
-          target_language: i18n.language,
+          'target-language': i18n.language,
         },
         body: JSON.stringify({
           prompt: userText,

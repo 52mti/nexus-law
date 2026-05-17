@@ -10,7 +10,7 @@ export class LegalSearchController {
   @Sse('search')
   search(
     @Body() dto: SearchRegulationDto,
-    @Headers('target_language') targetLanguage: string,
+    @Headers('target-language') targetLanguage: string,
   ) {
     return this.regulationService.search(dto, targetLanguage);
   }

@@ -20,7 +20,7 @@ export class DocumentController {
     @Body() dto: GenerateDocumentDto,
     @Req() req: any,
     @Headers('authorization') auth?: string,
-    @Headers('target_language') targetLanguage?: string,
+    @Headers('target-language') targetLanguage?: string,
   ) {
     // 获取用户身份，如果没有从请求中提取，则使用 'guest'
     const user = req.user?.id || req.user?.username || 'guest';

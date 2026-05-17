@@ -17,7 +17,7 @@ export class ComplianceController {
   @Sse('analyze')
   analyze(
     @Body() dto: AnalyzeComplianceDto,
-    @Headers('target_language') targetLanguage: string,
+    @Headers('target-language') targetLanguage: string,
   ) {
     if (!dto.fileUrls || dto.fileUrls.length === 0) {
       throw new BadRequestException('请至少提供一份合同或协议资料的链接');

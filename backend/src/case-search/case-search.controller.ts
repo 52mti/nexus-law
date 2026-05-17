@@ -10,7 +10,7 @@ export class CaseSearchController {
   @Sse('search')
   search(
     @Body() dto: SearchCaseDto,
-    @Headers('target_language') targetLanguage: string,
+    @Headers('target-language') targetLanguage: string,
   ) {
     return this.caseSearchService.search(dto, targetLanguage);
   }
