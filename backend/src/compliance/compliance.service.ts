@@ -16,11 +16,7 @@ export class ComplianceService {
   constructor(
     private readonly difyService: DifyService,
     private readonly configService: ConfigService,
-<<<<<<< HEAD
-  ) { }
-=======
   ) {}
->>>>>>> 10c5d20248a613b762d49541fccba08a350feb15
 
   async analyze(dto: AnalyzeComplianceDto, targetLanguage?: string) {
     // 1. 📂 提取所有文件内容
@@ -59,19 +55,10 @@ export class ComplianceService {
       `开始合规审查，视角：${currentAngle}，共收到 ${dto.fileUrls.length} 份文件`,
     );
 
-<<<<<<< HEAD
-    // 4. 合规审查需要极度严谨，温度设为较低的 0.1 或 0.2
-    return await this.difyService.generateMarkdown(
-      systemPrompt,
-      userPrompt,
-      0.1,
-      this.configService.get<string>('DIFY_COMPLIANCE_KEY'),
-=======
     return this.difyService.generateMarkdown(
       inputs,
       this.configService.get<string>('DIFY_REVIEW'),
       'chat',
->>>>>>> 10c5d20248a613b762d49541fccba08a350feb15
     );
   }
 
