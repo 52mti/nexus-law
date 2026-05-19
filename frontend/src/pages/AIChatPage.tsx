@@ -26,7 +26,7 @@ interface ChatMessage {
 }
 
 export const AIChatPage = () => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { message } = App.useApp()
   // 获取 URL 路由参数
   const { id } = useParams<{ id: string }>()
@@ -48,7 +48,7 @@ export const AIChatPage = () => {
   const isNavigatingRef = useRef(false)
 
   const chatContainerRef = useRef<HTMLDivElement>(null)
-  
+
   // 如果路径上有 sessionId，说明是已有对话，不展示首次居中 UI
   const isEmpty = messages.length === 0 && !sessionId
 
@@ -59,7 +59,7 @@ export const AIChatPage = () => {
       try {
         const res = await getConsultationHistory(sessionId)
         const records = res?.data || []
-        
+
         // 转换 Dify 格式为前端展示格式
         const historyMessages = records.flatMap((item: any) => [
           {
@@ -148,6 +148,7 @@ export const AIChatPage = () => {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
+          'target-language': i18n.language,
         },
         body: JSON.stringify({
           prompt: userText,
@@ -204,10 +205,6 @@ export const AIChatPage = () => {
     }
   }
 
-  const handleResend = () => {
-    // 这里可以后续实现重新生成的逻辑
-  }
-
   const handleCopy = (content: string) => {
     navigator.clipboard.writeText(content).then(() => {
       message.success(t('Un10bKsoL0mVYYwo8YsAL'))
@@ -251,7 +248,10 @@ export const AIChatPage = () => {
                     <div className="bg-white rounded-2xl rounded-tl-sm shadow-sm border border-gray-100 p-6">
                       <div className="prose prose-slate max-w-none text-gray-700 leading-relaxed text-[15px] break-words overflow-x-auto">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {msg.content + (isStreaming && msg.id === messages[messages.length - 1].id ? ' ▎' : '')}
+                          {msg.content +
+                            (isStreaming && msg.id === messages[messages.length - 1].id
+                              ? ' ▎'
+                              : '')}
                         </ReactMarkdown>
                         {isStreaming && msg.content === '' && (
                           <span className="inline-block w-2 h-4 bg-gray-400 animate-pulse ml-1" />
@@ -260,9 +260,6 @@ export const AIChatPage = () => {
                       <div className="flex items-center gap-4 mt-6 text-gray-400">
                         {!isStreaming && (
                           <>
-                            <span className="flex items-center gap-1.5 cursor-pointer hover:text-primary transition-colors text-sm">
-                              <SyncOutlined onClick={handleResend} /> {t('1uuruWmc27wCV-iBY3Uh6')}
-                            </span>
                             <span
                               className="flex items-center gap-1.5 cursor-pointer hover:text-primary transition-colors text-sm"
                               onClick={() => handleCopy(msg.content)}

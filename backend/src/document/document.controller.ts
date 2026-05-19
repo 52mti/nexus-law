@@ -16,12 +16,17 @@ export class DocumentController {
    */
   @Post('generate')
   @Sse('generate')
-  generate(@Body() dto: GenerateDocumentDto, @Req() req: any, @Headers('authorization') auth?: string) {
+  generate(
+    @Body() dto: GenerateDocumentDto,
+    @Req() req: any,
+    @Headers('authorization') auth?: string,
+    @Headers('target-language') targetLanguage?: string,
+  ) {
     // 获取用户身份，如果没有从请求中提取，则使用 'guest'
     const user = req.user?.id || req.user?.username || 'guest';
     // 提取 Bearer Token 用于 Dify 内部回调（如 HTTP 节点）
     const userToken = auth?.replace('Bearer ', '');
 
-    return this.documentService.generateLegalDocument(dto, user, userToken);
+    return this.documentService.generateLegalDocument(dto, user, userToken, targetLanguage);
   }
 }

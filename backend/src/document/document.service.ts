@@ -22,8 +22,8 @@ export class DocumentService {
     dto: GenerateDocumentDto,
     user: string = 'guest',
     userToken?: string,
+    targetLanguage?: string,
   ): Observable<any> {
-
     // 直接传入结构化参数给 Dify，由平台的系统提示词处理
     return this.difyService.generateDocumentStream(
       {
@@ -32,6 +32,7 @@ export class DocumentService {
         party_a: dto.party_a,
         party_b: dto.party_b,
         content_desc: dto.content_desc,
+        target_language: targetLanguage || 'zh-CN',
       },
       user,
       userToken,
