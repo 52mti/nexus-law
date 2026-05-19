@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo } from 'react' // 🚀 1. 这里加了一个 useMemo
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { ConfigProvider, Spin } from 'antd'
 import type { ThemeConfig } from 'antd/lib/config-provider'
 import { useTranslation } from 'react-i18next'
@@ -34,6 +34,7 @@ const HistoryPage = lazy(() => import('./pages/HistoryPage'))
 const MembershipPage = lazy(() => import('./pages/MembershipPage'))
 const OrderListPage = lazy(() => import('./pages/OrderListPage'))
 const PointsRecordPage = lazy(() => import('./pages/PointsRecordPage'))
+const ShareRebatePage = lazy(() => import('./pages/ShareRebatePage'))
 
 // 全局的加载动画组件
 const PageLoader = () => (
@@ -41,6 +42,12 @@ const PageLoader = () => (
     <Spin size="large" />
   </div>
 )
+
+// 处理分享链接重定向
+const HandleShareLink = () => {
+  const { code } = useParams();
+  return <Navigate to={`/login?exclusiveLink=${code}`} replace />;
+};
 
 function App() {
   const { i18n } = useTranslation()
@@ -137,7 +144,11 @@ function App() {
               <Route path="vip" element={<MembershipPage />} />
               <Route path="orders" element={<OrderListPage />} />
               <Route path="points" element={<PointsRecordPage />} />
+              <Route path="share_rebate" element={<ShareRebatePage />} />
             </Route>
+
+            {/* 处理分享链接 */}
+            <Route path="/:code" element={<HandleShareLink />} />
           </Routes>
         </Suspense>
       </BrowserRouter>

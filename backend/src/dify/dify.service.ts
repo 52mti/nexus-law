@@ -180,7 +180,7 @@ export class DifyService {
         },
         query: fullPrompt,
         user: 'system',
-        response_mode: 'blocking', // 非流式模式，等待完整响应
+        response_mode: 'streaming', // 非流式模式，等待完整响应
       };
 
       this.logger.log(`[Dify] Generating content with temperature: ${temperature}, using ${customApiKey ? 'custom' : 'default'} API key`);

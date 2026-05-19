@@ -14,14 +14,15 @@ import {
 // 🚀 1. 确保引入了真实的 API 接口
 import { getMemberInfo } from '@/api/auth'
 import { useTranslation } from 'react-i18next'
+import { useUserStore } from '@/store/useUserStore'
 
 export const UserProfile: React.FC = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { modal, message } = App.useApp()
 
-  // 🚀 2. 增加状态管理，用于存储用户信息和加载状态
-  const [userInfo, setUserInfo] = useState<any>(null)
+  const setMemberInfo = useUserStore((state) => state.setMemberInfo)
+  const userInfo = useUserStore((state) => state.memberInfo)
   const [loading, setLoading] = useState(false)
 
   // 🚀 3. 在组件挂载时拉取真实用户数据
@@ -31,7 +32,7 @@ export const UserProfile: React.FC = () => {
       try {
         const res = await getMemberInfo()
         if (res && res.successful && res.data) {
-          setUserInfo(res.data)
+          setMemberInfo(res.data)
         } else {
           message.error(res.message || t('G8XfVyjWumDYyekOLvT3w'))
         }

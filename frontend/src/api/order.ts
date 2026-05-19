@@ -58,6 +58,22 @@ export interface ResultBoolean {
   data?: boolean;
 }
 
+export interface OrderAddResponse {
+  order?: Order;
+  checkoutUrl?: string;
+}
+
+export interface ResultOrderAdd {
+  /** 是否成功 */
+  successful?: boolean;
+  code?: number;
+  status?: number;
+  message?: string;
+  msg?: string;
+  timestamp?: number;
+  data?: OrderAddResponse;
+}
+
 export interface PayDto {
   /** 订单id */
   orderId?: string;
@@ -295,6 +311,6 @@ export const deleteOrder = (data?: IdList) => {
  * 下单
  */
 export const add = (data?: Id) => {
-  return request.post<any, ResultOrder>('/order/add', data);
+  return request.post<any, ResultOrderAdd>('/order/add', data);
 };
 

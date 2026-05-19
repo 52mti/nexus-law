@@ -36,6 +36,8 @@ export interface RegisterReq {
   mobile: string;
   /** 验证码 */
   code: string;
+  /** 专属链接参数 */
+  exclusiveLink?: string;
 }
 
 /** 登录响应结果 */

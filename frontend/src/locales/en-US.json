@@ -392,5 +392,18 @@
   "zNdcQIWn8MNoeKQ9A5Sli": "Once deleted, it cannot be recovered, and the related document data will be cleared as well.",
   "zP8GVqpuSy1aMeLsFg1CN": "Drag files here or",
   "zQknia65JY5tLf6iJ2jrB": "For example: Please focus on the penalty clause in the third contract, or enter the oral description of the case by the parties...",
-  "zhafo1IaEByi117I6R37e": "Includes trademark infringement, patents, etc."
+  "zhafo1IaEByi117I6R37e": "Includes trademark infringement, patents, etc.",
+  "share_rebate": "Share Rebate",
+  "unknown_action": "Unknown Action",
+  "loading_text": "Loading...",
+  "getting_link_wait": "Getting link, please wait",
+  "link_copied": "Link copied to clipboard",
+  "share_rebate_desc": "(Share this link with friends to register and open VIP, get full rebate)",
+  "exclusive_link": "Exclusive Link",
+  "copy": "Copy",
+  "rebate_list": "Rebate List",
+  "withdraw": "Withdraw",
+  "rebate_amount": "Rebate",
+  "withdrawable_amount": "Withdrawable Amount",
+  "no_rebate_records": "No rebate records yet"
 }

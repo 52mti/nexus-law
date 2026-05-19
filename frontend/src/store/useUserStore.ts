@@ -5,7 +5,9 @@ import type { LoginResp } from '@/api/auth'
 export interface UserState {
   user: LoginResp | null
   isAuthenticated: boolean
+  memberInfo: any | null
   setUser: (user: LoginResp | null) => void
+  setMemberInfo: (info: any | null) => void
   logout: () => void
 }
 
@@ -16,6 +18,7 @@ export const useUserStore = create<UserState>()(
       (set) => ({
         user: null,
         isAuthenticated: false,
+        memberInfo: null,
 
         setUser: (user) => {
           // 💡 第三个参数是给 Redux DevTools 显示的 Action 名字，极大地提升调试体验
@@ -29,11 +32,22 @@ export const useUserStore = create<UserState>()(
           )
         },
 
+        setMemberInfo: (info) => {
+          set(
+            {
+              memberInfo: info,
+            },
+            false,
+            'auth/setMemberInfo'
+          )
+        },
+
         logout: () => {
           set(
             {
               user: null,
               isAuthenticated: false,
+              memberInfo: null,
             },
             false,
             'auth/logout'

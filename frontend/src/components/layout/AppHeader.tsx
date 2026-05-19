@@ -8,9 +8,12 @@ import { getMessageNotification } from '@/api/common'
 import { RechargeModal } from '../header/RechargeModal'
 import { MessageCenter } from '../header/MessageCenter'
 import { UserProfile } from '../header/UserProfile'
+import { useUserStore } from '@/store/useUserStore'
 
 export const AppHeader: React.FC = () => {
   const { t, i18n } = useTranslation()
+  const userInfo = useUserStore((state) => state.memberInfo)
+  const giftPoints = userInfo?.giftPoints ?? 0
 
   const [isRechargeModalOpen, setIsRechargeModalOpen] = useState(false)
   const [isNotificationOpen, setIsNotificationOpen] = useState(false)
@@ -71,7 +74,7 @@ export const AppHeader: React.FC = () => {
           onClick={() => setIsRechargeModalOpen(true)}
         >
           <span className="text-[#5c6bc0] font-semibold">
-            🔥 <span>{t('KfeCrWV2baDEaTQl9hMTK')}</span> : 1200
+            🔥 <span>{t('KfeCrWV2baDEaTQl9hMTK')}</span> : {giftPoints}
           </span>
         </div>
 

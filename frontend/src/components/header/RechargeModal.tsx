@@ -3,8 +3,8 @@ import { Modal, Avatar, Spin, App, Button } from "antd";
 import { UserOutlined, CloseOutlined } from "@ant-design/icons";
 import { QRCodeScanner } from "../QRCodeScanner"; // 确保路径正确
 import { pointPlan } from "@/api/common";
-import { buyPoints } from "@/api/payment";
 import { useTranslation } from "react-i18next";
+import { useUserStore } from "@/store/useUserStore";
 
 interface Props {
   open: boolean;
@@ -22,11 +22,12 @@ interface PointPackage {
 export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
   const { t } = useTranslation();
   const { message } = App.useApp();
+  const userInfo = useUserStore((state) => state.memberInfo);
+  const giftPoints = userInfo?.giftPoints ?? 0;
 
   // 🚀 状态管理
   const [packages, setPackages] = useState<PointPackage[]>([]);
   const [loading, setLoading] = useState(false); // 专用于套餐列表初始化的 Loading
-  const [orderLoading, setOrderLoading] = useState(false); // 🚀 专用于下单按钮的 Loading
   const [selectedId, setSelectedId] = useState<string>(""); // 存放选中的套餐 ID
 
   // 获取积分套餐并做 sessionStorage 缓存
@@ -73,37 +74,6 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
 
     fetchPackages();
   }, [open, message]);
-
-  // 🚀 封装下单逻辑
-  const handleIssueOrder = async () => {
-    // 1. 校验是否已经选中了套餐
-    if (!selectedId) {
-      message.error(t("2aGgX94HuiXLGDH2C91Tj"));
-      return;
-    }
-
-    try {
-      setOrderLoading(true); // 开启按钮专属 Loading
-
-      // 2. 调用统一下单接口，把 selectedId 作为订单关联套餐的 ID 传给后端
-      const res = await buyPoints({ id: selectedId });
-
-      // 3. 处理后端返回结果 (假设以 code === 200 为成功基准，请根据实际情况调整)
-      if (res.code === 200 || res.successful) {
-        message.success(t("bRjUxTnow0Ap-YnPsFFUC"));
-
-        // 💡 提示：这里通常会拿到一个 payUrl，你可以把它存进 state，
-        // 传递给下方的 <QRCodeScanner payUrl={payUrl} /> 组件生成真实二维码
-      } else {
-        message.error(res.message || t("cFcF3RpiSV10fKSQvGa7N"));
-      }
-    } catch (error) {
-      console.error("下单报错:", error);
-    } finally {
-      setOrderLoading(false); // 关闭按钮专属 Loading
-    }
-  };
-
   return (
     <Modal
       open={open}
@@ -130,7 +100,7 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
         </div>
         <div className="flex items-center gap-4">
           <span className="text-sm">
-            🔥 <span>{t("iOvn0ncUeUNA82PEm-AtF")}</span> 1200
+            🔥 <span>{t("iOvn0ncUeUNA82PEm-AtF")}</span> {giftPoints}
           </span>
           <CloseOutlined
             className="cursor-pointer text-lg text-gray-300 hover:text-white transition-colors"
@@ -197,18 +167,6 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
           </h3>
           <QRCodeScanner />
 
-          {/* 🚀 下单按钮，使用专属的 orderLoading 控制状态 */}
-          <Button
-            type="primary"
-            size="large"
-            loading={orderLoading}
-            onClick={handleIssueOrder}
-            className="w-full mb-8 bg-primary mt-8 hover:bg-secondary rounded-lg font-medium tracking-wide shadow-md shadow-indigo-500/20 border-none"
-          >
-            {orderLoading
-              ? t("dQc64SStuPf1ewP82hciO")
-              : t("iUK1H65U-CevUxcpNqAL9")}
-          </Button>
           <div className="text-[12px] text-gray-400 text-center mt-3">
             {t("pXNQr6vug-33Su5C0L3ag")}
             <a className="text-primary hover:text-secondary hover:underline transition-colors">

@@ -12,6 +12,7 @@ import {
   HistoryOutlined,
   CrownOutlined,
   PayCircleOutlined,
+  ShareAltOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 
@@ -84,6 +85,11 @@ export const AppSidebar: React.FC = () => {
           key: "/points",
           icon: <PayCircleOutlined />,
           label: t("usKpZDupky2E5R4Kv34MQ"),
+        },
+        {
+          key: "/share_rebate",
+          icon: <ShareAltOutlined />,
+          label: t("share_rebate"),
         },
       ],
     },

@@ -390,5 +390,18 @@
   "zNdcQIWn8MNoeKQ9A5Sli": "删除后将无法恢复，相关文书数据将一并清理。",
   "zP8GVqpuSy1aMeLsFg1CN": "将文件拖到此处或",
   "zQknia65JY5tLf6iJ2jrB": "例如：请重点梳理第三份合同中的违约金条款，或者输入当事人的口头案情描述...",
-  "zhafo1IaEByi117I6R37e": "含商标侵权、专利等"
+  "zhafo1IaEByi117I6R37e": "含商标侵权、专利等",
+  "share_rebate": "分享返利",
+  "unknown_action": "未知动作",
+  "loading_text": "加载中...",
+  "getting_link_wait": "正在获取链接，请稍后",
+  "link_copied": "链接已复制到剪切板",
+  "share_rebate_desc": "(分享该地址给好友注册并开通会员，粒度全返还)",
+  "exclusive_link": "专属链接",
+  "copy": "复制",
+  "rebate_list": "返利列表",
+  "withdraw": "提现",
+  "rebate_amount": "返利",
+  "withdrawable_amount": "可提现金额",
+  "no_rebate_records": "暂无返利记录"
 }

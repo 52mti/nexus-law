@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DifyService } from '../dify/dify.service';
 import { AnalyzeComplianceDto } from './dto/analyze-compliance.dto';
 
@@ -10,7 +11,10 @@ import * as mammoth from 'mammoth';
 export class ComplianceService {
   private readonly logger = new Logger(ComplianceService.name);
 
-  constructor(private readonly difyService: DifyService) { }
+  constructor(
+    private readonly difyService: DifyService,
+    private readonly configService: ConfigService,
+  ) { }
 
   async analyze(files: Array<Express.Multer.File>, dto: AnalyzeComplianceDto) {
     // 1. 📂 提取所有文件内容
@@ -49,6 +53,7 @@ export class ComplianceService {
       systemPrompt,
       userPrompt,
       0.1,
+      this.configService.get<string>('DIFY_COMPLIANCE_KEY'),
     );
   }
 

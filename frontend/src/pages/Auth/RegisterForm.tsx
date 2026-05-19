@@ -57,6 +57,11 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
   const onFinish = async (values: any) => {
     // 成功提交时清空报错
     setErrorData(null)
+    
+    // 提取 exclusiveLink
+    const searchParams = new URLSearchParams(window.location.search);
+    const exclusiveLink = searchParams.get('exclusiveLink');
+
     try {
       await register({
         username: values.username,
@@ -65,6 +70,7 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
         password: values.password,
         mobile: values.phone,
         code: values.code,
+        exclusiveLink: exclusiveLink || undefined,
       })
       message.success(t('aELL9mgSuqys9CHTtF2jR'))
       onSwitchMode('pwd_login')
