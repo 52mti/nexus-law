@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { DifyService } from '../dify/dify.service';
 import { AnalyzeComplianceDto } from './dto/analyze-compliance.dto';
 import axios from 'axios';
-import { ConfigService } from '@nestjs/config';
 
 // 引入文件解析双雄
 import { PDFParse } from 'pdf-parse';
@@ -16,7 +15,7 @@ export class ComplianceService {
   constructor(
     private readonly difyService: DifyService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   async analyze(dto: AnalyzeComplianceDto, targetLanguage?: string) {
     // 1. 📂 提取所有文件内容
