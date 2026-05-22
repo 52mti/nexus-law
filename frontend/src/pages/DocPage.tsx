@@ -447,6 +447,7 @@ export const DocPage = () => {
                     name="content"
                     label={t('2PA2wuQkr2YQ_r2W-Mp8S')}
                     className="mb-5"
+                    rules={[{ required: true, message: t('DocPage_Content_Required') }]}
                     extra={
                       <span className="text-[12px] text-gray-400 whitespace-pre-line">
                         {t('FLOQLls0LWj91JvI_65tn')}
@@ -467,6 +468,7 @@ export const DocPage = () => {
                     name="partyA"
                     label={t('3Ciew_RfVQBCLYEuoubMA')}
                     className="mb-5"
+                    rules={[{ required: true, message: t('DocPage_PartyA_Required') }]}
                     extra={
                       <span className="text-[12px] text-gray-400 whitespace-pre-line">
                         {t('9QScDxuO43b-aylXttgio')}
@@ -486,6 +488,7 @@ export const DocPage = () => {
                     name="partyB"
                     label={t('CccrIZftBpy9Pp3TumH2U')}
                     className="mb-5"
+                    rules={[{ required: true, message: t('DocPage_PartyB_Required') }]}
                     extra={
                       <span className="text-[12px] text-gray-400 whitespace-pre-line">
                         {t('hIKILc_dVjVipLHKKSAIQ')}
