@@ -446,7 +446,7 @@ export const DocPage = () => {
                   <Form.Item
                     name="content"
                     label={t('2PA2wuQkr2YQ_r2W-Mp8S')}
-                    className="mb-5"
+                    className="mb-5 ml-px mr-px"
                     rules={[{ required: true, message: t('DocPage_Content_Required') }]}
                     extra={
                       <span className="text-[12px] text-gray-400 whitespace-pre-line">
@@ -467,7 +467,7 @@ export const DocPage = () => {
                   <Form.Item
                     name="partyA"
                     label={t('3Ciew_RfVQBCLYEuoubMA')}
-                    className="mb-5"
+                    className="mb-5 ml-px mr-px"
                     rules={[{ required: true, message: t('DocPage_PartyA_Required') }]}
                     extra={
                       <span className="text-[12px] text-gray-400 whitespace-pre-line">
@@ -487,7 +487,7 @@ export const DocPage = () => {
                   <Form.Item
                     name="partyB"
                     label={t('CccrIZftBpy9Pp3TumH2U')}
-                    className="mb-5"
+                    className="mb-5 ml-px mr-px"
                     rules={[{ required: true, message: t('DocPage_PartyB_Required') }]}
                     extra={
                       <span className="text-[12px] text-gray-400 whitespace-pre-line">
