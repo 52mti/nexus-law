@@ -209,7 +209,7 @@ export const LegalSearchPage = () => {
               </Form.Item>
 
               {/* 关键词 */}
-              <Form.Item name="partyA" label={t('L5xpSenbz4WJwMMLEfqo7')} className="mb-5">
+              <Form.Item name="partyA" label={t('L5xpSenbz4WJwMMLEfqo7')} className="mb-5 ml-px mr-px">
                 <Input
                   placeholder={t('qW-Idgvp7HX75QZiI99FJ')}
                   size="large"
@@ -218,7 +218,7 @@ export const LegalSearchPage = () => {
               </Form.Item>
 
               {/* 检索语境 */}
-              <Form.Item name="partyB" label={t('8XUdYlO1xq6cUK6o7U4gN')} className="mb-5" required>
+              <Form.Item name="partyB" label={t('8XUdYlO1xq6cUK6o7U4gN')} className="mb-5 ml-px mr-px" required>
                 <TextArea
                   placeholder={t('5rkUqX0X_xjJxwZbm11gE')}
                   maxLength={500}
