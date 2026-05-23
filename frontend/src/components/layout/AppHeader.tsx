@@ -61,9 +61,9 @@ export const AppHeader: React.FC = () => {
   const unreadCount = notifications.filter((n) => !n.isRead).length
 
   const languageItems = [
-    { key: 'zh-CN', label: '中文' },
     { key: 'en-US', label: 'English' },
     { key: 'am-ET', label: 'አማርኛ' },
+    { key: 'zh-CN', label: '中文' },
   ]
 
   return (
