@@ -249,7 +249,7 @@ export const ComplianceReviewPage = () => {
   return (
     <div className="flex h-full bg-gray-50">
       <PortalSidebar>
-        <div className="w-86 h-full bg-white p-5 flex flex-col overflow-y-auto custom-scrollbar animate-fade-in relative">
+        <div className="w-86 h-full bg-white border-20 bg-clip-border border-transparent flex flex-col overflow-y-auto custom-scrollbar animate-fade-in relative">
           <div className="sticky top-0 bg-white z-10 pb-4 mb-2">
             <h2 className="text-xl font-bold text-gray-800 px-1">{t('arNSK77_1mBHqUKeHWOI9')}</h2>
           </div>

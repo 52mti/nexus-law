@@ -354,7 +354,7 @@ export const DocPage = () => {
   return (
     <div className="flex h-full bg-gray-50">
       <PortalSidebar>
-        <div className="w-86 h-full bg-white p-5 flex flex-col overflow-y-auto custom-scrollbar animate-fade-in relative">
+        <div className="w-86 h-full bg-white border-20 bg-clip-border border-transparent flex flex-col overflow-y-auto custom-scrollbar animate-fade-in relative">
           {/* 吸顶总标题 */}
           <div className="sticky top-0 bg-white z-10 pb-4 mb-2 border-b border-gray-50">
             <h2 className="text-xl font-bold text-gray-800 px-1">{t('oyui4_Zm6W2vEYCn7Gw3T')}</h2>
