@@ -212,7 +212,7 @@ export const ComplianceReviewPage = () => {
           id: sessionId,
           angleId: values.reviewAngle,
           attachments: uploadedFileUrls.join(','),
-          content: fullContent,
+          response: fullContent,
         } as any)
 
         if (!id) {

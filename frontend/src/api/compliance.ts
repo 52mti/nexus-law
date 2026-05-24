@@ -35,7 +35,7 @@ export interface ComplianceReview {
   id?: string // ID
   attachments?: string // 附件
   angleId?: string // 角度
-  content?: string // 结果内容
+  response?: string // 结果内容
 }
 
 /**

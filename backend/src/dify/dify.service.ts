@@ -80,7 +80,7 @@ export class DifyService {
                     // 🚀 处理回答内容：只有当 answer 有实际文本时才发送
                     if (parsed.answer && parsed.answer.length > 0) {
                       subscriber.next({
-                        data: parsed.answer,
+                        data: parsed.answer.replace(/\n/g, '\\n'),
                       });
                     }
                   } else if (parsed.event === 'error') {
@@ -250,7 +250,7 @@ export class DifyService {
                   ) {
                     if (parsed.answer && parsed.answer.length > 0) {
                       subscriber.next({
-                        data: parsed.answer,
+                        data: parsed.answer.replace(/\n/g, '\\n'),
                       });
                     }
                   } else if (parsed.event === 'error') {
@@ -371,7 +371,7 @@ export class DifyService {
                     // 🚀 处理内容：只有当 answer 有实际文本时才发送
                     if (parsed.answer && parsed.answer.length > 0) {
                       subscriber.next({
-                        data: parsed.answer,
+                        data: parsed.answer.replace(/\n/g, '\\n'),
                       });
                     }
                   } else if (parsed.event === 'error') {

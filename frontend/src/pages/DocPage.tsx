@@ -268,7 +268,7 @@ export const DocPage = () => {
       }
 
       let fullContent = ''
-      let serverSessionId = ''
+      const sessionId = crypto.randomUUID()
       const token = localStorage.getItem('token')
 
       await fetchEventSource(`${import.meta.env.VITE_API_BASE_URL}/api/document/generate`, {
@@ -281,11 +281,6 @@ export const DocPage = () => {
         },
         body: JSON.stringify(apiParams),
         onmessage(ev) {
-          if (ev.event === 'session_id') {
-            serverSessionId = ev.data
-            return
-          }
-
           let data = ev.data
           if (!data) return
 
@@ -306,7 +301,6 @@ export const DocPage = () => {
         },
       })
 
-      const sessionId = serverSessionId
       try {
         saveDocument({
           senseId: categoryId,
@@ -314,7 +308,7 @@ export const DocPage = () => {
           partyA: values.partyA,
           partyB: values.partyB,
           content: values.content,
-          result: fullContent,
+          response: fullContent,
           id: sessionId,
         })
 

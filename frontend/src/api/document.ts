@@ -28,7 +28,7 @@ export const saveDocument = (data: {
   partyA: string
   partyB: string
   content: string
-  result: string
+  response: string
   id: string
 }) => {
   return request.post('/legalDocumentTranslation/saveOrUpdate', data)
