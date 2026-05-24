@@ -3,6 +3,7 @@ import { Modal, Avatar, Spin, App, Button } from "antd";
 import { UserOutlined, CloseOutlined } from "@ant-design/icons";
 import { QRCodeScanner } from "../QRCodeScanner"; // 确保路径正确
 import { pointPlan } from "@/api/common";
+import { add } from "@/api/order";
 import { useTranslation } from "react-i18next";
 import { useUserStore } from "@/store/useUserStore";
 
@@ -29,6 +30,8 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
   const [packages, setPackages] = useState<PointPackage[]>([]);
   const [loading, setLoading] = useState(false); // 专用于套餐列表初始化的 Loading
   const [selectedId, setSelectedId] = useState<string>(""); // 存放选中的套餐 ID
+  const [checkoutUrl, setCheckoutUrl] = useState<string>("");
+  const [qrLoading, setQrLoading] = useState(false);
 
   // 获取积分套餐并做 sessionStorage 缓存
   useEffect(() => {
@@ -40,7 +43,10 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
         try {
           const parsed = JSON.parse(cachedData);
           setPackages(parsed);
-          if (parsed.length > 0) setSelectedId(parsed[0].id);
+          if (parsed.length > 0) {
+            setSelectedId(parsed[0].id);
+            fetchCheckoutUrl(parsed[0].id);
+          }
           return;
         } catch (e) {
           console.error("缓存解析失败，重新请求", e);
@@ -60,7 +66,10 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
             "point_packages_cache",
             JSON.stringify(sortedRecords),
           );
-          if (sortedRecords.length > 0) setSelectedId(sortedRecords[0].id);
+          if (sortedRecords.length > 0) {
+            setSelectedId(sortedRecords[0].id);
+            fetchCheckoutUrl(sortedRecords[0].id);
+          }
         } else {
           message.error(res.message || t("BD3-_riCSerxBNW11RpVA"));
         }
@@ -74,6 +83,28 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
 
     fetchPackages();
   }, [open, message]);
+
+  // 获取 checkoutUrl 的核心逻辑
+  const fetchCheckoutUrl = async (id: string) => {
+    if (!id) return;
+    setQrLoading(true);
+    try {
+      const res = await add({ id });
+      if (res.successful && res.data?.checkoutUrl) {
+        setCheckoutUrl(res.data.checkoutUrl);
+      } else {
+        message.error(res.message || t("BD3-_riCSerxBNW11RpVA"));
+        setCheckoutUrl("");
+      }
+    } catch (error) {
+      console.error("获取支付链接异常:", error);
+      message.error(t("94nidbWrt1CrI2gvgGPry"));
+      setCheckoutUrl("");
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
   return (
     <Modal
       open={open}
@@ -127,7 +158,10 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
               return (
                 <div
                   key={pkg.id}
-                  onClick={() => setSelectedId(pkg.id)} // 🚀 点击时更新选中 ID
+                  onClick={() => {
+                    setSelectedId(pkg.id);
+                    fetchCheckoutUrl(pkg.id);
+                  }}
                   className={`
                     flex flex-col items-center justify-center p-4 rounded-lg cursor-pointer border transition-all
                     ${
@@ -165,7 +199,11 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
           <h3 className="text-base font-medium text-gray-800 w-full mb-4">
             {t("bilZpkT35pe7rc_kPqYzh")}
           </h3>
-          <QRCodeScanner />
+          <QRCodeScanner 
+            checkoutUrl={checkoutUrl} 
+            loading={qrLoading} 
+            amount={packages.find(p => p.id === selectedId)?.price} 
+          />
 
           <div className="text-[12px] text-gray-400 text-center mt-3">
             {t("pXNQr6vug-33Su5C0L3ag")}
