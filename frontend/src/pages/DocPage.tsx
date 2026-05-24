@@ -271,6 +271,11 @@ export const DocPage = () => {
       const sessionId = crypto.randomUUID()
       const token = localStorage.getItem('token')
 
+      if (!id) {
+        isJustGenerated.current = true
+        navigate(`/doc/${sessionId}`, { replace: true })
+      }
+
       await fetchEventSource(`${import.meta.env.VITE_API_BASE_URL}/api/document/generate`, {
         method: 'POST',
         openWhenHidden: true,
@@ -311,13 +316,7 @@ export const DocPage = () => {
           response: fullContent,
           id: sessionId,
         })
-
-        if (!id) {
-          // 打上防抖标记，告诉 useEffect 不要去发请求拿数据了
-          isJustGenerated.current = true
-          // 使用 replace 替换当前 URL，这样用户点返回键时不会退回到空白表单
-          navigate(`/doc/${sessionId}`, { replace: true })
-        }
+        // The navigate call has been moved to the start of generation
       } catch (saveError) {
         console.error('❌ 保存历史记录失败:', saveError)
       }
