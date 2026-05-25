@@ -12,7 +12,7 @@ export const getMessageNotification = () => {
 
 // 咨询历史记录
 export const getConsultationList = (pagination: { current: number; size: number }) => {
-  return request.post<any, any>(`/consultationSession/pageList`, pagination)
+  return request.post<any, any>(`/consultation/pageList`, pagination)
 }
 
 // 文书生成历史记录
