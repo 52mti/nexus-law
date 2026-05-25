@@ -188,31 +188,6 @@ export const AIChatPage = () => {
         }),
 
         onmessage(ev) {
-          // 🚀 接收后端生成的新 sessionId 并回填到 URL (作为无会话ID时的备用方案)
-          if (ev.event === 'session_id') {
-            const newId = ev.data
-            const isFirst = !activeSessionIdRef.current
-            if (isFirst) {
-              activeSessionIdRef.current = newId
-              isNavigatingRef.current = true
-              navigate(`/chat/${newId}`, { replace: true })
-            }
-
-            // 如果刚才没有保存过（说明是首轮备用方案），现在获取到新 sessionId 后保存
-            if (!isUserMsgSaved) {
-              const finalId = activeSessionIdRef.current || newId
-              saveOrUpdateConsultationSession({
-                consultationId: finalId,
-                content: userText,
-                type: 0, // 问题
-              })
-                .then(() => {
-                  isUserMsgSaved = true
-                })
-                .catch((err) => console.error('保存首轮提问失败:', err))
-            }
-            return
-          }
 
           // 正常文本流处理
           let data = ev.data
