@@ -52,12 +52,12 @@ export const AIChatPage = () => {
   // 如果路径上有 sessionId，说明是已有对话，不展示首次居中 UI
   const isEmpty = messages.length === 0 && !sessionId
 
-  // 加载历史记录
   const loadChatHistory = useCallback(
     async (sessionId: string) => {
       setLoadingHistory(true)
       try {
-        const res = await getConsultationHistory(sessionId)
+        const targetDifyId = localStorage.getItem(`dify_session_${sessionId}`) || sessionId
+        const res = await getConsultationHistory(targetDifyId)
         const records = res?.data || []
 
         // 转换 Dify 格式为前端展示格式
@@ -173,6 +173,7 @@ export const AIChatPage = () => {
       }
 
       let fullContent = ''
+      const difySessionId = currentSessionId ? localStorage.getItem(`dify_session_${currentSessionId}`) : undefined
 
       await fetchEventSource(`${import.meta.env.VITE_API_BASE_URL}/api/chat/stream`, {
         method: 'POST',
@@ -184,10 +185,18 @@ export const AIChatPage = () => {
         },
         body: JSON.stringify({
           prompt: userText,
-          sessionId: currentSessionId,
+          sessionId: difySessionId || undefined,
         }),
 
         onmessage(ev) {
+          // 🚀 接收后端返回的 Dify conversation_id 并与业务会话 ID 关联保存
+          if (ev.event === 'session_id') {
+            const difyId = ev.data
+            if (currentSessionId && difyId) {
+              localStorage.setItem(`dify_session_${currentSessionId}`, difyId)
+            }
+            return
+          }
 
           // 正常文本流处理
           let data = ev.data
