@@ -210,9 +210,7 @@ export const DocPage = () => {
         // 🚀 3. 还原右侧生成的文书内容
         setDocData({
           title: t('oyui4_Zm6W2vEYCn7Gw3T'), // 右侧展示的默认标题
-          // ⚠️ 这里非常关键：依赖后端把当初存进去的 Markdown 原封不动地还给你！
-          // 我先假设后端存的字段叫 result，如果不是，请根据后端实际字段修改。
-          markdownContent: historyData.result || historyData.content || '',
+          markdownContent: historyData.response || '',
         })
       } else {
         message.error((res as any)?.message || t('7gEeqjRG-8JBLFMo_Ol_G')) // 获取失败的提示

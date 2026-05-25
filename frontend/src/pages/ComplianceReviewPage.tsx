@@ -37,14 +37,12 @@ const ColorRadio: React.FC<{
         <div
           key={opt.value}
           onClick={() => onChange?.(opt.value)}
-          className={`flex items-center gap-2.5 cursor-pointer transition-all ${
-            isSelected ? 'text-gray-800' : 'text-gray-400 hover:text-gray-600'
-          }`}
+          className={`flex items-center gap-2.5 cursor-pointer transition-all ${isSelected ? 'text-gray-800' : 'text-gray-400 hover:text-gray-600'
+            }`}
         >
           <div
-            className={`w-5 h-5 rounded-sm transition-colors ${
-              isSelected ? 'bg-[blue]' : 'bg-gray-500'
-            }`}
+            className={`w-5 h-5 rounded-sm transition-colors ${isSelected ? 'bg-[blue]' : 'bg-gray-500'
+              }`}
           />
           <span className="text-[14px]">{opt.label}</span>
         </div>
@@ -108,18 +106,18 @@ export const ComplianceReviewPage = () => {
           // ⚠️ 这里对 attachments 进行解析，如果是逗号分隔的 URL
           contractFile: historyData.attachments
             ? historyData.attachments.split(',').map((url: string, index: number) => ({
-                uid: `-${index}`,
-                name: url.split('/').pop() || 'file',
-                status: 'done',
-                url: url,
-              }))
+              uid: `-${index}`,
+              name: url.split('/').pop() || 'file',
+              status: 'done',
+              url: url,
+            }))
             : [],
         })
 
         // 🚀 2. 还原审核结果
         setDocData({
           title: t('atmo0oFvyytF9uwRncAV8'),
-          markdownContent: historyData.content || '',
+          markdownContent: historyData.response || '',
         })
       } else {
         message.error(res?.message || t('7gEeqjRG-8JBLFMo_Ol_G'))
@@ -148,13 +146,24 @@ export const ComplianceReviewPage = () => {
 
       for (const fileItem of values.contractFile) {
         const actualFile = fileItem.originFileObj || fileItem
+
+        // 过滤 URL 地址，如果是 URL 则不调用 upload 接口上传，直接使用其 URL
+        if (typeof actualFile === 'string' && (actualFile.startsWith('http://') || actualFile.startsWith('https://'))) {
+          uploadedFileUrls.push(actualFile)
+          continue
+        }
+        if (actualFile && typeof actualFile === 'object' && typeof actualFile.url === 'string' && (actualFile.url.startsWith('http://') || actualFile.url.startsWith('https://'))) {
+          uploadedFileUrls.push(actualFile.url)
+          continue
+        }
+
         const uploadRes = (await upload(actualFile, 'file')) as any
 
         if (uploadRes.code === 200 && uploadRes.data) {
           uploadedFileUrls.push(uploadRes.data.url!)
         } else {
           message.destroy('uploading')
-          message.error(t('3gbfChGAla4chIHCIG9v3', { fileName: actualFile.name }))
+          message.error(t('3gbfChGAla4chIHCIG9v3', { fileName: actualFile.name || 'file' }))
           setLoading(false)
           return
         }

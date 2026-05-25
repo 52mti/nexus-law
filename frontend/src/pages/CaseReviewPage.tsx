@@ -95,12 +95,23 @@ export const CaseReviewPage = () => {
 
       for (const fileItem of values.caseMaterials) {
         const actualFile = fileItem.originFileObj || fileItem
+
+        // 过滤 URL 地址，如果是 URL 则不调用 upload 接口上传，直接使用其 URL
+        if (typeof actualFile === 'string' && (actualFile.startsWith('http://') || actualFile.startsWith('https://'))) {
+          uploadedFileUrls.push(actualFile)
+          continue
+        }
+        if (actualFile && typeof actualFile === 'object' && typeof actualFile.url === 'string' && (actualFile.url.startsWith('http://') || actualFile.url.startsWith('https://'))) {
+          uploadedFileUrls.push(actualFile.url)
+          continue
+        }
+
         const uploadRes = (await upload(actualFile, 'file')) as any
 
         if (uploadRes.code === 200 && uploadRes.data) {
           uploadedFileUrls.push(uploadRes.data.url!)
         } else {
-          message.error(t('3gbfChGAla4chIHCIG9v3', { fileName: actualFile.name }))
+          message.error(t('3gbfChGAla4chIHCIG9v3', { fileName: actualFile.name || 'file' }))
           setLoading(false)
           return
         }
