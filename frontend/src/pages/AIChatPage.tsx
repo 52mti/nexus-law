@@ -12,7 +12,7 @@ import {
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getConsultationHistory } from '@/api/chat'
+import { getConsultationHistory, saveOrUpdateConsultation, saveOrUpdateConsultationSession } from '@/api/chat'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -141,6 +141,38 @@ export const AIChatPage = () => {
     try {
       let currentSessionId = activeSessionIdRef.current
       const token = localStorage.getItem('token')
+      let isUserMsgSaved = false
+
+      // 如果是全新的对话，还没有 sessionId，先调用 /consultation/saveOrUpdate 获取会话id
+      if (!currentSessionId) {
+        try {
+          const sessionRes = await saveOrUpdateConsultation({})
+          const newSessionId = sessionRes?.data?.id || sessionRes?.data || sessionRes?.id
+          if (newSessionId) {
+            currentSessionId = newSessionId
+            activeSessionIdRef.current = newSessionId
+            isNavigatingRef.current = true
+            navigate(`/chat/${newSessionId}`, { replace: true })
+          }
+        } catch (sessionErr) {
+          console.error('获取会话ID失败:', sessionErr)
+        }
+      }
+
+      // 如果有 sessionId，直接提前保存用户的提问
+      if (currentSessionId) {
+        saveOrUpdateConsultationSession({
+          consultationId: currentSessionId,
+          content: userText,
+          type: 0, // 问题
+        })
+          .then(() => {
+            isUserMsgSaved = true
+          })
+          .catch((err) => console.error('保存提问失败:', err))
+      }
+
+      let fullContent = ''
 
       await fetchEventSource(`${import.meta.env.VITE_API_BASE_URL}/api/chat/stream`, {
         method: 'POST',
@@ -156,13 +188,28 @@ export const AIChatPage = () => {
         }),
 
         onmessage(ev) {
-          // 🚀 接收后端生成的新 sessionId 并回填到 URL
+          // 🚀 接收后端生成的新 sessionId 并回填到 URL (作为无会话ID时的备用方案)
           if (ev.event === 'session_id') {
             const newId = ev.data
-            if (!activeSessionIdRef.current) {
+            const isFirst = !activeSessionIdRef.current
+            if (isFirst) {
               activeSessionIdRef.current = newId
               isNavigatingRef.current = true
               navigate(`/chat/${newId}`, { replace: true })
+            }
+
+            // 如果刚才没有保存过（说明是首轮备用方案），现在获取到新 sessionId 后保存
+            if (!isUserMsgSaved) {
+              const finalId = activeSessionIdRef.current || newId
+              saveOrUpdateConsultationSession({
+                consultationId: finalId,
+                content: userText,
+                type: 0, // 问题
+              })
+                .then(() => {
+                  isUserMsgSaved = true
+                })
+                .catch((err) => console.error('保存首轮提问失败:', err))
             }
             return
           }
@@ -172,6 +219,7 @@ export const AIChatPage = () => {
           if (!data) return
 
           const parsedContent = data.replace(/\\n/g, '\n')
+          fullContent += parsedContent
 
           setMessages((prev) =>
             prev.map((msg) => {
@@ -184,7 +232,14 @@ export const AIChatPage = () => {
         },
 
         onclose() {
-          // 注意：此处不再手动调用保存提问/回答的接口，由 Dify 端处理持久化
+          const finalSessionId = activeSessionIdRef.current
+          if (finalSessionId && fullContent) {
+            saveOrUpdateConsultationSession({
+              consultationId: finalSessionId,
+              content: fullContent,
+              type: 1, // 回答
+            }).catch((err) => console.error('保存回答失败:', err))
+          }
           setIsStreaming(false)
           throw new Error('STOP_RETRY')
         },

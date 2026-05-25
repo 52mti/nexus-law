@@ -24,3 +24,25 @@ export const getDifyConversations = (params?: {
 export const deleteDifyConversation = (sessionId: string) => {
   return request.delete<any, any>(`/api/chat/conversations/${sessionId}`)
 }
+
+/**
+ * 保存或更新会话本身（用于获取或初始化会话 ID）
+ */
+export const saveOrUpdateConsultation = (data: {
+  id?: string
+  response?: string
+}) => {
+  return request.post<any, any>('/consultation/saveOrUpdate', data)
+}
+
+/**
+ * 保存或更新会话消息到业务数据库
+ */
+export const saveOrUpdateConsultationSession = (data: {
+  consultationId: string
+  content: string
+  type: number // 0: 问题, 1: 回答
+}) => {
+  return request.post<any, any>('/consultationSession/saveOrUpdate', data)
+}
+
