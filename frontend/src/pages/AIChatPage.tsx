@@ -12,7 +12,7 @@ import {
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getConsultationHistory, saveOrUpdateConsultation, saveOrUpdateConsultationSession } from '@/api/chat'
+import { saveOrUpdateConsultation, saveOrUpdateConsultationSession, getConsultationSessionHistory } from '@/api/chat'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -56,23 +56,21 @@ export const AIChatPage = () => {
     async (sessionId: string) => {
       setLoadingHistory(true)
       try {
-        const targetDifyId = localStorage.getItem(`dify_session_${sessionId}`) || sessionId
-        const res = await getConsultationHistory(targetDifyId)
-        const records = res?.data || []
+        const res = await getConsultationSessionHistory(sessionId)
+        const records = res?.data?.records || []
 
-        // 转换 Dify 格式为前端展示格式
-        const historyMessages = records.flatMap((item: any) => [
-          {
-            id: item.id + '_user',
-            role: 'user',
-            content: item.query,
-          },
-          {
-            id: item.id + '_ai',
-            role: 'ai',
-            content: item.answer,
-          },
-        ])
+        // 转换业务格式为前端展示格式，并按时间/顺序升序排列
+        const sortedRecords = [...records].sort((a: any, b: any) => {
+          const timeA = new Date(a.createTime || a.createdAt || 0).getTime()
+          const timeB = new Date(b.createTime || b.createdAt || 0).getTime()
+          return timeA - timeB
+        })
+
+        const historyMessages = sortedRecords.map((item: any) => ({
+          id: item.id || Date.now().toString() + Math.random(),
+          role: item.type === 0 ? 'user' : 'ai',
+          content: item.content || '',
+        }))
 
         setMessages(historyMessages)
       } catch (error) {

@@ -46,3 +46,15 @@ export const saveOrUpdateConsultationSession = (data: {
   return request.post<any, any>('/consultationSession/saveOrUpdate', data)
 }
 
+/**
+ * 获取业务会话的问答历史记录
+ */
+export const getConsultationSessionHistory = (consultationId: string) => {
+  return request.post<any, any>('/consultationSession/pageList', {
+    current: 1,
+    size: 500,
+    consultationId,
+  })
+}
+
+
