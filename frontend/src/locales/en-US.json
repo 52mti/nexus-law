@@ -8,10 +8,8 @@
   "error.network_exception": "Network connection exception, please check if the backend service is running",
   "vip.search_unlimited": "Clause Retrieval: Unlimited basic searches daily",
   "vip.search_limited": "Clause Retrieval: Limited to {{count}} basic searches daily",
-  
   "vip.case_unlimited": "Case Search Match: Unlimited searches daily",
   "vip.case_limited": "Case Search Match: Limited to {{count}} searches daily",
-  
   "vip.doc_unlimited": "Legal Document Generation: Unlimited computing power daily",
   "vip.doc_limited": "Legal Document Generation: Limited to {{count}} computing limits daily",
   "vip.consult_unlimited": "Smart Legal Consultation: Unlimited text consultations daily",
@@ -177,7 +175,6 @@
   "Q3lVWqRdv4O4B59Xn48OR": "Register",
   "Qr856kk16HrEEhMLKfuvB": "This is a test data recovered from history records...",
   "RCciBqTcY_3trKWLFjl_x": "Logout",
-  "RMSNWy1Vp2xPdEv-A2nGv": "Song Gong",
   "SMBWM52NMOTifNaIEW_uN": "Password modified successfully, please log in again!",
   "SN0eJqECHeRaU7DfLdk1l": "Birr/Year",
   "SP2NoprhtpN_WtZs5hmCi": "Premium VIP",
