@@ -55,7 +55,7 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
 
       setLoading(true);
       try {
-        const res = await pointPlan({ current: 1, size: 50 });
+        const res = await pointPlan();
         if (res.successful && res.data?.records) {
           const sortedRecords = res.data.records.sort(
             (a: any, b: any) => a.price - b.price,
