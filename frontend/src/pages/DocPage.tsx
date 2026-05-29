@@ -13,6 +13,7 @@ import {
   CopyOutlined,
   DownloadOutlined,
   BulbOutlined,
+  FileWordOutlined,
 } from '@ant-design/icons'
 import { PortalSidebar } from '@/components/layout/PortalSidebar'
 import { SidebarSkeleton } from '@/components/Skeleton/SidebarSkeleton'
@@ -28,6 +29,7 @@ import { useReactToPrint } from 'react-to-print'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useTranslation } from 'react-i18next'
+import { exportToWord } from '@/utils/export'
 
 export const DocPage = () => {
   const { t, i18n } = useTranslation()
@@ -565,15 +567,24 @@ export const DocPage = () => {
 
             {/* 悬浮操作按钮 - 在正在生成时半透明并禁用 */}
             <div className={`flex gap-4 m-auto transition-opacity duration-500 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
-              <Button type="primary" icon={<CopyOutlined />} onClick={handleCopy}>
+              <Button type="primary" icon={<CopyOutlined />} onClick={handleCopy} disabled={loading}>
                 {t('qxEoDfJTtO8dsJnMzfqyg')}{' '}
               </Button>
               <Button
                 className="bg-green-600 text-white hover:bg-green-500 border-none"
                 icon={<DownloadOutlined />}
                 onClick={handleDownloadPDF}
+                disabled={loading}
               >
                 {t('uCa1Y6ndA6Wjk80c2DdMt')}{' '}
+              </Button>
+              <Button
+                className="bg-blue-600 text-white hover:bg-blue-500 border-none"
+                icon={<FileWordOutlined />}
+                onClick={() => exportToWord(paperRef.current, docData?.title || t('mMn_ySGuShQh_PuWdR-LB'))}
+                disabled={loading}
+              >
+                {t('download_word')}{' '}
               </Button>
             </div>
           </div>

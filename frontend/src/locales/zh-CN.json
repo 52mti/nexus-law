@@ -405,5 +405,6 @@
   "withdraw": "提现",
   "rebate_amount": "返利",
   "withdrawable_amount": "可提现金额",
-  "no_rebate_records": "暂无返利记录"
+  "no_rebate_records": "暂无返利记录",
+  "download_word": "下载为 Word"
 }

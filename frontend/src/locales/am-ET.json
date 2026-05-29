@@ -407,5 +407,6 @@
   "withdraw": "Withdraw",
   "rebate_amount": "Rebate",
   "withdrawable_amount": "Withdrawable Amount",
-  "no_rebate_records": "No rebate records yet"
+  "no_rebate_records": "No rebate records yet",
+  "download_word": "እንደ Word አውርድ"
 }

@@ -5,6 +5,7 @@ import {
   DownloadOutlined,
   ReadOutlined,
   CloudUploadOutlined,
+  FileWordOutlined,
 } from '@ant-design/icons'
 import { PortalSidebar } from '@/components/layout/PortalSidebar'
 import { useParams } from 'react-router-dom'
@@ -14,6 +15,7 @@ import remarkGfm from 'remark-gfm'
 import { useTranslation } from 'react-i18next'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import { upload } from '@/api/file'
+import { exportToWord } from '@/utils/export'
 
 // 🚀 1. 引入我们刚刚建好的 API
 import { analyzeCaseSummaryApi } from '@/api/case-review'
@@ -304,15 +306,24 @@ export const CaseReviewPage = () => {
             </div>
 
             <div className="flex gap-4 m-auto">
-              <Button type="primary" icon={<CopyOutlined />} onClick={handleCopy}>
+              <Button type="primary" icon={<CopyOutlined />} onClick={handleCopy} disabled={loading}>
                 {t('mv6JrcXr2_kqMLT80hI_z')}{' '}
               </Button>
               <Button
                 className="bg-green-600 text-white hover:bg-green-500 border-none"
                 icon={<DownloadOutlined />}
                 onClick={handleDownloadPDF}
+                disabled={loading}
               >
                 {t('uCa1Y6ndA6Wjk80c2DdMt')}{' '}
+              </Button>
+              <Button
+                className="bg-blue-600 text-white hover:bg-blue-500 border-none"
+                icon={<FileWordOutlined />}
+                onClick={() => exportToWord(paperRef.current, docData?.title || t('b9DTbn1y0rmyvUESYYEc3'))}
+                disabled={loading}
+              >
+                {t('download_word')}{' '}
               </Button>
             </div>
           </div>
