@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Form, Input, Button, Avatar, Modal } from "antd";
 import {
   IdcardOutlined,
@@ -9,10 +9,22 @@ import {
 import { UpdatePhoneForm } from "./UpdatePhoneForm";
 import { UpdatePwdForm } from "./UpdatePwdForm";
 import { useTranslation } from "react-i18next";
+import { useUserStore } from "@/store/useUserStore";
 
 export const AccountInfoPage: React.FC = () => {
   const { t } = useTranslation();
   const [form] = Form.useForm();
+  const memberInfo = useUserStore((state) => state.memberInfo);
+
+  useEffect(() => {
+    if (memberInfo) {
+      form.setFieldsValue({
+        nickname: memberInfo.nickName || memberInfo.nickname || "",
+        phone: memberInfo.mobile || "",
+        email: memberInfo.email || "",
+      });
+    }
+  }, [form, memberInfo]);
 
   // 预留的弹窗控制状态
   const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
@@ -46,6 +58,16 @@ export const AccountInfoPage: React.FC = () => {
     </div>
   );
 
+  const getVipName = (planId?: string) => {
+    if (!planId) return t('5FxUpojAQ8mMolx-i8_6q')
+    const vipMap: Record<string, string> = {
+      gold_id: t('UWm7lVfb3sMZQcIfE4izs'),
+      platinum_id: t('vsBn8dP0LkjpOXJvNNLqd'),
+      diamond_id: t('qx8FKtNlraEvNd4AuBKf0'),
+    }
+    return vipMap[planId] || t('SP2NoprhtpN_WtZs5hmCi')
+  }
+
   return (
     <div className="p-6 bg-[#fbfbff] h-max flex justify-center">
       {/* 账号信息主卡片 */}
@@ -64,11 +86,12 @@ export const AccountInfoPage: React.FC = () => {
           <div className="flex flex-col items-center gap-2 cursor-pointer group">
             <Avatar
               size={56}
-              icon={<UserOutlined />}
+              src={memberInfo?.avatar || undefined}
+              icon={!memberInfo?.avatar ? <UserOutlined /> : undefined}
               className="bg-white text-primary group-hover:opacity-80 transition-opacity"
             />
             <span className="text-xs text-white tracking-widest">
-              {t("D-gRZ59bNyDKl30c-kjq9")}
+              {memberInfo?.nickName || t("D-gRZ59bNyDKl30c-kjq9")}
             </span>
           </div>
 
@@ -76,13 +99,13 @@ export const AccountInfoPage: React.FC = () => {
           <div className="flex flex-col items-end gap-3">
             {/* 黄金会员描边徽章 */}
             <div className="flex items-center gap-1 text-[13px] border border-[#dcb36d] text-[#dcb36d] px-2 py-0.5 rounded">
-              <CrownFilled className="text-xs" /> {t("UWm7lVfb3sMZQcIfE4izs")}
+              <CrownFilled className="text-xs" /> {getVipName(memberInfo?.membershipPlanId)}
             </div>
             {/* 积分展示 */}
             <div className="text-white text-sm flex items-center gap-1.5">
               <FireFilled className="text-gray-300" />
               {t("fiBgQpgbqy2hy1nW1pOwU")}{" "}
-              <span className="font-bold text-base ml-0.5">1200</span>
+              <span className="font-bold text-base ml-0.5">{memberInfo?.giftPoints ?? 0}</span>
             </div>
           </div>
         </div>
@@ -93,10 +116,10 @@ export const AccountInfoPage: React.FC = () => {
           layout="vertical"
           onFinish={onFinish}
           initialValues={{
-            nickname: t("RMSNWy1Vp2xPdEv-A2nGv"),
-            phone: "180****6666",
+            nickname: memberInfo?.nickName || "",
+            phone: memberInfo?.mobile || "",
             password: "********",
-            email: "176924****qq.com",
+            email: memberInfo?.email || "",
           }}
           // 覆盖 Antd 默认的 label 宽度限制，让 flex justify-between 生效
           className="account-form w-full [&_.ant-form-item-label>label]:w-full"
