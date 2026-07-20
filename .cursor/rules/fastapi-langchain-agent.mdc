@@ -81,4 +81,4 @@ api/
 
 ## 当前阶段
 
-**Stage 2 已完成。** 等待确认后进入 Stage 3（LLM 单轮聊天）。未获「确认，进入 Stage 3」前，不要接入真实 LLM。
+**Stage 3 已完成。** 等待确认后进入 Stage 4（LangGraph Agent MVP）。未获「确认，进入 Stage 4」前，不要实现 Tool Calling / 多 Agent / RAG。

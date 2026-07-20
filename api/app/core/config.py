@@ -27,12 +27,19 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://api.openai.com/v1"
     llm_model: str = "gpt-4o-mini"
     llm_timeout_seconds: float = 60.0
+    llm_max_retries: int = 2
+    # When false, chat logs omit message text (only counts / latency / tokens)
+    llm_log_content: bool = False
 
     @property
     def cors_origin_list(self) -> list[str]:
         if self.cors_origins.strip() == "*":
             return ["*"]
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def llm_configured(self) -> bool:
+        return bool(self.llm_api_key.strip())
 
 
 @lru_cache

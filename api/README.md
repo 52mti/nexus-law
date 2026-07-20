@@ -51,8 +51,8 @@ uv run alembic upgrade head
 |-------|--------|
 | 0 Requirements freeze | Done |
 | 1 Project skeleton | Done |
-| 2 Data layer | Current |
-| 3 LLM chat | Pending |
+| 2 Data layer | Done |
+| 3 LLM chat | Current |
 | 4 LangGraph agent | Pending |
 | 5 Streaming | Pending |
 | 6 RAG (optional) | Pending |
@@ -78,3 +78,15 @@ Expected shape:
   "request_id": "..."
 }
 ```
+
+## Chat completions (Stage 3)
+
+Configure `LLM_API_KEY` (and optional `LLM_BASE_URL` / `LLM_MODEL`) in `.env`, then:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d "{\"messages\":[{\"role\":\"user\",\"content\":\"What is a contract?\"}]}"
+```
+
+Missing `LLM_API_KEY` returns HTTP 503 with `error.code = llm_not_configured`.
