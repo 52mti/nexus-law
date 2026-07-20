@@ -53,8 +53,8 @@ uv run alembic upgrade head
 | 1 Project skeleton | Done |
 | 2 Data layer | Done |
 | 3 LLM chat | Done |
-| 4 LangGraph agent | Current |
-| 5 Streaming | Pending |
+| 4 LangGraph agent | Done |
+| 5 Streaming | Current |
 | 6 RAG (optional) | Pending |
 | 7 Hardening | Pending |
 
@@ -103,3 +103,21 @@ curl -X POST http://127.0.0.1:8000/api/v1/agents/run \
 - `debug=true` returns `tool_trace` (tool name / args / result).
 - Built-in tools: `get_current_time`, `calculator`.
 - Loop guard: `AGENT_MAX_ITERATIONS` (default 6).
+
+## Agent stream (Stage 5)
+
+SSE endpoint:
+
+```bash
+curl -N -X POST http://127.0.0.1:8000/api/v1/agents/run/stream \
+  -H "Content-Type: application/json" \
+  -d "{\"input\":\"What time is it in UTC? Compute 12*9.\",\"debug\":true}"
+```
+
+Event types:
+- `token` — incremental assistant text
+- `tool_start` / `tool_end` — tool lifecycle
+- `final` — completed answer (+ optional `tool_trace` when `debug=true`)
+- `error` — failure payload
+
+Client disconnect cancels the downstream LangGraph stream (logged as `sse_client_disconnected` / `agent_stream_cancelled`).

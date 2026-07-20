@@ -4,6 +4,7 @@ from typing import Any, Literal
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, SystemMessage
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 
@@ -34,11 +35,12 @@ def build_agent_graph(model: BaseChatModel, *, settings: Settings | None = None)
     model_with_tools = model.bind_tools(tools)
     tool_node = ToolNode(tools)
 
-    async def agent_node(state: AgentState) -> dict[str, Any]:
+    async def agent_node(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         messages = list(state["messages"])
         if not messages or not isinstance(messages[0], SystemMessage):
             messages = [SystemMessage(content=SYSTEM_PROMPT), *messages]
-        response = await model_with_tools.ainvoke(messages)
+        # Pass config so LangGraph token streaming / cancellation propagates.
+        response = await model_with_tools.ainvoke(messages, config)
         return {
             "messages": [response],
             "iteration": state.get("iteration", 0) + 1,
@@ -95,7 +97,6 @@ def final_assistant_text(messages: list[BaseMessage]) -> str:
         if text.strip() and not message.tool_calls:
             return text
         if text.strip() and message.tool_calls:
-            # Model returned both text and tool calls; prefer text if present.
             return text
     raise AppError(
         "Agent finished without a final assistant message "

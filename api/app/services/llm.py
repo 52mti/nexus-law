@@ -117,7 +117,7 @@ class LangChainLLMClient:
                 status_code=503,
             )
 
-    def build_chat_model(self) -> ChatOpenAI:
+    def build_chat_model(self, *, streaming: bool = False) -> ChatOpenAI:
         self._ensure_configured()
         return ChatOpenAI(
             api_key=self._settings.llm_api_key,
@@ -125,6 +125,7 @@ class LangChainLLMClient:
             model=self._settings.llm_model,
             timeout=self._settings.llm_timeout_seconds,
             max_retries=self._settings.llm_max_retries,
+            streaming=streaming,
         )
 
     # Backward-compatible alias used by older call sites/tests
