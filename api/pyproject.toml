@@ -11,6 +11,9 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "httpx>=0.28.0",
     "loguru>=0.7.3",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30.0",
+    "alembic>=1.14.0",
 ]
 
 [project.optional-dependencies]
@@ -38,3 +41,8 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
+
+[dependency-groups]
+dev = [
+    "aiosqlite>=0.20.0",
+]

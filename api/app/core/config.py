@@ -18,11 +18,11 @@ class Settings(BaseSettings):
 
     cors_origins: str = "*"
 
-    # Reserved for Stage 2+
+    # Stage 2+
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/nexus_law"
     redis_url: str = "redis://localhost:6379/0"
 
-    # Reserved for Stage 3+
+    # Stage 3+
     llm_api_key: str = ""
     llm_base_url: str = "https://api.openai.com/v1"
     llm_model: str = "gpt-4o-mini"

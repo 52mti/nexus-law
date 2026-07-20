@@ -35,13 +35,23 @@ cd api
 docker compose up -d
 ```
 
+## Database migrations
+
+```bash
+cd api
+docker compose up -d postgres
+uv run alembic upgrade head
+# rollback one step:
+# uv run alembic downgrade -1
+```
+
 ## Stage status
 
 | Stage | Status |
 |-------|--------|
 | 0 Requirements freeze | Done |
-| 1 Project skeleton | Current |
-| 2 Data layer | Pending |
+| 1 Project skeleton | Done |
+| 2 Data layer | Current |
 | 3 LLM chat | Pending |
 | 4 LangGraph agent | Pending |
 | 5 Streaming | Pending |

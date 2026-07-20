@@ -1,1 +1,1 @@
-"""Business services (non-agent) — Stage 2+."""
+"""Business services (non-agent)."""
