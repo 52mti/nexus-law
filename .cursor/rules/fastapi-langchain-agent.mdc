@@ -81,4 +81,4 @@ api/
 
 ## 当前阶段
 
-**Stage 3 已完成。** 等待确认后进入 Stage 4（LangGraph Agent MVP）。未获「确认，进入 Stage 4」前，不要实现 Tool Calling / 多 Agent / RAG。
+**Stage 4 已完成。** 等待确认后进入 Stage 5（SSE 流式输出）。未获「确认，进入 Stage 5」前，不要实现 SSE / 多 Agent / RAG。

@@ -52,8 +52,8 @@ uv run alembic upgrade head
 | 0 Requirements freeze | Done |
 | 1 Project skeleton | Done |
 | 2 Data layer | Done |
-| 3 LLM chat | Current |
-| 4 LangGraph agent | Pending |
+| 3 LLM chat | Done |
+| 4 LangGraph agent | Current |
 | 5 Streaming | Pending |
 | 6 RAG (optional) | Pending |
 | 7 Hardening | Pending |
@@ -90,3 +90,16 @@ curl -X POST http://127.0.0.1:8000/api/v1/chat/completions \
 ```
 
 Missing `LLM_API_KEY` returns HTTP 503 with `error.code = llm_not_configured`.
+
+## Agent run (Stage 4)
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/agents/run \
+  -H "Content-Type: application/json" \
+  -d "{\"input\":\"What time is it in UTC? Also compute 15*8.\",\"debug\":true}"
+```
+
+- Pass `conversation_id` to continue an existing session.
+- `debug=true` returns `tool_trace` (tool name / args / result).
+- Built-in tools: `get_current_time`, `calculator`.
+- Loop guard: `AGENT_MAX_ITERATIONS` (default 6).

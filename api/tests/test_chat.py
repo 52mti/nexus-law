@@ -130,7 +130,7 @@ async def test_llm_client_invokes_model() -> None:
         "total_tokens": 3,
     }
     mock_model.ainvoke.return_value = mock_response
-    client._build_model = lambda: mock_model  # type: ignore[method-assign]
+    client.build_chat_model = lambda: mock_model  # type: ignore[method-assign]
 
     result = await client.chat_completions([ChatMessageInput(role="user", content="hi")])
     assert result.content == "ok"

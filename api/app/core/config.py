@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     # When false, chat logs omit message text (only counts / latency / tokens)
     llm_log_content: bool = False
 
+    # Stage 4+
+    agent_max_iterations: int = 6
+
     @property
     def cors_origin_list(self) -> list[str]:
         if self.cors_origins.strip() == "*":

@@ -117,7 +117,7 @@ class LangChainLLMClient:
                 status_code=503,
             )
 
-    def _build_model(self) -> ChatOpenAI:
+    def build_chat_model(self) -> ChatOpenAI:
         self._ensure_configured()
         return ChatOpenAI(
             api_key=self._settings.llm_api_key,
@@ -127,6 +127,9 @@ class LangChainLLMClient:
             max_retries=self._settings.llm_max_retries,
         )
 
+    # Backward-compatible alias used by older call sites/tests
+    _build_model = build_chat_model
+
     async def chat_completions(self, messages: list[ChatMessageInput]) -> ChatCompletionResult:
         if not messages:
             raise AppError(
@@ -135,7 +138,7 @@ class LangChainLLMClient:
                 status_code=422,
             )
 
-        model = self._build_model()
+        model = self.build_chat_model()
         lc_messages = _to_langchain_messages(messages)
         started = time.perf_counter()
 

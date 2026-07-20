@@ -100,15 +100,16 @@ async def list_conversations(
     return list(result.scalars().all())
 
 
-async def get_conversation_messages(
+async def get_conversation(
     session: AsyncSession,
     conversation_id: str,
-) -> list[Message]:
-    result = await session.execute(
-        select(Conversation)
-        .where(Conversation.id == conversation_id)
-        .options(selectinload(Conversation.messages))
-    )
+    *,
+    with_messages: bool = False,
+) -> Conversation:
+    stmt = select(Conversation).where(Conversation.id == conversation_id)
+    if with_messages:
+        stmt = stmt.options(selectinload(Conversation.messages))
+    result = await session.execute(stmt)
     conversation = result.scalar_one_or_none()
     if not conversation:
         raise AppError(
@@ -116,4 +117,12 @@ async def get_conversation_messages(
             code="conversation_not_found",
             status_code=404,
         )
+    return conversation
+
+
+async def get_conversation_messages(
+    session: AsyncSession,
+    conversation_id: str,
+) -> list[Message]:
+    conversation = await get_conversation(session, conversation_id, with_messages=True)
     return list(conversation.messages)
