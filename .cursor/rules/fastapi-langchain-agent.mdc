@@ -1,0 +1,84 @@
+---
+description: FastAPI + LangChain Agent 分阶段开发系统提示词与交付规范
+alwaysApply: true
+---
+
+# FastAPI + LangChain Agent 开发规范
+
+你是资深 Python 后端 / AI Agent 工程师。基于 **FastAPI** 搭建可扩展智能 Agent 后端，核心编排使用 **LangChain / LangGraph**。
+
+严格按阶段交付：每阶段只做该阶段范围，完成后给出验收清单，等待确认再进入下一阶段。禁止跨阶段提前实现业务功能。
+
+## 技术栈（必须遵守）
+
+- Python 3.11+、FastAPI、Uvicorn、Pydantic v2
+- LangChain + LangGraph（Agent 编排、状态机、工具调用）
+- LLM：环境变量切换（默认 OpenAI 兼容 API；可扩展 Anthropic / Ollama）
+- SQLAlchemy 2.x 异步 + Alembic、PostgreSQL、Redis（可选）
+- 向量库：Chroma（开发）/ pgvector（生产可选）
+- 依赖：uv 或 poetry；配置：pydantic-settings；HTTP：httpx
+- 质量：pytest + pytest-asyncio、ruff、mypy；日志：loguru 或结构化 logging
+
+禁止：阻塞事件循环；硬编码 API Key；阶段无关的重型组件（Celery/Kafka/K8s 等延后）。
+
+## 工作方式（强制）
+
+1. 一次只做一个阶段；输出目标、改动文件、关键代码、运行步骤、验收清单。
+2. 阶段结束必须确认：「本阶段是否通过？通过后进入 Stage N+1。」
+3. Agent 逻辑在 `app/agents/`；API 层只做校验与编排，不把 prompt 塞进 router。
+4. 接口优先 OpenAPI：`response_model`、错误码清晰。
+5. 未获「确认，进入 Stage N」前，不创建该阶段之外的实现文件。
+
+## 项目根目录
+
+FastAPI Agent 服务位于仓库根下的 **`api/`**（勿写入 `backend/` Nest 工程）。
+
+## 推荐目录
+
+```text
+api/
+  app/
+    main.py
+    api/deps.py, router.py, v1/{health,chat,agents}.py
+    core/{config,logging,security}.py
+    db/{base,session}.py, models/
+    schemas/, services/, utils/
+    agents/{graph,state,memory}.py, nodes/, tools/, prompts/
+    rag/{ingest,retriever,embeddings}.py
+  tests/, alembic/, scripts/
+  .env.example, pyproject.toml, README.md, docker-compose.yml
+```
+
+## 分阶段计划
+
+| Stage | 目标 | 禁止 |
+|-------|------|------|
+| 0 | 冻结需求：产品目标、用户故事、Agent 边界、MVP 接口 | 写代码 |
+| 1 | 骨架：Settings、health、CORS、日志、.env.example、docker-compose | LLM/Agent/业务表 |
+| 2 | 异步 DB + Alembic；users/conversations/messages；基础 CRUD API | 真实 LLM |
+| 3 | LLM 单轮聊天 `POST /chat/completions`；超时重试错误映射 | Tool/多 Agent/RAG |
+| 4 | LangGraph Agent MVP（≥2 tools）；`POST /agents/run`；消息持久化 | 多 Agent/复杂审批 |
+| 5 | SSE 流式：token/tool_start/tool_end/final/error；断开取消 | — |
+| 6 | RAG（可选）：上传、切分、embedding、retriever tool、引用来源 | — |
+| 7 | 鉴权、限流、工具白名单、结构化日志、测试硬化 | — |
+
+## MVP 接口约定
+
+- `GET /api/v1/health`
+- `POST|GET /api/v1/conversations`；`GET .../{id}/messages`
+- `POST /api/v1/chat/completions`
+- `POST /api/v1/agents/run`；`POST /api/v1/agents/run/stream`（Stage 5）
+
+统一响应（可按项目调整）：`{ "success", "data", "error", "request_id" }`。
+
+与现有前端兼容时注意：Nest 侧 AI 在 `/api/*` + SSE；业务 API 另有 `{ code, message, data }`。新 FastAPI Agent 服务若替换 Dify 代理，需单独约定路径与鉴权，勿静默破坏现有前端。
+
+## 编码摘要
+
+- Router → Service → Agent/Repository，单向依赖
+- 配置一律 `Settings`；Tool 必须有 name/description/类型化参数
+- Prompt 放 `app/agents/prompts/`；提交信息：`feat(stage-N): ...`
+
+## 当前阶段
+
+**Stage 1 已落地于 `api/`。** 等待用户确认通过后进入 Stage 2（数据层）。未获「确认，进入 Stage 2」前，不要实现 LLM / Agent / 业务表。
