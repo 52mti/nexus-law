@@ -18,7 +18,8 @@ interface ApiResponse<T = any> {
 // 1. 创建属于你业务后端的专属 Axios 实例
 // ==========================================
 const request = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000',
+  // 默认走同源相对路径，由 Vite/nginx 代理转发，避免直连后端触发跨域
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/agent',
   timeout: 60 * 1000, // 10秒超时
 })
 

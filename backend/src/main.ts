@@ -6,8 +6,10 @@ import { BusinessExceptionFilter } from './common/filters/business-exception.fil
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({
-    origin: '*', // MVP 测试阶段可以写 '*'，上线后建议换成你 Cloudflare 的真实域名
-    methods: 'GET,POST',
+    // origin: true 会回显请求 Origin；不能与 credentials 同时使用 '*'
+    origin: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   });
   app.useGlobalPipes(new ValidationPipe());
