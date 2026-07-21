@@ -17,12 +17,15 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         elapsed_ms = (time.perf_counter() - started) * 1000
         response.headers["X-Request-Id"] = request_id
 
+        principal = getattr(request.state, "principal", None)
+        subject = getattr(principal, "subject", None)
         logger.info(
-            "method={} path={} status={} latency_ms={:.2f} request_id={}",
+            "method={} path={} status={} latency_ms={:.2f} request_id={} principal={}",
             request.method,
             request.url.path,
             response.status_code,
             elapsed_ms,
             request_id,
+            subject or "-",
         )
         return response

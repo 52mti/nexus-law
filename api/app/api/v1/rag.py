@@ -1,8 +1,10 @@
 import asyncio
 
-from fastapi import APIRouter, File, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Request, UploadFile
 
+from app.api.deps import require_principal
 from app.core.exceptions import AppError
+from app.core.security import Principal
 from app.rag.ingest import SUPPORTED_EXTENSIONS, ingest_document
 from app.schemas.rag import DocumentIngestData, DocumentIngestResponse
 
@@ -13,13 +15,13 @@ router = APIRouter(prefix="/rag", tags=["rag"])
 async def upload_document(
     request: Request,
     file: UploadFile = File(...),
+    _principal: Principal = Depends(require_principal),
 ) -> DocumentIngestResponse:
     filename = file.filename or "document.txt"
     content = await file.read()
     if not content:
         raise AppError("Uploaded file is empty", code="empty_upload", status_code=422)
 
-    # Weaviate + embeddings are sync; keep event loop free.
     result = await asyncio.to_thread(ingest_document, filename=filename, content=content)
     return DocumentIngestResponse(
         data=DocumentIngestData(
@@ -33,7 +35,10 @@ async def upload_document(
 
 
 @router.get("/supported-types")
-async def supported_types(request: Request) -> dict:
+async def supported_types(
+    request: Request,
+    _principal: Principal = Depends(require_principal),
+) -> dict:
     return {
         "success": True,
         "data": {"extensions": sorted(SUPPORTED_EXTENSIONS)},

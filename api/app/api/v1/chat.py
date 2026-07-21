@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends, Request
 
+from app.api.deps import require_principal
 from app.core.config import Settings, get_settings
+from app.core.prompt_guard import assert_safe_user_text
+from app.core.security import Principal
 from app.schemas.chat import (
     ChatCompletionData,
     ChatCompletionRequest,
@@ -16,10 +19,14 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 async def create_chat_completion(
     payload: ChatCompletionRequest,
     request: Request,
+    _principal: Principal = Depends(require_principal),
     settings: Settings = Depends(get_settings),
     llm: LangChainLLMClient = Depends(get_llm_client),
 ) -> ChatCompletionResponse:
-    # Temporary model override for this request without mutating global Settings cache
+    for message in payload.messages:
+        if message.role == "user":
+            assert_safe_user_text(message.content)
+
     if payload.model and payload.model != settings.llm_model:
         request_settings = settings.model_copy(update={"llm_model": payload.model})
         llm = LangChainLLMClient(request_settings)

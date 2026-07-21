@@ -184,12 +184,18 @@ class AgentService:
             answer=answer,
         )
 
+        tool_names = sorted(
+            {item.get("name") for item in full_trace if item.get("name")}
+        )
         logger.info(
-            "agent_run conversation_id={} latency_ms={:.2f} iterations={} sources={}",
+            "agent_run conversation_id={} model={} latency_ms={:.2f} "
+            "iterations={} sources={} tool_names={}",
             conversation.id,
+            self._settings.llm_model,
             latency_ms,
             iterations,
             len(sources),
+            tool_names,
         )
 
         return AgentRunResult(
@@ -371,12 +377,18 @@ class AgentService:
             )
             return
 
+        tool_names = sorted(
+            {item.get("name") for item in (tool_trace or []) if item.get("name")}
+        )
         logger.info(
-            "agent_stream_done conversation_id={} latency_ms={:.2f} iterations={} sources={}",
+            "agent_stream_done conversation_id={} model={} latency_ms={:.2f} "
+            "iterations={} sources={} tool_names={}",
             conversation.id,
+            self._settings.llm_model,
             latency_ms,
             iterations,
             len(sources),
+            tool_names,
         )
         yield AgentStreamEvent(
             event="final",

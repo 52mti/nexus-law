@@ -22,6 +22,7 @@ dependencies = [
     "langchain-text-splitters>=0.3.0",
     "pypdf>=5.0.0",
     "python-multipart>=0.0.12",
+    "redis>=5.0.0",
 ]
 
 [project.optional-dependencies]

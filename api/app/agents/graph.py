@@ -32,7 +32,7 @@ def _should_continue(state: AgentState) -> Literal["tools", "__end__"]:
 def build_agent_graph(model: BaseChatModel, *, settings: Settings | None = None):
     """Compile the ReAct agent graph with basic + RAG tools."""
     settings = settings or get_settings()
-    tools = list(get_agent_tools())
+    tools = list(get_agent_tools(settings))
     model_with_tools = model.bind_tools(tools)
     tool_node = ToolNode(tools)
 

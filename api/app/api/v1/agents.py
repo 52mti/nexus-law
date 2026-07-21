@@ -6,6 +6,9 @@ from fastapi.responses import StreamingResponse
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import require_principal
+from app.core.prompt_guard import assert_safe_user_text
+from app.core.security import Principal
 from app.db.session import get_db_session
 from app.schemas.agent import (
     AgentRunData,
@@ -24,9 +27,11 @@ router = APIRouter(prefix="/agents", tags=["agents"])
 async def run_agent(
     payload: AgentRunRequest,
     request: Request,
+    _principal: Principal = Depends(require_principal),
     session: AsyncSession = Depends(get_db_session),
     agent_service: AgentService = Depends(get_agent_service),
 ) -> AgentRunResponse:
+    assert_safe_user_text(payload.input)
     result = await agent_service.run(
         session,
         user_input=payload.input,
@@ -57,9 +62,11 @@ async def run_agent(
 async def run_agent_stream(
     payload: AgentRunRequest,
     request: Request,
+    _principal: Principal = Depends(require_principal),
     session: AsyncSession = Depends(get_db_session),
     agent_service: AgentService = Depends(get_agent_service),
 ) -> StreamingResponse:
+    assert_safe_user_text(payload.input)
     request_id = getattr(request.state, "request_id", None)
     cancel_event = asyncio.Event()
 
@@ -84,7 +91,7 @@ async def run_agent_stream(
             cancel_event.set()
             logger.info("sse_generator_cancelled request_id={}", request_id)
             raise
-        except Exception as exc:  # noqa: BLE001
+        except Exception:  # noqa: BLE001
             logger.exception("sse_unhandled_error request_id={}", request_id)
             yield format_sse(
                 "error",

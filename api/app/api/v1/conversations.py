@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import require_principal
+from app.core.prompt_guard import assert_safe_user_text
+from app.core.security import Principal
 from app.db.session import get_db_session
 from app.schemas.conversation import (
     ConversationCreate,
@@ -20,8 +23,11 @@ router = APIRouter(prefix="/conversations", tags=["conversations"])
 async def create_conversation(
     payload: ConversationCreate,
     request: Request,
+    _principal: Principal = Depends(require_principal),
     session: AsyncSession = Depends(get_db_session),
 ) -> ConversationCreateResponse:
+    if payload.initial_message:
+        assert_safe_user_text(payload.initial_message)
     conversation, messages = await conversation_service.create_conversation(
         session,
         title=payload.title,
@@ -45,6 +51,7 @@ async def list_conversations(
     user_id: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
+    _principal: Principal = Depends(require_principal),
     session: AsyncSession = Depends(get_db_session),
 ) -> ConversationListResponse:
     conversations = await conversation_service.list_conversations(
@@ -64,6 +71,7 @@ async def list_conversations(
 async def get_conversation_messages(
     conversation_id: str,
     request: Request,
+    _principal: Principal = Depends(require_principal),
     session: AsyncSession = Depends(get_db_session),
 ) -> MessageListResponse:
     messages = await conversation_service.get_conversation_messages(session, conversation_id)

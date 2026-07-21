@@ -57,8 +57,8 @@ uv run alembic upgrade head
 | 3 LLM chat | Done |
 | 4 LangGraph agent | Done |
 | 5 Streaming | Done |
-| 6 RAG (Weaviate) | Current |
-| 7 Hardening | Pending |
+| 6 RAG (Weaviate) | Done |
+| 7 Hardening | Current |
 
 ## Health check example
 
@@ -154,3 +154,39 @@ Vector store is **Weaviate** for both development and production (`WEAVIATE_HOST
 If your chat proxy does not expose `/embeddings`, set `EMBEDDING_BASE_URL` / `EMBEDDING_API_KEY` to an OpenAI-compatible embeddings endpoint.
 
 If host ports `8080`/`50051` are already used by another Weaviate container, reuse that instance — compose service `weaviate` is optional when an equivalent local Weaviate is running.
+
+## Hardening (Stage 7)
+
+### Auth
+Set one or more API keys:
+
+```bash
+API_KEYS=dev-secret-key
+```
+
+Call protected APIs with:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/agents/run \
+  -H "X-API-Key: dev-secret-key" \
+  -H "Content-Type: application/json" \
+  -d "{\"input\":\"hello\"}"
+```
+
+Also accepts `Authorization: Bearer <key>`.  
+`GET /api/v1/health` and `GET /api/v1/health/ready` remain public.
+
+### Rate limit
+In-memory sliding window (`RATE_LIMIT_PER_MINUTE`, default 60). Returns `429` / `rate_limited`.
+
+### Tool whitelist
+`AGENT_TOOL_WHITELIST=get_current_time,calculator,search_documents`
+
+### Prompt guard
+Blocks common prompt-injection phrases (`PROMPT_GUARD_ENABLED=true`).
+
+### Readiness
+```bash
+curl http://127.0.0.1:8000/api/v1/health/ready
+```
+Checks database / Weaviate / Redis(optional) / LLM configured.
