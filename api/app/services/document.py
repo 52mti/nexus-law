@@ -1,0 +1,336 @@
+from __future__ import annotations
+
+import asyncio
+import hashlib
+from pathlib import Path
+
+from loguru import logger
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.core.config import get_settings
+from app.core.exceptions import AppError
+from app.db.models import Document, DocumentChunk, DocumentStatus, StorageStatus
+from app.db.session import AsyncSessionLocal
+from app.rag.ingest import new_document_id, parse_and_chunk, publish_to_weaviate
+from app.services.cos_storage import upload_bytes as cos_upload_bytes
+
+
+def checksum_sha256(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
+_EDITABLE_STATUSES = {DocumentStatus.DRAFT.value, DocumentStatus.FAILED.value}
+_PUBLISHABLE_STATUSES = {DocumentStatus.DRAFT.value}
+
+
+async def _upload_raw_to_cos(
+    session: AsyncSession,
+    document: Document,
+    raw: bytes,
+) -> None:
+    """Upload original bytes to COS and persist oss_* fields. Does not fail parse on error."""
+    document.storage_provider = "tencent_cos"
+    document.storage_status = StorageStatus.PENDING.value
+    await session.flush()
+    try:
+        result = await asyncio.to_thread(
+            cos_upload_bytes,
+            content=raw,
+            document_id=document.id,
+            filename=document.source,
+            content_type=document.content_type,
+        )
+    except Exception as exc:  # noqa: BLE001
+        document.storage_status = StorageStatus.FAILED.value
+        logger.warning(
+            "cos_upload_skipped_continue_parse document_id={} error={}",
+            document.id,
+            type(exc).__name__,
+        )
+        if isinstance(exc, AppError):
+            # Keep parse going; surface COS issue separately from document.error_message
+            # until draft is ready (error_message is reserved for parse/publish failures).
+            logger.warning("cos_error document_id={} message={}", document.id, exc.message)
+        return
+
+    document.storage_status = StorageStatus.UPLOADED.value
+    document.oss_bucket = result.bucket
+    document.oss_region = result.region
+    document.oss_key = result.key
+    document.oss_url = result.url
+    document.oss_etag = result.etag
+    document.oss_uploaded_at = result.uploaded_at
+    await session.flush()
+
+
+async def create_upload_stub(
+    session: AsyncSession,
+    *,
+    filename: str,
+    content: bytes,
+    content_type: str | None = None,
+    uploaded_by: str | None = None,
+) -> Document:
+    settings = get_settings()
+    source = Path(filename).name
+    suffix = Path(source).suffix.lower() or None
+    cos_on = settings.cos_enabled
+    document = Document(
+        id=new_document_id(),
+        source=source,
+        title=Path(source).stem or source,
+        content_type=content_type,
+        file_extension=suffix,
+        file_size_bytes=len(content),
+        checksum_sha256=checksum_sha256(content),
+        raw_content=content,
+        chunk_count=0,
+        collection=settings.weaviate_collection,
+        status=DocumentStatus.UPLOADING.value,
+        uploaded_by=uploaded_by,
+        storage_provider="tencent_cos" if cos_on else None,
+        storage_status=(
+            StorageStatus.PENDING.value if cos_on else StorageStatus.NONE.value
+        ),
+    )
+    session.add(document)
+    await session.flush()
+    return document
+
+
+async def get_document(session: AsyncSession, document_id: str) -> Document:
+    result = await session.execute(select(Document).where(Document.id == document_id))
+    document = result.scalar_one_or_none()
+    if not document:
+        raise AppError("Document not found", code="document_not_found", status_code=404)
+    return document
+
+
+async def get_document_with_chunks(session: AsyncSession, document_id: str) -> Document:
+    result = await session.execute(
+        select(Document)
+        .where(Document.id == document_id)
+        .options(selectinload(Document.chunks))
+    )
+    document = result.scalar_one_or_none()
+    if not document:
+        raise AppError("Document not found", code="document_not_found", status_code=404)
+    return document
+
+
+async def list_chunks(session: AsyncSession, document_id: str) -> list[DocumentChunk]:
+    await get_document(session, document_id)
+    result = await session.execute(
+        select(DocumentChunk)
+        .where(DocumentChunk.document_id == document_id)
+        .order_by(DocumentChunk.chunk_index)
+    )
+    return list(result.scalars().all())
+
+
+async def replace_chunks(
+    session: AsyncSession,
+    document_id: str,
+    *,
+    items: list[dict],
+) -> list[DocumentChunk]:
+    """Replace chunk set with ordered items: [{id?, content}, ...]. Reindexes 0..n-1."""
+    document = await get_document(session, document_id)
+    if document.status not in _EDITABLE_STATUSES:
+        raise AppError(
+            f"Document status '{document.status}' does not allow chunk edits",
+            code="document_not_editable",
+            status_code=409,
+        )
+    if not items:
+        raise AppError(
+            "At least one chunk is required",
+            code="empty_chunks",
+            status_code=422,
+        )
+
+    existing = await list_chunks(session, document_id)
+    by_id = {chunk.id: chunk for chunk in existing}
+    kept_ids: set[str] = set()
+    new_chunks: list[DocumentChunk] = []
+
+    for index, item in enumerate(items):
+        content = (item.get("content") or "").strip()
+        if not content:
+            raise AppError(
+                f"Chunk at index {index} has empty content",
+                code="empty_chunk_content",
+                status_code=422,
+            )
+        chunk_id = item.get("id")
+        if chunk_id and chunk_id in by_id:
+            chunk = by_id[chunk_id]
+            chunk.content = content
+            chunk.char_count = len(content)
+            chunk.chunk_index = index
+            kept_ids.add(chunk_id)
+            new_chunks.append(chunk)
+        else:
+            chunk = DocumentChunk(
+                document_id=document_id,
+                chunk_index=index,
+                content=content,
+                char_count=len(content),
+            )
+            session.add(chunk)
+            new_chunks.append(chunk)
+
+    for chunk in existing:
+        if chunk.id not in kept_ids:
+            await session.delete(chunk)
+
+    document.chunk_count = len(new_chunks)
+    if document.status == DocumentStatus.FAILED.value:
+        document.status = DocumentStatus.DRAFT.value
+        document.error_message = None
+    await session.flush()
+    return new_chunks
+
+
+async def mark_publishing(session: AsyncSession, document_id: str) -> Document:
+    document = await get_document_with_chunks(session, document_id)
+    if document.status not in _PUBLISHABLE_STATUSES:
+        raise AppError(
+            f"Document status '{document.status}' cannot be published",
+            code="document_not_publishable",
+            status_code=409,
+        )
+    if not document.chunks:
+        raise AppError(
+            "Document has no chunks to publish",
+            code="empty_chunks",
+            status_code=422,
+        )
+    document.status = DocumentStatus.PUBLISHING.value
+    document.error_message = None
+    await session.flush()
+    return document
+
+
+async def run_parse_task(document_id: str) -> None:
+    """BackgroundTask: parse raw_content into draft chunks. Uses its own DB session."""
+    async with AsyncSessionLocal() as session:
+        try:
+            document = await get_document(session, document_id)
+            if document.status not in {
+                DocumentStatus.UPLOADING.value,
+                DocumentStatus.PARSING.value,
+            }:
+                logger.info(
+                    "parse_skip document_id={} status={}",
+                    document_id,
+                    document.status,
+                )
+                return
+
+            document.status = DocumentStatus.PARSING.value
+            await session.commit()
+
+            raw = document.raw_content
+            if not raw:
+                raise AppError(
+                    "Missing raw file content for parsing",
+                    code="missing_raw_content",
+                    status_code=422,
+                )
+
+            settings = get_settings()
+            if settings.cos_enabled:
+                await _upload_raw_to_cos(session, document, raw)
+
+            parsed = await asyncio.to_thread(
+                parse_and_chunk,
+                filename=document.source,
+                content=raw,
+            )
+
+            await session.execute(
+                delete(DocumentChunk).where(DocumentChunk.document_id == document_id)
+            )
+            chunks = [
+                DocumentChunk(
+                    document_id=document_id,
+                    chunk_index=index,
+                    content=chunk,
+                    char_count=len(chunk),
+                )
+                for index, chunk in enumerate(parsed.chunks)
+            ]
+            session.add_all(chunks)
+            document.extracted_text = parsed.extracted_text
+            document.chunk_count = len(chunks)
+            document.raw_content = None
+            document.status = DocumentStatus.DRAFT.value
+            document.error_message = None
+            await session.commit()
+            logger.info(
+                "parse_done document_id={} chunks={} storage_status={}",
+                document_id,
+                len(chunks),
+                document.storage_status,
+            )
+        except Exception as exc:  # noqa: BLE001
+            await session.rollback()
+            async with AsyncSessionLocal() as err_session:
+                document = await get_document(err_session, document_id)
+                document.status = DocumentStatus.FAILED.value
+                if isinstance(exc, AppError):
+                    document.error_message = exc.message
+                else:
+                    document.error_message = str(exc)
+                await err_session.commit()
+            logger.warning(
+                "parse_failed document_id={} error={}",
+                document_id,
+                type(exc).__name__,
+            )
+
+
+async def run_publish_task(document_id: str) -> None:
+    """BackgroundTask: embed + Weaviate write. Uses its own DB session."""
+    async with AsyncSessionLocal() as session:
+        try:
+            document = await get_document_with_chunks(session, document_id)
+            if document.status != DocumentStatus.PUBLISHING.value:
+                logger.info(
+                    "publish_skip document_id={} status={}",
+                    document_id,
+                    document.status,
+                )
+                return
+
+            chunks = sorted(document.chunks, key=lambda c: c.chunk_index)
+            texts = [c.content for c in chunks]
+            collection = await asyncio.to_thread(
+                publish_to_weaviate,
+                document_id=document.id,
+                source=document.source,
+                chunks=texts,
+            )
+            document.collection = collection
+            document.status = DocumentStatus.PUBLISHED.value
+            document.error_message = None
+            await session.commit()
+            logger.info("publish_done document_id={}", document_id)
+        except Exception as exc:  # noqa: BLE001
+            await session.rollback()
+            async with AsyncSessionLocal() as err_session:
+                document = await get_document(err_session, document_id)
+                document.status = DocumentStatus.DRAFT.value
+                if isinstance(exc, AppError):
+                    document.error_message = exc.message
+                else:
+                    document.error_message = str(exc)
+                await err_session.commit()
+            logger.warning(
+                "publish_failed document_id={} error={}",
+                document_id,
+                type(exc).__name__,
+            )

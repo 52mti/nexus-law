@@ -125,7 +125,7 @@ Event types:
 
 Client disconnect cancels the downstream LangGraph stream (logged as `sse_client_disconnected` / `agent_stream_cancelled`).
 
-## RAG / Weaviate (Stage 6)
+## RAG / Weaviate (Stage 6 + HITL)
 
 Start Weaviate:
 
@@ -134,14 +134,28 @@ cd api
 docker compose up -d weaviate
 ```
 
-Upload a document (`.txt` / `.md` / `.pdf`):
+Human-in-the-loop ingest (upload → draft chunks → edit → publish):
 
 ```bash
+# 1) Upload: parse/chunk + (if COS_ENABLED) archive original to Tencent COS.
+#    BackgroundTask → status draft; oss_url on GET /documents/{id}
 curl -X POST http://127.0.0.1:8000/api/v1/rag/documents \
   -F "file=@./sample.md"
+# → { "data": { "document_id": "...", "status": "uploading" } }
+
+# 2) Preview chunks (poll until status=draft)
+curl http://127.0.0.1:8000/api/v1/rag/documents/{id}/chunks
+
+# 3) Optional: save corrections (edit / add / delete; server reindexes 0..n-1)
+curl -X PUT http://127.0.0.1:8000/api/v1/rag/documents/{id}/chunks \
+  -H "Content-Type: application/json" \
+  -d "{\"chunks\":[{\"content\":\"revised chunk text\"}]}"
+
+# 4) Confirm: Embedding + Weaviate write
+curl -X POST http://127.0.0.1:8000/api/v1/rag/documents/{id}/publish
 ```
 
-Ask the agent about the uploaded content:
+Ask the agent about the **published** content:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/agents/run \

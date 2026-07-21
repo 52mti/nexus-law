@@ -45,6 +45,14 @@ class Settings(BaseSettings):
     rag_chunk_overlap: int = 120
     rag_top_k: int = 4
 
+    # Object storage (Tencent COS)
+    cos_enabled: bool = False
+    cos_secret_id: str = ""
+    cos_secret_key: str = ""
+    cos_region: str = ""
+    cos_bucket: str = ""
+    cos_key_prefix: str = "documents/"
+
     # Stage 7 — hardening
     # Comma-separated API keys. Auth auto-enables when non-empty unless AUTH_ENABLED overrides.
     api_keys: str = ""

@@ -1,11 +1,11 @@
 import json
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
-from app.rag.ingest import IngestResult, chunk_text, extract_text
+from app.rag.ingest import chunk_text, extract_text, parse_and_chunk
 from app.rag.retriever import extract_sources_from_tool_result, format_retrieval_payload
 
 
@@ -28,6 +28,13 @@ def test_chunk_text() -> None:
     assert len(chunks) >= 2
 
 
+def test_parse_and_chunk_no_embedding() -> None:
+    result = parse_and_chunk(filename="policy.md", content=b"# Policy\nTermination requires notice.")
+    assert result.source == "policy.md"
+    assert "Policy" in result.extracted_text
+    assert len(result.chunks) >= 1
+
+
 def test_format_and_extract_sources() -> None:
     payload = format_retrieval_payload(
         [
@@ -46,25 +53,147 @@ def test_format_and_extract_sources() -> None:
 
 
 @pytest.mark.asyncio
-async def test_upload_document_endpoint_mocked() -> None:
+async def test_upload_document_creates_draft_stub_not_weaviate() -> None:
     transport = ASGITransport(app=app)
-    fake = IngestResult(
-        document_id="d1",
-        source="policy.md",
-        chunk_count=2,
-        collection="NexusLawDocuments",
-    )
-    with patch("app.api.v1.rag.ingest_document", return_value=fake):
+    stub = MagicMock()
+    stub.id = "d1"
+    stub.source = "policy.md"
+    stub.status = "uploading"
+    stub.collection = "NexusLawDocuments"
+
+    with (
+        patch(
+            "app.api.v1.rag.document_service.create_upload_stub",
+            new=AsyncMock(return_value=stub),
+        ) as create_stub,
+        patch("fastapi.BackgroundTasks.add_task") as add_task,
+        patch("app.rag.ingest.publish_to_weaviate") as publish,
+    ):
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.post(
                 "/api/v1/rag/documents",
-                files={"file": ("policy.md", b"# Policy\nTermination requires notice.", "text/markdown")},
+                files={
+                    "file": (
+                        "policy.md",
+                        b"# Policy\nTermination requires notice.",
+                        "text/markdown",
+                    )
+                },
             )
     assert response.status_code == 200
     body = response.json()
     assert body["success"] is True
     assert body["data"]["document_id"] == "d1"
-    assert body["data"]["chunk_count"] == 2
+    assert body["data"]["status"] == "uploading"
+    create_stub.assert_awaited_once()
+    add_task.assert_called_once()
+    publish.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_get_document_and_chunks_mocked() -> None:
+    transport = ASGITransport(app=app)
+    doc = MagicMock()
+    doc.id = "d1"
+    doc.source = "policy.md"
+    doc.title = "policy"
+    doc.status = "draft"
+    doc.chunk_count = 2
+    doc.collection = "NexusLawDocuments"
+    doc.content_type = "text/markdown"
+    doc.file_extension = ".md"
+    doc.file_size_bytes = 10
+    doc.error_message = None
+    doc.storage_status = "uploaded"
+    doc.oss_url = "https://bucket.cos.ap-guangzhou.myqcloud.com/documents/d1/file.md"
+    doc.oss_key = "documents/d1/file.md"
+    doc.created_at = None
+    doc.updated_at = None
+
+    chunk = MagicMock()
+    chunk.id = "c1"
+    chunk.chunk_index = 0
+    chunk.content = "hello"
+    chunk.char_count = 5
+
+    with (
+        patch(
+            "app.api.v1.rag.document_service.get_document",
+            new=AsyncMock(return_value=doc),
+        ),
+        patch(
+            "app.api.v1.rag.document_service.list_chunks",
+            new=AsyncMock(return_value=[chunk]),
+        ),
+    ):
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            detail = await client.get("/api/v1/rag/documents/d1")
+            chunks = await client.get("/api/v1/rag/documents/d1/chunks")
+
+    assert detail.status_code == 200
+    assert detail.json()["data"]["status"] == "draft"
+    assert detail.json()["data"]["oss_url"].endswith("file.md")
+    assert chunks.status_code == 200
+    assert chunks.json()["data"]["chunks"][0]["content"] == "hello"
+
+
+@pytest.mark.asyncio
+async def test_replace_chunks_endpoint_mocked() -> None:
+    transport = ASGITransport(app=app)
+    doc = MagicMock()
+    doc.id = "d1"
+    doc.status = "draft"
+
+    updated = MagicMock()
+    updated.id = "c2"
+    updated.chunk_index = 0
+    updated.content = "edited"
+    updated.char_count = 6
+
+    with (
+        patch(
+            "app.api.v1.rag.document_service.get_document",
+            new=AsyncMock(return_value=doc),
+        ),
+        patch(
+            "app.api.v1.rag.document_service.replace_chunks",
+            new=AsyncMock(return_value=[updated]),
+        ) as replace,
+    ):
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.put(
+                "/api/v1/rag/documents/d1/chunks",
+                json={"chunks": [{"content": "edited"}]},
+            )
+    assert response.status_code == 200
+    assert response.json()["data"]["chunks"][0]["content"] == "edited"
+    replace.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_publish_document_schedules_task_not_sync_embed() -> None:
+    transport = ASGITransport(app=app)
+    doc = MagicMock()
+    doc.id = "d1"
+    doc.status = "publishing"
+    doc.chunk_count = 2
+    doc.collection = "NexusLawDocuments"
+
+    with (
+        patch(
+            "app.api.v1.rag.document_service.mark_publishing",
+            new=AsyncMock(return_value=doc),
+        ),
+        patch("fastapi.BackgroundTasks.add_task") as add_task,
+        patch("app.rag.ingest.publish_to_weaviate") as publish,
+    ):
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post("/api/v1/rag/documents/d1/publish")
+
+    assert response.status_code == 200
+    assert response.json()["data"]["status"] == "publishing"
+    publish.assert_not_called()
+    add_task.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -88,6 +217,18 @@ def test_map_embedding_not_found() -> None:
     assert mapped.code == "embedding_endpoint_missing"
 
 
+def test_map_embedding_rate_limited() -> None:
+    from openai import RateLimitError
+
+    from app.rag.embeddings import map_embedding_error
+
+    response = type("R", (), {"status_code": 429, "headers": {}, "request": object()})()
+    err = RateLimitError(message="slow down", response=response, body=None)
+    mapped = map_embedding_error(err)
+    assert mapped.status_code == 429
+    assert mapped.code == "embedding_rate_limited"
+
+
 def test_search_documents_tool_uses_retriever() -> None:
     from app.agents.tools.rag import search_documents
 
@@ -106,3 +247,39 @@ def test_search_documents_tool_uses_retriever() -> None:
     mocked.assert_called_once()
     payload = json.loads(result)
     assert payload["matches"][0]["source"] == "hr.md"
+
+
+def test_cos_public_url_and_upload_mocked() -> None:
+    from app.core.config import Settings
+    from app.services.cos_storage import public_object_url, upload_bytes
+
+    url = public_object_url(
+        bucket="demo-125000",
+        region="ap-guangzhou",
+        key="documents/d1/a.pdf",
+    )
+    assert url == "https://demo-125000.cos.ap-guangzhou.myqcloud.com/documents/d1/a.pdf"
+
+    settings = Settings(
+        cos_enabled=True,
+        cos_secret_id="sid",
+        cos_secret_key="skey",
+        cos_region="ap-guangzhou",
+        cos_bucket="demo-125000",
+        cos_key_prefix="documents/",
+    )
+    fake_client = MagicMock()
+    fake_client.put_object.return_value = {"ETag": '"abc123"'}
+    with patch("app.services.cos_storage._build_client", return_value=fake_client):
+        result = upload_bytes(
+            content=b"hello",
+            document_id="d1",
+            filename="note.md",
+            content_type="text/markdown",
+            settings=settings,
+        )
+    fake_client.put_object.assert_called_once()
+    assert result.etag == "abc123"
+    assert result.bucket == "demo-125000"
+    assert result.url.startswith("https://demo-125000.cos.ap-guangzhou.myqcloud.com/")
+    assert "d1/" in result.key

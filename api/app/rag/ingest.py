@@ -19,11 +19,10 @@ SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf"}
 
 
 @dataclass(slots=True)
-class IngestResult:
-    document_id: str
+class ParseResult:
     source: str
-    chunk_count: int
-    collection: str
+    extracted_text: str
+    chunks: list[str]
 
 
 def extract_text(filename: str, content: bytes) -> str:
@@ -60,18 +59,35 @@ def chunk_text(text: str, *, settings: Settings | None = None) -> list[str]:
     return splitter.split_text(text)
 
 
-def ingest_document(
+def parse_and_chunk(
     *,
     filename: str,
     content: bytes,
     settings: Settings | None = None,
-) -> IngestResult:
+) -> ParseResult:
+    """Extract text and split into chunks. Does not call Embedding or Weaviate."""
     settings = settings or get_settings()
     source = Path(filename).name
     text = extract_text(source, content)
     chunks = chunk_text(text, settings=settings)
-    document_id = str(uuid4())
+    if not chunks:
+        raise AppError(
+            "Document produced no chunks",
+            code="empty_document",
+            status_code=422,
+        )
+    return ParseResult(source=source, extracted_text=text, chunks=chunks)
 
+
+def publish_to_weaviate(
+    *,
+    document_id: str,
+    source: str,
+    chunks: list[str],
+    settings: Settings | None = None,
+) -> str:
+    """Embed chunks and write vectors to Weaviate. Returns collection name."""
+    settings = settings or get_settings()
     documents = [
         Document(
             page_content=chunk,
@@ -94,14 +110,13 @@ def ingest_document(
         raise map_embedding_error(exc) from exc
 
     logger.info(
-        "rag_ingest source={} document_id={} chunks={}",
-        source,
+        "rag_publish document_id={} source={} chunks={}",
         document_id,
+        source,
         len(documents),
     )
-    return IngestResult(
-        document_id=document_id,
-        source=source,
-        chunk_count=len(documents),
-        collection=settings.weaviate_collection,
-    )
+    return settings.weaviate_collection
+
+
+def new_document_id() -> str:
+    return str(uuid4())
