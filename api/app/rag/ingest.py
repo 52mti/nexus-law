@@ -84,10 +84,18 @@ def publish_to_weaviate(
     document_id: str,
     source: str,
     chunks: list[str],
+    collection: str,
     settings: Settings | None = None,
 ) -> str:
-    """Embed chunks and write vectors to Weaviate. Returns collection name."""
+    """Embed chunks and write vectors to the given Weaviate collection."""
     settings = settings or get_settings()
+    collection_name = collection.strip()
+    if not collection_name:
+        raise AppError(
+            "collection is required for publish",
+            code="collection_required",
+            status_code=422,
+        )
     documents = [
         Document(
             page_content=chunk,
@@ -102,7 +110,11 @@ def publish_to_weaviate(
 
     try:
         with weaviate_client(settings) as client:
-            store = get_vector_store(client, settings=settings)
+            store = get_vector_store(
+                client,
+                collection=collection_name,
+                settings=settings,
+            )
             store.add_documents(documents)
     except AppError:
         raise
@@ -110,12 +122,13 @@ def publish_to_weaviate(
         raise map_embedding_error(exc) from exc
 
     logger.info(
-        "rag_publish document_id={} source={} chunks={}",
+        "rag_publish document_id={} source={} collection={} chunks={}",
         document_id,
         source,
+        collection_name,
         len(documents),
     )
-    return settings.weaviate_collection
+    return collection_name
 
 
 def new_document_id() -> str:

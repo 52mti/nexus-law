@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 from collections.abc import Iterator
+from contextlib import contextmanager
 
 import weaviate
 from langchain_weaviate.vectorstores import WeaviateVectorStore
@@ -47,13 +47,21 @@ def weaviate_client(settings: Settings | None = None) -> Iterator[weaviate.Weavi
 def get_vector_store(
     client: weaviate.WeaviateClient,
     *,
+    collection: str | None = None,
     settings: Settings | None = None,
 ) -> WeaviateVectorStore:
     settings = settings or get_settings()
+    index_name = (collection or settings.weaviate_collection).strip()
+    if not index_name:
+        raise AppError(
+            "Weaviate collection name is empty",
+            code="invalid_collection",
+            status_code=422,
+        )
     embeddings = build_embeddings(settings)
     return WeaviateVectorStore(
         client=client,
-        index_name=settings.weaviate_collection,
+        index_name=index_name,
         text_key=_TEXT_KEY,
         embedding=embeddings,
         attributes=_ATTRIBUTES,

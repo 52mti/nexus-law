@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_principal
@@ -20,6 +20,7 @@ from app.schemas.rag import (
     DocumentUploadResponse,
 )
 from app.services import document as document_service
+from app.services.document import normalize_collection_name
 
 router = APIRouter(prefix="/rag", tags=["rag"])
 
@@ -62,6 +63,10 @@ async def upload_document(
     request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    collection: str = Form(
+        ...,
+        description="Weaviate collection / dataset name (e.g. NexusLawDocuments)",
+    ),
     principal: Principal = Depends(require_principal),
     session: AsyncSession = Depends(get_db_session),
 ) -> DocumentUploadResponse:
@@ -70,10 +75,13 @@ async def upload_document(
     if not content:
         raise AppError("Uploaded file is empty", code="empty_upload", status_code=422)
 
+    collection_name = normalize_collection_name(collection)
+
     document = await document_service.create_upload_stub(
         session,
         filename=filename,
         content=content,
+        collection=collection_name,
         content_type=file.content_type,
         uploaded_by=principal.subject,
     )

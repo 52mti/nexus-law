@@ -138,10 +138,12 @@ Human-in-the-loop ingest (upload → draft chunks → edit → publish):
 
 ```bash
 # 1) Upload: parse/chunk + (if COS_ENABLED) archive original to Tencent COS.
+#    Form field `collection` selects the Weaviate dataset (required).
 #    BackgroundTask → status draft; oss_url on GET /documents/{id}
 curl -X POST http://127.0.0.1:8000/api/v1/rag/documents \
-  -F "file=@./sample.md"
-# → { "data": { "document_id": "...", "status": "uploading" } }
+  -F "file=@./sample.md" \
+  -F "collection=NexusLawDocuments"
+# → { "data": { "document_id": "...", "status": "uploading", "collection": "NexusLawDocuments" } }
 
 # 2) Preview chunks (poll until status=draft)
 curl http://127.0.0.1:8000/api/v1/rag/documents/{id}/chunks

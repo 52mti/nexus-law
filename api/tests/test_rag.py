@@ -28,6 +28,19 @@ def test_chunk_text() -> None:
     assert len(chunks) >= 2
 
 
+def test_normalize_collection_name() -> None:
+    from app.core.exceptions import AppError
+    from app.services.document import normalize_collection_name
+
+    assert normalize_collection_name(" LaborContracts ") == "LaborContracts"
+    with pytest.raises(AppError) as empty:
+        normalize_collection_name("  ")
+    assert empty.value.code == "collection_required"
+    with pytest.raises(AppError) as bad:
+        normalize_collection_name("labor-contracts")
+    assert bad.value.code == "invalid_collection"
+
+
 def test_parse_and_chunk_no_embedding() -> None:
     result = parse_and_chunk(filename="policy.md", content=b"# Policy\nTermination requires notice.")
     assert result.source == "policy.md"
@@ -72,6 +85,7 @@ async def test_upload_document_creates_draft_stub_not_weaviate() -> None:
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.post(
                 "/api/v1/rag/documents",
+                data={"collection": "NexusLawDocuments"},
                 files={
                     "file": (
                         "policy.md",
@@ -86,6 +100,7 @@ async def test_upload_document_creates_draft_stub_not_weaviate() -> None:
     assert body["data"]["document_id"] == "d1"
     assert body["data"]["status"] == "uploading"
     create_stub.assert_awaited_once()
+    assert create_stub.await_args.kwargs["collection"] == "NexusLawDocuments"
     add_task.assert_called_once()
     publish.assert_not_called()
 

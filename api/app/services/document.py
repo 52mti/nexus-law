@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import re
 from pathlib import Path
 
 from loguru import logger
@@ -16,9 +17,31 @@ from app.db.session import AsyncSessionLocal
 from app.rag.ingest import new_document_id, parse_and_chunk, publish_to_weaviate
 from app.services.cos_storage import upload_bytes as cos_upload_bytes
 
+# Weaviate collection / class names: start with uppercase letter.
+_COLLECTION_RE = re.compile(r"^[A-Z][A-Za-z0-9_]{0,127}$")
+
 
 def checksum_sha256(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()
+
+
+def normalize_collection_name(collection: str) -> str:
+    name = (collection or "").strip()
+    if not name:
+        raise AppError(
+            "collection is required (Weaviate dataset / class name)",
+            code="collection_required",
+            status_code=422,
+        )
+    if not _COLLECTION_RE.match(name):
+        raise AppError(
+            "Invalid collection name. Use Weaviate class style: "
+            "start with A-Z, then letters/digits/underscore "
+            "(e.g. NexusLawDocuments, LaborContracts).",
+            code="invalid_collection",
+            status_code=422,
+        )
+    return name
 
 
 _EDITABLE_STATUSES = {DocumentStatus.DRAFT.value, DocumentStatus.FAILED.value}
@@ -70,6 +93,7 @@ async def create_upload_stub(
     *,
     filename: str,
     content: bytes,
+    collection: str,
     content_type: str | None = None,
     uploaded_by: str | None = None,
 ) -> Document:
@@ -77,6 +101,7 @@ async def create_upload_stub(
     source = Path(filename).name
     suffix = Path(source).suffix.lower() or None
     cos_on = settings.cos_enabled
+    collection_name = normalize_collection_name(collection)
     document = Document(
         id=new_document_id(),
         source=source,
@@ -87,7 +112,7 @@ async def create_upload_stub(
         checksum_sha256=checksum_sha256(content),
         raw_content=content,
         chunk_count=0,
-        collection=settings.weaviate_collection,
+        collection=collection_name,
         status=DocumentStatus.UPLOADING.value,
         uploaded_by=uploaded_by,
         storage_provider="tencent_cos" if cos_on else None,
@@ -308,17 +333,21 @@ async def run_publish_task(document_id: str) -> None:
 
             chunks = sorted(document.chunks, key=lambda c: c.chunk_index)
             texts = [c.content for c in chunks]
-            collection = await asyncio.to_thread(
+            await asyncio.to_thread(
                 publish_to_weaviate,
                 document_id=document.id,
                 source=document.source,
                 chunks=texts,
+                collection=document.collection,
             )
-            document.collection = collection
             document.status = DocumentStatus.PUBLISHED.value
             document.error_message = None
             await session.commit()
-            logger.info("publish_done document_id={}", document_id)
+            logger.info(
+                "publish_done document_id={} collection={}",
+                document_id,
+                document.collection,
+            )
         except Exception as exc:  # noqa: BLE001
             await session.rollback()
             async with AsyncSessionLocal() as err_session:
