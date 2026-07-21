@@ -69,14 +69,21 @@ class Settings(BaseSettings):
     def resolved_embedding_api_key(self) -> str:
         return self.embedding_api_key.strip() or self.llm_api_key.strip()
 
+    @staticmethod
+    def _ensure_openai_v1_base(url: str) -> str:
+        """Normalize OpenAI-compatible base URLs to end with /v1."""
+        base = url.strip().rstrip("/")
+        if not base:
+            return base
+        if base.endswith("/v1"):
+            return base
+        return f"{base}/v1"
+
     @property
     def resolved_embedding_base_url(self) -> str:
         if self.embedding_base_url.strip():
-            return self.embedding_base_url.strip().rstrip("/")
-        base = self.llm_base_url.strip().rstrip("/")
-        if base and not base.endswith("/v1"):
-            return f"{base}/v1"
-        return base
+            return self._ensure_openai_v1_base(self.embedding_base_url)
+        return self._ensure_openai_v1_base(self.llm_base_url)
 
     @property
     def api_key_set(self) -> set[str]:
