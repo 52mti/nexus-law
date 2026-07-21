@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 from loguru import logger
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -15,6 +15,8 @@ from app.core.exceptions import AppError
 from app.db.models import Document, DocumentChunk, DocumentStatus, StorageStatus
 from app.db.session import AsyncSessionLocal
 from app.rag.ingest import new_document_id, parse_and_chunk, publish_to_weaviate
+from app.rag.store import delete_weaviate_by_document_id, delete_weaviate_collection
+from app.services.cos_storage import delete_objects as cos_delete_objects
 from app.services.cos_storage import upload_bytes as cos_upload_bytes
 
 # Weaviate collection / class names: start with uppercase letter.
@@ -363,3 +365,127 @@ async def run_publish_task(document_id: str) -> None:
                 document_id,
                 type(exc).__name__,
             )
+
+
+async def delete_document_by_id(
+    session: AsyncSession,
+    document_id: str,
+) -> dict[str, object]:
+    """Delete one document: COS original + Weaviate vectors + PG document/chunks."""
+    settings = get_settings()
+    document = await get_document_with_chunks(session, document_id)
+    chunk_count = len(document.chunks)
+    collection = document.collection
+
+    cos_deleted_count = 0
+    if document.oss_key and str(document.oss_key).strip():
+        if not settings.cos_enabled:
+            raise AppError(
+                "Document has a COS original but COS_ENABLED=false; "
+                "enable COS to delete the object storage file.",
+                code="cos_disabled",
+                status_code=503,
+                details={"oss_key": document.oss_key},
+            )
+        cos_deleted_count = await asyncio.to_thread(
+            cos_delete_objects,
+            items=[(document.oss_bucket, document.oss_key)],
+            settings=settings,
+        )
+
+    weaviate_deleted_count = await asyncio.to_thread(
+        delete_weaviate_by_document_id,
+        document_id=document.id,
+        collection=collection,
+        settings=settings,
+    )
+
+    await session.delete(document)
+    await session.flush()
+
+    logger.info(
+        "document_deleted document_id={} collection={} chunks={} weaviate={} cos={}",
+        document.id,
+        collection,
+        chunk_count,
+        weaviate_deleted_count,
+        cos_deleted_count,
+    )
+    return {
+        "document_id": document.id,
+        "collection": collection,
+        "chunk_count": chunk_count,
+        "weaviate_deleted_count": weaviate_deleted_count,
+        "cos_deleted_count": cos_deleted_count,
+    }
+
+
+async def delete_collection_dataset(
+    session: AsyncSession,
+    collection: str,
+) -> dict[str, object]:
+    """Delete a dataset: COS originals + Weaviate collection + PG documents/chunks."""
+    name = normalize_collection_name(collection)
+    settings = get_settings()
+
+    docs_result = await session.execute(select(Document).where(Document.collection == name))
+    documents = list(docs_result.scalars().all())
+    document_count = len(documents)
+
+    chunk_count_result = await session.execute(
+        select(func.count())
+        .select_from(DocumentChunk)
+        .join(Document, DocumentChunk.document_id == Document.id)
+        .where(Document.collection == name)
+    )
+    chunk_count = int(chunk_count_result.scalar_one() or 0)
+
+    cos_items = [
+        (doc.oss_bucket, doc.oss_key)
+        for doc in documents
+        if doc.oss_key and str(doc.oss_key).strip()
+    ]
+    cos_deleted_count = 0
+    if cos_items:
+        if not settings.cos_enabled:
+            raise AppError(
+                "Dataset has COS originals but COS_ENABLED=false; "
+                "enable COS to delete object storage files.",
+                code="cos_disabled",
+                status_code=503,
+                details={"pending_keys": len(cos_items)},
+            )
+        cos_deleted_count = await asyncio.to_thread(
+            cos_delete_objects,
+            items=cos_items,
+            settings=settings,
+        )
+
+    weaviate_deleted = await asyncio.to_thread(delete_weaviate_collection, name)
+
+    if document_count == 0 and not weaviate_deleted and cos_deleted_count == 0:
+        raise AppError(
+            f"Dataset / collection '{name}' not found in database or Weaviate",
+            code="collection_not_found",
+            status_code=404,
+        )
+
+    if document_count:
+        await session.execute(delete(Document).where(Document.collection == name))
+        await session.flush()
+
+    logger.info(
+        "dataset_deleted collection={} documents={} chunks={} weaviate={} cos={}",
+        name,
+        document_count,
+        chunk_count,
+        weaviate_deleted,
+        cos_deleted_count,
+    )
+    return {
+        "collection": name,
+        "document_count": document_count,
+        "chunk_count": chunk_count,
+        "weaviate_deleted": weaviate_deleted,
+        "cos_deleted_count": cos_deleted_count,
+    }

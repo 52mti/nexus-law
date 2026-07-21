@@ -121,3 +121,57 @@ def upload_bytes(
         etag=etag,
         uploaded_at=datetime.now(UTC),
     )
+
+
+def delete_object(
+    *,
+    key: str,
+    bucket: str | None = None,
+    settings: Settings | None = None,
+) -> None:
+    """Delete one object from Tencent COS. Blocking; call via to_thread."""
+    settings = settings or get_settings()
+    if not settings.cos_enabled:
+        raise AppError(
+            "COS delete is disabled (COS_ENABLED=false).",
+            code="cos_disabled",
+            status_code=400,
+        )
+    object_key = (key or "").strip().lstrip("/")
+    if not object_key:
+        raise AppError("COS object key is empty", code="cos_key_required", status_code=422)
+
+    client = _build_client(settings)
+    target_bucket = (bucket or settings.cos_bucket).strip()
+    try:
+        client.delete_object(Bucket=target_bucket, Key=object_key)
+    except AppError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("cos_delete_failed key={} error={}", object_key, type(exc).__name__)
+        raise AppError(
+            f"Failed to delete COS object '{object_key}'",
+            code="cos_delete_failed",
+            status_code=502,
+            details={"error": str(exc), "key": object_key},
+        ) from exc
+    logger.info("cos_delete_ok bucket={} key={}", target_bucket, object_key)
+
+
+def delete_objects(
+    *,
+    items: list[tuple[str | None, str]],
+    settings: Settings | None = None,
+) -> int:
+    """Delete many COS objects. items are (bucket|None, key). Returns deleted count.
+
+    Raises on the first failure so callers can abort before dropping PG rows.
+    """
+    settings = settings or get_settings()
+    deleted = 0
+    for bucket, key in items:
+        if not (key or "").strip():
+            continue
+        delete_object(key=key, bucket=bucket, settings=settings)
+        deleted += 1
+    return deleted

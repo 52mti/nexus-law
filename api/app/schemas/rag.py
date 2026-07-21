@@ -88,3 +88,33 @@ class DocumentPublishResponse(BaseModel):
     data: DocumentPublishData
     error: None = None
     request_id: str | None = None
+
+
+class CollectionDeleteData(BaseModel):
+    collection: str
+    document_count: int
+    chunk_count: int
+    weaviate_deleted: bool
+    cos_deleted_count: int = 0
+
+
+class CollectionDeleteResponse(BaseModel):
+    success: bool = True
+    data: CollectionDeleteData
+    error: None = None
+    request_id: str | None = None
+
+
+class DocumentDeleteData(BaseModel):
+    document_id: str
+    collection: str
+    chunk_count: int
+    weaviate_deleted_count: int
+    cos_deleted_count: int = 0
+
+
+class DocumentDeleteResponse(BaseModel):
+    success: bool = True
+    data: DocumentDeleteData
+    error: None = None
+    request_id: str | None = None

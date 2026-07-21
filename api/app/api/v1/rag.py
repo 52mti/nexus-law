@@ -12,6 +12,10 @@ from app.schemas.rag import (
     ChunkListResponse,
     ChunkReplaceRequest,
     ChunkReplaceResponse,
+    CollectionDeleteData,
+    CollectionDeleteResponse,
+    DocumentDeleteData,
+    DocumentDeleteResponse,
     DocumentDetailData,
     DocumentDetailResponse,
     DocumentPublishData,
@@ -176,6 +180,36 @@ async def publish_document(
             chunk_count=document.chunk_count,
             collection=document.collection,
         ),
+        request_id=_request_id(request),
+    )
+
+
+@router.delete("/documents/{document_id}", response_model=DocumentDeleteResponse)
+async def delete_document(
+    document_id: str,
+    request: Request,
+    _principal: Principal = Depends(require_principal),
+    session: AsyncSession = Depends(get_db_session),
+) -> DocumentDeleteResponse:
+    """Delete one document: COS original + Weaviate vectors + PG rows/chunks."""
+    result = await document_service.delete_document_by_id(session, document_id)
+    return DocumentDeleteResponse(
+        data=DocumentDeleteData.model_validate(result),
+        request_id=_request_id(request),
+    )
+
+
+@router.delete("/collections/{collection}", response_model=CollectionDeleteResponse)
+async def delete_collection(
+    collection: str,
+    request: Request,
+    _principal: Principal = Depends(require_principal),
+    session: AsyncSession = Depends(get_db_session),
+) -> CollectionDeleteResponse:
+    """Delete a dataset: PG documents + chunks (cascade) and Weaviate vectors."""
+    result = await document_service.delete_collection_dataset(session, collection)
+    return CollectionDeleteResponse(
+        data=CollectionDeleteData.model_validate(result),
         request_id=_request_id(request),
     )
 

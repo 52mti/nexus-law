@@ -155,6 +155,12 @@ curl -X PUT http://127.0.0.1:8000/api/v1/rag/documents/{id}/chunks \
 
 # 4) Confirm: Embedding + Weaviate write
 curl -X POST http://127.0.0.1:8000/api/v1/rag/documents/{id}/publish
+
+# 5) Delete one document (COS + Weaviate vectors by document_id + PG chunks)
+curl -X DELETE http://127.0.0.1:8000/api/v1/rag/documents/{id}
+
+# 6) Delete a dataset (COS originals + PG docs/chunks + Weaviate collection)
+curl -X DELETE http://127.0.0.1:8000/api/v1/rag/collections/LaborContracts
 ```
 
 Ask the agent about the **published** content:

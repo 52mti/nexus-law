@@ -212,6 +212,60 @@ async def test_publish_document_schedules_task_not_sync_embed() -> None:
 
 
 @pytest.mark.asyncio
+async def test_delete_collection_endpoint_mocked() -> None:
+    transport = ASGITransport(app=app)
+    with patch(
+        "app.api.v1.rag.document_service.delete_collection_dataset",
+        new=AsyncMock(
+            return_value={
+                "collection": "LaborContracts",
+                "document_count": 2,
+                "chunk_count": 10,
+                "weaviate_deleted": True,
+                "cos_deleted_count": 2,
+            }
+        ),
+    ) as delete_ds:
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.delete("/api/v1/rag/collections/LaborContracts")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["collection"] == "LaborContracts"
+    assert body["data"]["document_count"] == 2
+    assert body["data"]["chunk_count"] == 10
+    assert body["data"]["weaviate_deleted"] is True
+    assert body["data"]["cos_deleted_count"] == 2
+    delete_ds.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_delete_document_endpoint_mocked() -> None:
+    transport = ASGITransport(app=app)
+    with patch(
+        "app.api.v1.rag.document_service.delete_document_by_id",
+        new=AsyncMock(
+            return_value={
+                "document_id": "d1",
+                "collection": "LaborContracts",
+                "chunk_count": 3,
+                "weaviate_deleted_count": 3,
+                "cos_deleted_count": 1,
+            }
+        ),
+    ) as delete_doc:
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.delete("/api/v1/rag/documents/d1")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["data"]["document_id"] == "d1"
+    assert body["data"]["chunk_count"] == 3
+    assert body["data"]["weaviate_deleted_count"] == 3
+    assert body["data"]["cos_deleted_count"] == 1
+    delete_doc.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_supported_types() -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -298,3 +352,24 @@ def test_cos_public_url_and_upload_mocked() -> None:
     assert result.bucket == "demo-125000"
     assert result.url.startswith("https://demo-125000.cos.ap-guangzhou.myqcloud.com/")
     assert "d1/" in result.key
+
+
+def test_cos_delete_object_mocked() -> None:
+    from app.core.config import Settings
+    from app.services.cos_storage import delete_objects
+
+    settings = Settings(
+        cos_enabled=True,
+        cos_secret_id="sid",
+        cos_secret_key="skey",
+        cos_region="ap-guangzhou",
+        cos_bucket="demo-125000",
+    )
+    fake_client = MagicMock()
+    with patch("app.services.cos_storage._build_client", return_value=fake_client):
+        deleted = delete_objects(
+            items=[(None, "documents/d1/a.pdf"), ("demo-125000", "documents/d2/b.pdf")],
+            settings=settings,
+        )
+    assert deleted == 2
+    assert fake_client.delete_object.call_count == 2
