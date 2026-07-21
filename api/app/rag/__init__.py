@@ -1,1 +1,1 @@
-"""RAG pipeline — Stage 6."""
+"""RAG pipeline — Weaviate-backed ingest / retrieve."""

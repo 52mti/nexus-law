@@ -10,7 +10,7 @@ from langgraph.prebuilt import ToolNode
 
 from app.agents.prompts.system import SYSTEM_PROMPT
 from app.agents.state import AgentState
-from app.agents.tools.basic import AGENT_TOOLS
+from app.agents.tools import get_agent_tools
 from app.core.config import Settings, get_settings
 from app.core.exceptions import AppError
 
@@ -30,8 +30,9 @@ def _should_continue(state: AgentState) -> Literal["tools", "__end__"]:
 
 
 def build_agent_graph(model: BaseChatModel, *, settings: Settings | None = None):
+    """Compile the ReAct agent graph with basic + RAG tools."""
     settings = settings or get_settings()
-    tools = list(AGENT_TOOLS)
+    tools = list(get_agent_tools())
     model_with_tools = model.bind_tools(tools)
     tool_node = ToolNode(tools)
 

@@ -15,6 +15,7 @@ from app.agents.prompts.system import SYSTEM_PROMPT
 from app.core.config import Settings, get_settings
 from app.core.exceptions import AppError
 from app.db.models import Conversation, Message, MessageRole
+from app.rag.retriever import extract_sources_from_tool_result
 from app.services import conversation as conversation_service
 from app.services.llm import LangChainLLMClient, _map_llm_error, get_llm_client
 
@@ -27,6 +28,36 @@ class AgentRunResult:
     latency_ms: float
     tool_trace: list[dict[str, Any]] = field(default_factory=list)
     iterations: int = 0
+    sources: list[dict[str, Any]] = field(default_factory=list)
+
+
+def collect_rag_sources(
+    *,
+    messages: list | None = None,
+    tool_trace: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    sources: list[dict[str, Any]] = []
+    seen: set[tuple[Any, Any, Any]] = set()
+
+    def _extend(items: list[dict[str, Any]]) -> None:
+        for item in items:
+            key = (item.get("source"), item.get("document_id"), item.get("chunk_index"))
+            if key in seen:
+                continue
+            seen.add(key)
+            sources.append(item)
+
+    if tool_trace:
+        for item in tool_trace:
+            if item.get("name") == "search_documents":
+                _extend(extract_sources_from_tool_result(item.get("result")))
+    if messages:
+        for message in messages:
+            if getattr(message, "type", None) == "tool" and getattr(message, "name", None) == (
+                "search_documents"
+            ):
+                _extend(extract_sources_from_tool_result(getattr(message, "content", None)))
+    return sources
 
 
 @dataclass(slots=True)
@@ -142,7 +173,9 @@ class AgentService:
         messages = list(result.get("messages") or [])
         answer = final_assistant_text(messages)
         iterations = int(result.get("iteration") or 0)
-        tool_trace = extract_tool_trace(messages) if debug else []
+        full_trace = extract_tool_trace(messages)
+        tool_trace = full_trace if debug else []
+        sources = collect_rag_sources(messages=messages, tool_trace=full_trace)
 
         await self._persist_turn(
             session,
@@ -152,11 +185,11 @@ class AgentService:
         )
 
         logger.info(
-            "agent_run conversation_id={} latency_ms={:.2f} iterations={} tools={}",
+            "agent_run conversation_id={} latency_ms={:.2f} iterations={} sources={}",
             conversation.id,
             latency_ms,
             iterations,
-            len(tool_trace) if debug else "hidden",
+            len(sources),
         )
 
         return AgentRunResult(
@@ -166,6 +199,7 @@ class AgentService:
             latency_ms=latency_ms,
             tool_trace=tool_trace,
             iterations=iterations,
+            sources=sources,
         )
 
     async def stream(
@@ -302,10 +336,13 @@ class AgentService:
             return
 
         latency_ms = (time.perf_counter() - started) * 1000
+        sources: list[dict[str, Any]] = []
         try:
             if latest_messages:
                 answer = final_assistant_text(latest_messages)
-                tool_trace = extract_tool_trace(latest_messages) if debug else tool_trace
+                full_trace = extract_tool_trace(latest_messages)
+                tool_trace = full_trace if debug else tool_trace
+                sources = collect_rag_sources(messages=latest_messages, tool_trace=full_trace)
             else:
                 answer = "".join(answer_parts).strip()
                 if not answer:
@@ -314,6 +351,7 @@ class AgentService:
                         code="agent_empty_response",
                         status_code=502,
                     )
+                sources = collect_rag_sources(tool_trace=tool_trace)
 
             await self._persist_turn(
                 session,
@@ -334,10 +372,11 @@ class AgentService:
             return
 
         logger.info(
-            "agent_stream_done conversation_id={} latency_ms={:.2f} iterations={}",
+            "agent_stream_done conversation_id={} latency_ms={:.2f} iterations={} sources={}",
             conversation.id,
             latency_ms,
             iterations,
+            len(sources),
         )
         yield AgentStreamEvent(
             event="final",
@@ -348,6 +387,7 @@ class AgentService:
                 "latency_ms": latency_ms,
                 "iterations": iterations,
                 "tool_trace": tool_trace if debug else None,
+                "sources": sources,
             },
         )
 

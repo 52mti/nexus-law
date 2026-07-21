@@ -6,7 +6,7 @@ Python 3.11+ FastAPI service for the LangChain/LangGraph legal agent. Lives unde
 
 - Python 3.11+
 - [uv](https://github.com/astral-sh/uv) (recommended)
-- Docker (optional, for PostgreSQL / Redis)
+- Docker (PostgreSQL / Redis / Weaviate)
 
 ## Install
 
@@ -26,14 +26,16 @@ uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 - Docs: http://127.0.0.1:8000/docs
 - Health: http://127.0.0.1:8000/api/v1/health
 
-## Infrastructure (Stage 1+)
-
-PostgreSQL and Redis are reserved for later stages. Start them locally with:
+## Infrastructure
 
 ```bash
 cd api
 docker compose up -d
 ```
+
+Weaviate (dev & prod):
+- REST: `http://localhost:8080`
+- gRPC: `localhost:50051`
 
 ## Database migrations
 
@@ -54,8 +56,8 @@ uv run alembic upgrade head
 | 2 Data layer | Done |
 | 3 LLM chat | Done |
 | 4 LangGraph agent | Done |
-| 5 Streaming | Current |
-| 6 RAG (optional) | Pending |
+| 5 Streaming | Done |
+| 6 RAG (Weaviate) | Current |
 | 7 Hardening | Pending |
 
 ## Health check example
@@ -101,8 +103,9 @@ curl -X POST http://127.0.0.1:8000/api/v1/agents/run \
 
 - Pass `conversation_id` to continue an existing session.
 - `debug=true` returns `tool_trace` (tool name / args / result).
-- Built-in tools: `get_current_time`, `calculator`.
+- Built-in tools: `get_current_time`, `calculator`, `search_documents`.
 - Loop guard: `AGENT_MAX_ITERATIONS` (default 6).
+- Responses include `sources` when RAG retrieval returned matches.
 
 ## Agent stream (Stage 5)
 
@@ -121,3 +124,33 @@ Event types:
 - `error` — failure payload
 
 Client disconnect cancels the downstream LangGraph stream (logged as `sse_client_disconnected` / `agent_stream_cancelled`).
+
+## RAG / Weaviate (Stage 6)
+
+Start Weaviate:
+
+```bash
+cd api
+docker compose up -d weaviate
+```
+
+Upload a document (`.txt` / `.md` / `.pdf`):
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/rag/documents \
+  -F "file=@./sample.md"
+```
+
+Ask the agent about the uploaded content:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/agents/run \
+  -H "Content-Type: application/json" \
+  -d "{\"input\":\"According to the uploaded document, what is the notice period?\",\"debug\":true}"
+```
+
+Vector store is **Weaviate** for both development and production (`WEAVIATE_HOST` / `WEAVIATE_HTTP_PORT=8080` / `WEAVIATE_GRPC_PORT=50051`).
+
+If your chat proxy does not expose `/embeddings`, set `EMBEDDING_BASE_URL` / `EMBEDDING_API_KEY` to an OpenAI-compatible embeddings endpoint.
+
+If host ports `8080`/`50051` are already used by another Weaviate container, reuse that instance — compose service `weaviate` is optional when an equivalent local Weaviate is running.

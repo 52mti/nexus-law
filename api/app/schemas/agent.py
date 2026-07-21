@@ -18,6 +18,13 @@ class ToolTraceItem(BaseModel):
     result: Any = None
 
 
+class SourceCitation(BaseModel):
+    source: str | None = None
+    document_id: str | None = None
+    chunk_index: int | None = None
+    snippet: str | None = None
+
+
 class AgentRunData(BaseModel):
     conversation_id: str
     answer: str
@@ -25,6 +32,7 @@ class AgentRunData(BaseModel):
     latency_ms: float
     iterations: int = 0
     tool_trace: list[ToolTraceItem] | None = None
+    sources: list[SourceCitation] = Field(default_factory=list)
 
 
 class AgentRunResponse(BaseModel):

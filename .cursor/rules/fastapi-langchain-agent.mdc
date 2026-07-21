@@ -15,7 +15,7 @@ alwaysApply: true
 - LangChain + LangGraph（Agent 编排、状态机、工具调用）
 - LLM：环境变量切换（默认 OpenAI 兼容 API；可扩展 Anthropic / Ollama）
 - SQLAlchemy 2.x 异步 + Alembic、PostgreSQL、Redis（可选）
-- 向量库：Chroma（开发）/ pgvector（生产可选）
+- 向量库：Weaviate（开发与生产一致；REST `:8080` / gRPC `:50051`）
 - 依赖：uv 或 poetry；配置：pydantic-settings；HTTP：httpx
 - 质量：pytest + pytest-asyncio、ruff、mypy；日志：loguru 或结构化 logging
 
@@ -59,7 +59,7 @@ api/
 | 3 | LLM 单轮聊天 `POST /chat/completions`；超时重试错误映射 | Tool/多 Agent/RAG |
 | 4 | LangGraph Agent MVP（≥2 tools）；`POST /agents/run`；消息持久化 | 多 Agent/复杂审批 |
 | 5 | SSE 流式：token/tool_start/tool_end/final/error；断开取消 | — |
-| 6 | RAG（可选）：上传、切分、embedding、retriever tool、引用来源 | — |
+| 6 | RAG：Weaviate 上传/切分/embedding、retriever tool、引用来源 | — |
 | 7 | 鉴权、限流、工具白名单、结构化日志、测试硬化 | — |
 
 ## MVP 接口约定
@@ -81,4 +81,4 @@ api/
 
 ## 当前阶段
 
-**Stage 5 已完成。** 等待确认后进入 Stage 6（可选 RAG）。未获「确认，进入 Stage 6」前，不要实现 RAG / 多 Agent。
+**Stage 6 已完成（Weaviate）。** 等待确认后进入 Stage 7（鉴权/限流/硬化）。未获「确认，进入 Stage 7」前，不要做鉴权硬化大改。

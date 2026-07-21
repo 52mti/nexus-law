@@ -7,7 +7,13 @@ from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db_session
-from app.schemas.agent import AgentRunData, AgentRunRequest, AgentRunResponse, ToolTraceItem
+from app.schemas.agent import (
+    AgentRunData,
+    AgentRunRequest,
+    AgentRunResponse,
+    SourceCitation,
+    ToolTraceItem,
+)
 from app.services.agent import AgentService, get_agent_service
 from app.utils.sse import format_sse
 
@@ -41,6 +47,7 @@ async def run_agent(
                 if payload.debug
                 else None
             ),
+            sources=[SourceCitation.model_validate(item) for item in result.sources],
         ),
         request_id=getattr(request.state, "request_id", None),
     )
