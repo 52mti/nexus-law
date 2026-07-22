@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { App, Button, Form, Input, Select } from 'antd'
-import { CopyOutlined, DownloadOutlined, BookOutlined } from '@ant-design/icons'
+import { CopyOutlined, DownloadOutlined, BookOutlined, FileWordOutlined } from '@ant-design/icons'
 import { PortalSidebar } from '@/components/layout/PortalSidebar'
 const { TextArea } = Input
 import { useParams } from 'react-router-dom'
@@ -10,6 +10,7 @@ import remarkGfm from 'remark-gfm'
 import { useTranslation } from 'react-i18next'
 import { searchRegulationApi, fetchDocType } from '@/api/regulation'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
+import { exportToWord } from '@/utils/export'
 
 export const LegalSearchPage = () => {
   const { t, i18n } = useTranslation()
@@ -290,15 +291,24 @@ export const LegalSearchPage = () => {
             </div>
 
             <div className="flex gap-4 m-auto">
-              <Button type="primary" icon={<CopyOutlined />} onClick={handleCopy}>
+              <Button type="primary" icon={<CopyOutlined />} onClick={handleCopy} disabled={loading}>
                 {t('nbTIU5hk7boHfh8nJm9jT')}{' '}
               </Button>
               <Button
                 className="bg-green-600 text-white hover:bg-green-500 border-none"
                 icon={<DownloadOutlined />}
                 onClick={handleDownloadPDF}
+                disabled={loading}
               >
                 {t('uCa1Y6ndA6Wjk80c2DdMt')}{' '}
+              </Button>
+              <Button
+                className="bg-blue-600 text-white hover:bg-blue-500 border-none"
+                icon={<FileWordOutlined />}
+                onClick={() => exportToWord(paperRef.current, docData?.title || t('ec_U3Y_ZsQIac5TRSBEtk'))}
+                disabled={loading}
+              >
+                {t('download_word')}{' '}
               </Button>
             </div>
           </div>

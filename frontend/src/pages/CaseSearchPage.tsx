@@ -11,6 +11,7 @@ import {
   DownloadOutlined,
   SearchOutlined,
   RightOutlined,
+  FileWordOutlined,
 } from '@ant-design/icons'
 import { PortalSidebar } from '@/components/layout/PortalSidebar'
 import { SidebarSkeleton } from '@/components/Skeleton/SidebarSkeleton'
@@ -50,6 +51,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useTranslation } from 'react-i18next'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
+import { exportToWord } from '@/utils/export'
 
 // 🚀 1. 引入我们刚刚定义好的 API
 import { searchCaseApi } from '@/api/case-search'
@@ -516,15 +518,24 @@ export const CaseSearchPage = () => {
             </div>
 
             <div className="flex gap-4 m-auto">
-              <Button type="primary" icon={<CopyOutlined />} onClick={handleCopy}>
+              <Button type="primary" icon={<CopyOutlined />} onClick={handleCopy} disabled={loading}>
                 {t('mv6JrcXr2_kqMLT80hI_z')}{' '}
               </Button>
               <Button
                 className="bg-green-600 text-white hover:bg-green-500 border-none"
                 icon={<DownloadOutlined />}
                 onClick={handleDownloadPDF}
+                disabled={loading}
               >
                 {t('uCa1Y6ndA6Wjk80c2DdMt')}{' '}
+              </Button>
+              <Button
+                className="bg-blue-600 text-white hover:bg-blue-500 border-none"
+                icon={<FileWordOutlined />}
+                onClick={() => exportToWord(paperRef.current, docData?.title || t('e78sbe7XyxOaSoKWUhjx7'))}
+                disabled={loading}
+              >
+                {t('download_word')}{' '}
               </Button>
             </div>
           </div>

@@ -55,7 +55,7 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
 
       setLoading(true);
       try {
-        const res = await pointPlan({ current: 1, size: 50 });
+        const res = await pointPlan();
         if (res.successful && res.data?.records) {
           const sortedRecords = res.data.records.sort(
             (a: any, b: any) => a.price - b.price,
@@ -122,11 +122,12 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
         <div className="flex items-center gap-3">
           <Avatar
             size={32}
-            icon={<UserOutlined />}
+            src={userInfo?.avatar}
+            icon={!userInfo?.avatar && <UserOutlined />}
             className="bg-white text-gray-500"
           />
           <span className="text-base font-medium">
-            {t("RMSNWy1Vp2xPdEv-A2nGv")}
+            {userInfo?.nickName || userInfo?.username || 'user'}
           </span>
         </div>
         <div className="flex items-center gap-4">
@@ -164,10 +165,9 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
                   }}
                   className={`
                     flex flex-col items-center justify-center p-4 rounded-lg cursor-pointer border transition-all
-                    ${
-                      isSelected
-                        ? "border-blue-500 bg-blue-50/50 text-blue-500"
-                        : "border-gray-200 hover:border-blue-300 text-gray-800"
+                    ${isSelected
+                      ? "border-blue-500 bg-blue-50/50 text-blue-500"
+                      : "border-gray-200 hover:border-blue-300 text-gray-800"
                     }
                   `}
                 >
@@ -199,10 +199,10 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
           <h3 className="text-base font-medium text-gray-800 w-full mb-4">
             {t("bilZpkT35pe7rc_kPqYzh")}
           </h3>
-          <QRCodeScanner 
-            checkoutUrl={checkoutUrl} 
-            loading={qrLoading} 
-            amount={packages.find(p => p.id === selectedId)?.price} 
+          <QRCodeScanner
+            checkoutUrl={checkoutUrl}
+            loading={qrLoading}
+            amount={packages.find(p => p.id === selectedId)?.price}
           />
 
           <div className="text-[12px] text-gray-400 text-center mt-3">

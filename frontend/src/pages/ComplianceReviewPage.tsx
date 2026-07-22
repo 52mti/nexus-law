@@ -5,6 +5,7 @@ import {
   DownloadOutlined,
   BulbOutlined,
   CloudUploadOutlined,
+  FileWordOutlined,
 } from '@ant-design/icons'
 import { PortalSidebar } from '@/components/layout/PortalSidebar'
 import { useParams, useNavigate } from 'react-router-dom'
@@ -14,6 +15,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useTranslation } from 'react-i18next'
 import { upload } from '@/api/file'
+import { exportToWord } from '@/utils/export'
 import {
   analyzeComplianceApi,
   getComplianceDetail,
@@ -37,14 +39,12 @@ const ColorRadio: React.FC<{
         <div
           key={opt.value}
           onClick={() => onChange?.(opt.value)}
-          className={`flex items-center gap-2.5 cursor-pointer transition-all ${
-            isSelected ? 'text-gray-800' : 'text-gray-400 hover:text-gray-600'
-          }`}
+          className={`flex items-center gap-2.5 cursor-pointer transition-all ${isSelected ? 'text-gray-800' : 'text-gray-400 hover:text-gray-600'
+            }`}
         >
           <div
-            className={`w-5 h-5 rounded-sm transition-colors ${
-              isSelected ? 'bg-[blue]' : 'bg-gray-500'
-            }`}
+            className={`w-5 h-5 rounded-sm transition-colors ${isSelected ? 'bg-[blue]' : 'bg-gray-500'
+              }`}
           />
           <span className="text-[14px]">{opt.label}</span>
         </div>
@@ -108,18 +108,18 @@ export const ComplianceReviewPage = () => {
           // ⚠️ 这里对 attachments 进行解析，如果是逗号分隔的 URL
           contractFile: historyData.attachments
             ? historyData.attachments.split(',').map((url: string, index: number) => ({
-                uid: `-${index}`,
-                name: url.split('/').pop() || 'file',
-                status: 'done',
-                url: url,
-              }))
+              uid: `-${index}`,
+              name: url.split('/').pop() || 'file',
+              status: 'done',
+              url: url,
+            }))
             : [],
         })
 
         // 🚀 2. 还原审核结果
         setDocData({
           title: t('atmo0oFvyytF9uwRncAV8'),
-          markdownContent: historyData.content || '',
+          markdownContent: historyData.response || '',
         })
       } else {
         message.error(res?.message || t('7gEeqjRG-8JBLFMo_Ol_G'))
@@ -148,13 +148,24 @@ export const ComplianceReviewPage = () => {
 
       for (const fileItem of values.contractFile) {
         const actualFile = fileItem.originFileObj || fileItem
+
+        // 过滤 URL 地址，如果是 URL 则不调用 upload 接口上传，直接使用其 URL
+        if (typeof actualFile === 'string' && (actualFile.startsWith('http://') || actualFile.startsWith('https://'))) {
+          uploadedFileUrls.push(actualFile)
+          continue
+        }
+        if (actualFile && typeof actualFile === 'object' && typeof actualFile.url === 'string' && (actualFile.url.startsWith('http://') || actualFile.url.startsWith('https://'))) {
+          uploadedFileUrls.push(actualFile.url)
+          continue
+        }
+
         const uploadRes = (await upload(actualFile, 'file')) as any
 
         if (uploadRes.code === 200 && uploadRes.data) {
           uploadedFileUrls.push(uploadRes.data.url!)
         } else {
           message.destroy('uploading')
-          message.error(t('3gbfChGAla4chIHCIG9v3', { fileName: actualFile.name }))
+          message.error(t('3gbfChGAla4chIHCIG9v3', { fileName: actualFile.name || 'file' }))
           setLoading(false)
           return
         }
@@ -368,15 +379,24 @@ export const ComplianceReviewPage = () => {
             </div>
 
             <div className="flex gap-4 m-auto">
-              <Button type="primary" icon={<CopyOutlined />} onClick={handleCopy}>
+              <Button type="primary" icon={<CopyOutlined />} onClick={handleCopy} disabled={loading}>
                 {t('mv6JrcXr2_kqMLT80hI_z')}{' '}
               </Button>
               <Button
                 className="bg-green-600 text-white hover:bg-green-500 border-none"
                 icon={<DownloadOutlined />}
                 onClick={handleDownloadPDF}
+                disabled={loading}
               >
                 {t('uCa1Y6ndA6Wjk80c2DdMt')}{' '}
+              </Button>
+              <Button
+                className="bg-blue-600 text-white hover:bg-blue-500 border-none"
+                icon={<FileWordOutlined />}
+                onClick={() => exportToWord(paperRef.current, docData?.title || t('U2WpvftSMaE36GNr_QdGY'))}
+                disabled={loading}
+              >
+                {t('download_word')}{' '}
               </Button>
             </div>
           </div>

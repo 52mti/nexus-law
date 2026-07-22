@@ -32,6 +32,13 @@ request.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+
+    const currentLang = i18n.language || 'en-US'
+    config.headers = {
+      ...config.headers,
+      lang: currentLang,
+    }
+
     return config
   },
   (error) => {

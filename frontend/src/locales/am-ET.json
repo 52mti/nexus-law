@@ -8,10 +8,8 @@
   "error.network_exception": "የአውታረ መረብ ግንኙነት ችግር፣ እባክዎ የጀርባ አገልግሎቱ እየሰራ መሆኑን ያረጋግጡ",
   "vip.search_unlimited": "የአንቀጽ ፍለጋ፡ በቀን ያልተገደበ መሰረታዊ ፍለጋ",
   "vip.search_limited": "የአንቀጽ ፍለጋ፡ በቀን እስከ {{count}} ጊዜ መሰረታዊ ፍለጋ",
-  
   "vip.case_unlimited": "የጉዳይ ፍለጋ ማዛመድ፡ በቀን ያልተገደበ ፍለጋ",
   "vip.case_limited": "የጉዳይ ፍለጋ ማዛመድ፡ በቀን እስከ {{count}} ጊዜ ፍለጋ",
-  
   "vip.doc_unlimited": "የህግ ሰነድ ፈጠራ፡ በቀን ያልተገደበ የማስላት አቅም",
   "vip.doc_limited": "የህግ ሰነድ ፈጠራ፡ በቀን እስከ {{count}} ጊዜ የማስላት አቅም",
   "vip.consult_unlimited": "ስማርት የህግ ምክር፡ በቀን ያልተገደበ የጽሑፍ ምክክሮች",
@@ -176,7 +174,6 @@
   "Q3lVWqRdv4O4B59Xn48OR": "ይመዝገቡ",
   "Qr856kk16HrEEhMLKfuvB": "ይህ ከታሪክ መዝገቦች የተመለሰ የሙከራ ውሂብ ነው...",
   "RCciBqTcY_3trKWLFjl_x": "ውጣ",
-  "RMSNWy1Vp2xPdEv-A2nGv": "Song Gong",
   "SMBWM52NMOTifNaIEW_uN": "የይለፍ ቃል በተሳካ ሁኔታ ተቀይሯል፣ እባክዎ እንደገና ይግቡ!",
   "SN0eJqECHeRaU7DfLdk1l": "ብር / ዓመት",
   "SP2NoprhtpN_WtZs5hmCi": "ፕሪሚየም አባል",
@@ -407,5 +404,6 @@
   "withdraw": "Withdraw",
   "rebate_amount": "Rebate",
   "withdrawable_amount": "Withdrawable Amount",
-  "no_rebate_records": "No rebate records yet"
+  "no_rebate_records": "No rebate records yet",
+  "download_word": "እንደ Word አውርድ"
 }

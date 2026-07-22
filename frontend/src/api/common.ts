@@ -40,3 +40,14 @@ export const markReaded = (ids: string[]) => {
 export const settingList = () => {
   return request.post('/settings/pageList', {})
 }
+
+// 数据字典
+export const dictList = (dictType: 'SAJE' | 'COUTER_LEVEL') => {
+  return request.post('/dict/items', {
+      current: 1,
+      offset: 0,
+      parentCode: dictType,
+      size: 999
+    }
+  )
+}

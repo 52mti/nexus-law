@@ -4,6 +4,7 @@ import { PhoneLoginForm } from "./PhoneLoginForm";
 import { RegisterForm } from "./RegisterForm";
 import { ResetPwdForm } from "./ResetPwdForm";
 import { useTranslation } from "react-i18next";
+import { AppHeader } from "@/components/layout/AppHeader";
 
 export const AuthPage: React.FC = () => {
   const { t } = useTranslation();
@@ -19,24 +20,32 @@ export const AuthPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f6f9] flex flex-col items-center justify-center relative pb-20">
-      <div className="bg-white w-110 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-10 transition-all duration-300 pb-20">
-        {/* 共享的 Logo 区域 */}
-        <div className="flex items-center justify-center mb-10">
-          <div className="w-8 h-8 bg-[#0e1118] rounded-md flex items-center justify-center mr-3">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M5 4H9V20H5V4Z" fill="#4f6bff" />
-              <path d="M15 4H19V20H15V4Z" fill="#4f6bff" />
-              <path d="M9 11H15V14H9V11Z" fill="#4f6bff" />
-            </svg>
-          </div>
-          <span className="text-[22px] font-bold text-gray-800">
-            {t("htQgdqSMQ9Gox7Sl0tdDM")}{" "}
-          </span>
-        </div>
+    <div className="min-h-screen bg-[#f5f6f9] flex flex-col relative pb-20">
+      {/* 顶部导航栏，预留高度，仅包含语言切换组件 */}
+      <div className="absolute top-0 left-0 right-0 h-16 z-20">
+        <AppHeader onlyLanguage />
+      </div>
 
-        {/* 2. 动态渲染对应的表单模块 */}
-        {FormMap[currentMode]}
+      {/* 主体卡片区域居中 */}
+      <div className="flex-1 flex flex-col items-center justify-center pt-16">
+        <div className="bg-white w-110 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-10 transition-all duration-300 pb-20">
+          {/* 共享的 Logo 区域 */}
+          <div className="flex items-center justify-center mb-10">
+            <div className="w-8 h-8 bg-[#0e1118] rounded-md flex items-center justify-center mr-3">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M5 4H9V20H5V4Z" fill="#4f6bff" />
+                <path d="M15 4H19V20H15V4Z" fill="#4f6bff" />
+                <path d="M9 11H15V14H9V11Z" fill="#4f6bff" />
+              </svg>
+            </div>
+            <span className="text-[22px] font-bold text-gray-800">
+              {t("htQgdqSMQ9Gox7Sl0tdDM")}{" "}
+            </span>
+          </div>
+
+          {/* 2. 动态渲染对应的表单模块 */}
+          {FormMap[currentMode]}
+        </div>
       </div>
       {/* 🚀 新增：底部版权信息小字 */}
       <div className="absolute bottom-8 text-[#b1b3b8] text-[13px] tracking-wide text-center">

@@ -12,7 +12,7 @@ import {
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getConsultationHistory } from '@/api/chat'
+import { saveOrUpdateConsultation, saveOrUpdateConsultationSession, getConsultationSessionHistory } from '@/api/chat'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -52,27 +52,25 @@ export const AIChatPage = () => {
   // 如果路径上有 sessionId，说明是已有对话，不展示首次居中 UI
   const isEmpty = messages.length === 0 && !sessionId
 
-  // 加载历史记录
   const loadChatHistory = useCallback(
     async (sessionId: string) => {
       setLoadingHistory(true)
       try {
-        const res = await getConsultationHistory(sessionId)
-        const records = res?.data || []
+        const res = await getConsultationSessionHistory(sessionId)
+        const records = res?.data?.records || []
 
-        // 转换 Dify 格式为前端展示格式
-        const historyMessages = records.flatMap((item: any) => [
-          {
-            id: item.id + '_user',
-            role: 'user',
-            content: item.query,
-          },
-          {
-            id: item.id + '_ai',
-            role: 'ai',
-            content: item.answer,
-          },
-        ])
+        // 转换业务格式为前端展示格式，并按时间/顺序升序排列
+        const sortedRecords = [...records].sort((a: any, b: any) => {
+          const timeA = new Date(a.createTime || a.createdAt || 0).getTime()
+          const timeB = new Date(b.createTime || b.createdAt || 0).getTime()
+          return timeA - timeB
+        })
+
+        const historyMessages = sortedRecords.map((item: any) => ({
+          id: item.id || Date.now().toString() + Math.random(),
+          role: item.type === 0 ? 'user' : 'ai',
+          content: item.content || '',
+        }))
 
         setMessages(historyMessages)
       } catch (error) {
@@ -141,6 +139,39 @@ export const AIChatPage = () => {
     try {
       let currentSessionId = activeSessionIdRef.current
       const token = localStorage.getItem('token')
+      let isUserMsgSaved = false
+
+      // 如果是全新的对话，还没有 sessionId，先调用 /consultation/saveOrUpdate 获取会话id
+      if (!currentSessionId) {
+        try {
+          const sessionRes = await saveOrUpdateConsultation({})
+          const newSessionId = sessionRes?.data?.id || sessionRes?.data || sessionRes?.id
+          if (newSessionId) {
+            currentSessionId = newSessionId
+            activeSessionIdRef.current = newSessionId
+            isNavigatingRef.current = true
+            navigate(`/chat/${newSessionId}`, { replace: true })
+          }
+        } catch (sessionErr) {
+          console.error('获取会话ID失败:', sessionErr)
+        }
+      }
+
+      // 如果有 sessionId，直接提前保存用户的提问
+      if (currentSessionId) {
+        saveOrUpdateConsultationSession({
+          consultationId: currentSessionId,
+          content: userText,
+          type: 0, // 问题
+        })
+          .then(() => {
+            isUserMsgSaved = true
+          })
+          .catch((err) => console.error('保存提问失败:', err))
+      }
+
+      let fullContent = ''
+      const difySessionId = currentSessionId ? localStorage.getItem(`dify_session_${currentSessionId}`) : undefined
 
       await fetchEventSource(`${import.meta.env.VITE_API_BASE_URL}/api/chat/stream`, {
         method: 'POST',
@@ -152,17 +183,15 @@ export const AIChatPage = () => {
         },
         body: JSON.stringify({
           prompt: userText,
-          sessionId: currentSessionId,
+          sessionId: difySessionId || undefined,
         }),
 
         onmessage(ev) {
-          // 🚀 接收后端生成的新 sessionId 并回填到 URL
+          // 🚀 接收后端返回的 Dify conversation_id 并与业务会话 ID 关联保存
           if (ev.event === 'session_id') {
-            const newId = ev.data
-            if (!activeSessionIdRef.current) {
-              activeSessionIdRef.current = newId
-              isNavigatingRef.current = true
-              navigate(`/chat/${newId}`, { replace: true })
+            const difyId = ev.data
+            if (currentSessionId && difyId) {
+              localStorage.setItem(`dify_session_${currentSessionId}`, difyId)
             }
             return
           }
@@ -172,6 +201,7 @@ export const AIChatPage = () => {
           if (!data) return
 
           const parsedContent = data.replace(/\\n/g, '\n')
+          fullContent += parsedContent
 
           setMessages((prev) =>
             prev.map((msg) => {
@@ -184,7 +214,14 @@ export const AIChatPage = () => {
         },
 
         onclose() {
-          // 注意：此处不再手动调用保存提问/回答的接口，由 Dify 端处理持久化
+          const finalSessionId = activeSessionIdRef.current
+          if (finalSessionId && fullContent) {
+            saveOrUpdateConsultationSession({
+              consultationId: finalSessionId,
+              content: fullContent,
+              type: 1, // 回答
+            }).catch((err) => console.error('保存回答失败:', err))
+          }
           setIsStreaming(false)
           throw new Error('STOP_RETRY')
         },

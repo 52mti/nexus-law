@@ -68,13 +68,13 @@ export class DifyService {
                     // 🚀 处理 Session ID：如果是新会话且尚未通知前端 ID
                     if (firstChunk && parsed.conversation_id) {
                       this.logger.log(
-                        `[SSE] Detected new conversation ID: ${parsed.conversation_id}`,
+                        `[SSE] Detected Dify conversation ID: ${parsed.conversation_id}`,
                       );
                       subscriber.next({
-                        type: 'session_id', // ⚠️ 这里必须是 type，NestJS 会将其映射为 SSE 的 event 字段
+                        type: 'session_id',
                         data: parsed.conversation_id,
                       });
-                      firstChunk = false; // 标记已处理 ID
+                      firstChunk = false;
                     }
 
                     // 🚀 处理回答内容：只有当 answer 有实际文本时才发送
@@ -339,7 +339,6 @@ export class DifyService {
           timeout: 0,
         })
         .then((response) => {
-          let firstChunk = true;
           let buffer = '';
 
           response.data.on('data', (chunk: Buffer) => {
@@ -356,18 +355,6 @@ export class DifyService {
                 try {
                   const parsed = JSON.parse(dataStr);
                   if (parsed.event === 'message') {
-                    // 🚀 处理 Session ID：如果是新会话且尚未通知前端 ID
-                    if (firstChunk && parsed.conversation_id) {
-                      this.logger.log(
-                        `[SSE] Detected new conversation ID: ${parsed.conversation_id}`,
-                      );
-                      subscriber.next({
-                        type: 'session_id',
-                        data: parsed.conversation_id,
-                      });
-                      firstChunk = false;
-                    }
-
                     // 🚀 处理内容：只有当 answer 有实际文本时才发送
                     if (parsed.answer && parsed.answer.length > 0) {
                       subscriber.next({
