@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import time
+from functools import lru_cache
 from typing import Any
 
 from langchain_core.embeddings import Embeddings
-from langchain_openai import OpenAIEmbeddings
 from loguru import logger
-from openai import APIStatusError, NotFoundError, RateLimitError
 
 from app.core.config import Settings, get_settings
 from app.core.exceptions import AppError
@@ -16,7 +15,7 @@ _BASE_BACKOFF_SECONDS = 1.5
 
 
 class RetryingEmbeddings(Embeddings):
-    """Wrap an Embeddings implementation with exponential backoff on 429."""
+    """Wrap an Embeddings implementation with exponential backoff on transient errors."""
 
     def __init__(
         self,
@@ -55,29 +54,37 @@ class RetryingEmbeddings(Embeddings):
 
 
 def _is_rate_limited(exc: Exception) -> bool:
-    if isinstance(exc, RateLimitError):
+    status = getattr(exc, "status_code", None)
+    if status == 429:
         return True
-    if isinstance(exc, APIStatusError) and exc.status_code == 429:
-        return True
-    status = getattr(getattr(exc, "response", None), "status_code", None)
-    return status == 429
+    response = getattr(exc, "response", None)
+    return getattr(response, "status_code", None) == 429
+
+
+@lru_cache(maxsize=4)
+def _cached_huggingface_embeddings(model_name: str, device: str) -> Embeddings:
+    """Load once per (model, device); BGE-M3 is large and must not reload per request."""
+    from langchain_huggingface import HuggingFaceEmbeddings
+
+    logger.info("loading_hf_embeddings model={} device={}", model_name, device)
+    return HuggingFaceEmbeddings(
+        model_name=model_name,
+        model_kwargs={"device": device},
+        encode_kwargs={"normalize_embeddings": True},
+    )
 
 
 def build_embeddings(settings: Settings | None = None) -> Embeddings:
     settings = settings or get_settings()
-    api_key = settings.resolved_embedding_api_key
-    if not api_key:
+    model = settings.embedding_model.strip()
+    if not model:
         raise AppError(
-            "Embeddings require EMBEDDING_API_KEY or LLM_API_KEY.",
-            code="llm_not_configured",
+            "EMBEDDING_MODEL is required.",
+            code="embedding_not_configured",
             status_code=503,
         )
-    inner = OpenAIEmbeddings(
-        api_key=api_key,
-        base_url=settings.resolved_embedding_base_url,
-        model=settings.embedding_model,
-    )
-    return RetryingEmbeddings(inner)
+    device = settings.embedding_device.strip() or "cpu"
+    return RetryingEmbeddings(_cached_huggingface_embeddings(model, device))
 
 
 def embed_documents_with_retry(
@@ -91,26 +98,12 @@ def embed_documents_with_retry(
 def map_embedding_error(exc: Exception | None) -> AppError:
     if isinstance(exc, AppError):
         return exc
-    if isinstance(exc, NotFoundError):
-        return AppError(
-            "Embedding endpoint not found. Set EMBEDDING_BASE_URL to an "
-            "OpenAI-compatible embeddings API (…/v1) if your chat proxy has no /embeddings.",
-            code="embedding_endpoint_missing",
-            status_code=503,
-        )
     if _is_rate_limited(exc) if exc else False:
         return AppError(
             "Embedding provider rate limited (429). Retry publish later.",
             code="embedding_rate_limited",
             status_code=429,
             details={"upstream_status": 429},
-        )
-    if isinstance(exc, APIStatusError):
-        return AppError(
-            "Embedding provider error",
-            code="embedding_upstream_error",
-            status_code=502,
-            details={"upstream_status": exc.status_code},
         )
     details: dict[str, Any] = {"error": str(exc) if exc else "unknown"}
     return AppError(

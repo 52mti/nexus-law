@@ -107,12 +107,51 @@ class Message(Base):
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
 
 
+class Dataset(Base):
+    """Logical RAG dataset; maps 1:1 to a Weaviate collection/class."""
+
+    __tablename__ = "datasets"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    # Stable API / display key (Weaviate class style, e.g. NexusLawDocuments).
+    name: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
+    # Weaviate class name; defaults to name. Kept explicit for renames later.
+    weaviate_collection: Mapped[str] = mapped_column(
+        String(128),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    title: Mapped[str | None] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[str | None] = mapped_column(String(128), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    documents: Mapped[list["Document"]] = relationship(back_populates="dataset")
+
+
 class Document(Base):
     """RAG document metadata. Vectors live in Weaviate; chunk text is mirrored in PG."""
 
     __tablename__ = "documents"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    dataset_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("datasets.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
     source: Mapped[str] = mapped_column(String(512), nullable=False, index=True)
     title: Mapped[str | None] = mapped_column(String(512))
     content_type: Mapped[str | None] = mapped_column(String(128))
@@ -123,7 +162,6 @@ class Document(Base):
     raw_content: Mapped[bytes | None] = mapped_column(LargeBinary)
     extracted_text: Mapped[str | None] = mapped_column(Text)
     chunk_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    collection: Mapped[str] = mapped_column(String(128), nullable=False)
     status: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
@@ -160,11 +198,19 @@ class Document(Base):
         nullable=False,
     )
 
+    dataset: Mapped["Dataset"] = relationship(back_populates="documents")
     chunks: Mapped[list["DocumentChunk"]] = relationship(
         back_populates="document",
         order_by="DocumentChunk.chunk_index",
         cascade="all, delete-orphan",
     )
+
+    @property
+    def collection(self) -> str:
+        """Backward-compatible alias for the Weaviate collection / dataset name."""
+        if self.dataset is not None:
+            return self.dataset.weaviate_collection
+        return ""
 
 
 class DocumentChunk(Base):

@@ -38,9 +38,9 @@ class Settings(BaseSettings):
     weaviate_http_port: int = 8080
     weaviate_grpc_port: int = 50051
     weaviate_collection: str = "NexusLawDocuments"
-    embedding_api_key: str = ""
-    embedding_base_url: str = ""
-    embedding_model: str = "text-embedding-3-small"
+    # Local Hugging Face embeddings (sentence-transformers)
+    embedding_model: str = "BAAI/bge-m3"
+    embedding_device: str = "cpu"
     rag_chunk_size: int = 800
     rag_chunk_overlap: int = 120
     rag_top_k: int = 4
@@ -72,26 +72,6 @@ class Settings(BaseSettings):
     @property
     def llm_configured(self) -> bool:
         return bool(self.llm_api_key.strip())
-
-    @property
-    def resolved_embedding_api_key(self) -> str:
-        return self.embedding_api_key.strip() or self.llm_api_key.strip()
-
-    @staticmethod
-    def _ensure_openai_v1_base(url: str) -> str:
-        """Normalize OpenAI-compatible base URLs to end with /v1."""
-        base = url.strip().rstrip("/")
-        if not base:
-            return base
-        if base.endswith("/v1"):
-            return base
-        return f"{base}/v1"
-
-    @property
-    def resolved_embedding_base_url(self) -> str:
-        if self.embedding_base_url.strip():
-            return self._ensure_openai_v1_base(self.embedding_base_url)
-        return self._ensure_openai_v1_base(self.llm_base_url)
 
     @property
     def api_key_set(self) -> set[str]:

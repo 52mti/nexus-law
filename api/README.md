@@ -6,7 +6,8 @@ Python 3.11+ FastAPI service for the LangChain/LangGraph legal agent. Lives unde
 
 - Python 3.11+
 - [uv](https://github.com/astral-sh/uv) (recommended)
-- Docker (PostgreSQL / Redis / Weaviate)
+- Local PostgreSQL 16+ (not Docker)
+- Docker (Redis / Weaviate only)
 
 ## Install
 
@@ -14,6 +15,19 @@ Python 3.11+ FastAPI service for the LangChain/LangGraph legal agent. Lives unde
 cd api
 uv sync --extra dev
 cp .env.example .env
+```
+
+Set `DATABASE_URL` in `.env` to your local Postgres, for example:
+
+```env
+DATABASE_URL=postgresql+asyncpg://postgres:YOUR_PASSWORD@localhost:5432/nexus_law
+```
+
+Create the database once (PowerShell, adjust password):
+
+```powershell
+$env:PGPASSWORD = "YOUR_PASSWORD"
+& "D:\postgresql\bin\psql.exe" -U postgres -h 127.0.0.1 -c "CREATE DATABASE nexus_law;"
 ```
 
 ## Run
@@ -28,6 +42,8 @@ uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ## Infrastructure
 
+Redis and Weaviate still use Docker:
+
 ```bash
 cd api
 docker compose up -d
@@ -41,7 +57,6 @@ Weaviate (dev & prod):
 
 ```bash
 cd api
-docker compose up -d postgres
 uv run alembic upgrade head
 # rollback one step:
 # uv run alembic downgrade -1
@@ -137,13 +152,18 @@ docker compose up -d weaviate
 Human-in-the-loop ingest (upload → draft chunks → edit → publish):
 
 ```bash
+# 0) Optional: create dataset (upload also auto-creates by collection name)
+curl -X POST http://127.0.0.1:8000/api/v1/rag/datasets \
+  -H "Content-Type: application/json" \
+  -d "{\"name\":\"NexusLawDocuments\",\"title\":\"默认知识库\"}"
+
 # 1) Upload: parse/chunk + (if COS_ENABLED) archive original to Tencent COS.
-#    Form field `collection` selects the Weaviate dataset (required).
+#    Form field `collection` = dataset name / Weaviate class (required).
 #    BackgroundTask → status draft; oss_url on GET /documents/{id}
 curl -X POST http://127.0.0.1:8000/api/v1/rag/documents \
   -F "file=@./sample.md" \
   -F "collection=NexusLawDocuments"
-# → { "data": { "document_id": "...", "status": "uploading", "collection": "NexusLawDocuments" } }
+# → { "data": { "document_id": "...", "dataset_id": "...", "collection": "NexusLawDocuments" } }
 
 # 2) Preview chunks (poll until status=draft)
 curl http://127.0.0.1:8000/api/v1/rag/documents/{id}/chunks
@@ -159,8 +179,9 @@ curl -X POST http://127.0.0.1:8000/api/v1/rag/documents/{id}/publish
 # 5) Delete one document (COS + Weaviate vectors by document_id + PG chunks)
 curl -X DELETE http://127.0.0.1:8000/api/v1/rag/documents/{id}
 
-# 6) Delete a dataset (COS originals + PG docs/chunks + Weaviate collection)
-curl -X DELETE http://127.0.0.1:8000/api/v1/rag/collections/LaborContracts
+# 6) Delete a dataset (COS originals + PG dataset/docs/chunks + Weaviate collection)
+curl -X DELETE http://127.0.0.1:8000/api/v1/rag/datasets/LaborContracts
+# (alias) curl -X DELETE http://127.0.0.1:8000/api/v1/rag/collections/LaborContracts
 ```
 
 Ask the agent about the **published** content:
@@ -173,7 +194,9 @@ curl -X POST http://127.0.0.1:8000/api/v1/agents/run \
 
 Vector store is **Weaviate** for both development and production (`WEAVIATE_HOST` / `WEAVIATE_HTTP_PORT=8080` / `WEAVIATE_GRPC_PORT=50051`).
 
-If your chat proxy does not expose `/embeddings`, set `EMBEDDING_BASE_URL` / `EMBEDDING_API_KEY` to an OpenAI-compatible embeddings endpoint.
+Embeddings use local Hugging Face `BAAI/bge-m3` (`EMBEDDING_MODEL` / `EMBEDDING_DEVICE`). First run downloads the model (~2GB). Use `EMBEDDING_DEVICE=cuda` if a GPU is available.
+
+Switching embedding models changes vector dimensions (bge-m3 = 1024). Delete the Weaviate collection and re-publish documents after a model change.
 
 If host ports `8080`/`50051` are already used by another Weaviate container, reuse that instance — compose service `weaviate` is optional when an equivalent local Weaviate is running.
 

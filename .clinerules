@@ -2,7 +2,6 @@
 
 ## 1. 技术栈
 - **前端 (frontend/)**: React/Vue + Vite + Ant Design/Tailwind
-- **后端 (backend/)**: NestJS + Prisma + PostgreSQL (Supabase)
 
 ## 2. 核心架构铁律 (必读)
 - **前后端分离**: 前端在 `frontend` 目录，后端在 `backend` 目录，不要混淆。

@@ -1,22 +1,4 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: nexus-law-api-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: nexus_law
-    ports:
-      - "5432:5432"
-    volumes:
-      - nexus_law_api_pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d nexus_law"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   redis:
     image: redis:7-alpine
     container_name: nexus-law-api-redis
@@ -54,5 +36,4 @@ services:
       retries: 10
 
 volumes:
-  nexus_law_api_pgdata:
   nexus_law_api_weaviate:

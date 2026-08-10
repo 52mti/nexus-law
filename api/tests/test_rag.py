@@ -72,6 +72,7 @@ async def test_upload_document_creates_draft_stub_not_weaviate() -> None:
     stub.id = "d1"
     stub.source = "policy.md"
     stub.status = "uploading"
+    stub.dataset_id = "ds1"
     stub.collection = "NexusLawDocuments"
 
     with (
@@ -114,6 +115,7 @@ async def test_get_document_and_chunks_mocked() -> None:
     doc.title = "policy"
     doc.status = "draft"
     doc.chunk_count = 2
+    doc.dataset_id = "ds1"
     doc.collection = "NexusLawDocuments"
     doc.content_type = "text/markdown"
     doc.file_extension = ".md"
@@ -192,6 +194,7 @@ async def test_publish_document_schedules_task_not_sync_embed() -> None:
     doc.id = "d1"
     doc.status = "publishing"
     doc.chunk_count = 2
+    doc.dataset_id = "ds1"
     doc.collection = "NexusLawDocuments"
 
     with (
@@ -218,6 +221,7 @@ async def test_delete_collection_endpoint_mocked() -> None:
         "app.api.v1.rag.document_service.delete_collection_dataset",
         new=AsyncMock(
             return_value={
+                "dataset_id": "ds-labor",
                 "collection": "LaborContracts",
                 "document_count": 2,
                 "chunk_count": 10,
@@ -247,6 +251,7 @@ async def test_delete_document_endpoint_mocked() -> None:
         new=AsyncMock(
             return_value={
                 "document_id": "d1",
+                "dataset_id": "ds-labor",
                 "collection": "LaborContracts",
                 "chunk_count": 3,
                 "weaviate_deleted_count": 3,
@@ -274,25 +279,29 @@ async def test_supported_types() -> None:
     assert ".pdf" in response.json()["data"]["extensions"]
 
 
-def test_map_embedding_not_found() -> None:
-    from openai import NotFoundError
+def test_build_embeddings_uses_huggingface() -> None:
+    from app.core.config import Settings
+    from app.rag.embeddings import RetryingEmbeddings, build_embeddings
 
-    from app.rag.embeddings import map_embedding_error
-
-    response = type("R", (), {"status_code": 404, "headers": {}, "request": object()})()
-    err = NotFoundError(message="missing", response=response, body=None)
-    mapped = map_embedding_error(err)
-    assert mapped.status_code == 503
-    assert mapped.code == "embedding_endpoint_missing"
+    settings = Settings(
+        embedding_model="BAAI/bge-m3",
+        embedding_device="cpu",
+    )
+    fake = object()
+    with patch(
+        "app.rag.embeddings._cached_huggingface_embeddings",
+        return_value=fake,
+    ) as cached:
+        emb = build_embeddings(settings)
+    cached.assert_called_once_with("BAAI/bge-m3", "cpu")
+    assert isinstance(emb, RetryingEmbeddings)
+    assert emb._inner is fake
 
 
 def test_map_embedding_rate_limited() -> None:
-    from openai import RateLimitError
-
     from app.rag.embeddings import map_embedding_error
 
-    response = type("R", (), {"status_code": 429, "headers": {}, "request": object()})()
-    err = RateLimitError(message="slow down", response=response, body=None)
+    err = type("E", (Exception,), {"status_code": 429})("slow down")
     mapped = map_embedding_error(err)
     assert mapped.status_code == 429
     assert mapped.code == "embedding_rate_limited"

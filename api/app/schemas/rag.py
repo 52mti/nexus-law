@@ -1,10 +1,47 @@
 from pydantic import BaseModel, Field
 
 
+class DatasetCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    title: str | None = Field(default=None, max_length=255)
+    description: str | None = None
+
+
+class DatasetData(BaseModel):
+    dataset_id: str
+    name: str
+    weaviate_collection: str
+    title: str | None = None
+    description: str | None = None
+    document_count: int = 0
+    created_by: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class DatasetResponse(BaseModel):
+    success: bool = True
+    data: DatasetData
+    error: None = None
+    request_id: str | None = None
+
+
+class DatasetListData(BaseModel):
+    datasets: list[DatasetData]
+
+
+class DatasetListResponse(BaseModel):
+    success: bool = True
+    data: DatasetListData
+    error: None = None
+    request_id: str | None = None
+
+
 class DocumentUploadData(BaseModel):
     document_id: str
     source: str
     status: str
+    dataset_id: str
     collection: str
 
 
@@ -21,6 +58,7 @@ class DocumentDetailData(BaseModel):
     title: str | None = None
     status: str
     chunk_count: int
+    dataset_id: str
     collection: str
     content_type: str | None = None
     file_extension: str | None = None
@@ -80,6 +118,7 @@ class DocumentPublishData(BaseModel):
     document_id: str
     status: str
     chunk_count: int
+    dataset_id: str
     collection: str
 
 
@@ -91,6 +130,7 @@ class DocumentPublishResponse(BaseModel):
 
 
 class CollectionDeleteData(BaseModel):
+    dataset_id: str | None = None
     collection: str
     document_count: int
     chunk_count: int
@@ -107,6 +147,7 @@ class CollectionDeleteResponse(BaseModel):
 
 class DocumentDeleteData(BaseModel):
     document_id: str
+    dataset_id: str
     collection: str
     chunk_count: int
     weaviate_deleted_count: int
