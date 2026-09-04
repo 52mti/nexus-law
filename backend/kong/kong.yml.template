@@ -1,0 +1,105 @@
+_format_version: "3.0"
+_transform: true
+
+consumers:
+  - username: normal-user
+    jwt_secrets:
+      - key: nexus-law-normal
+        algorithm: HS256
+        secret: ${JWT_SECRET}
+
+  - username: vip-user
+    jwt_secrets:
+      - key: nexus-law-vip
+        algorithm: HS256
+        secret: ${JWT_SECRET}
+
+services:
+  - name: nexus-law-api
+    url: http://api:8000
+    routes:
+      - name: nexus-law-health
+        paths:
+          - /api/v1/health
+          - /api/v1/health/ready
+        strip_path: false
+
+      - name: nexus-law-auth-token
+        paths:
+          - /api/v1/auth/token
+        strip_path: false
+
+      - name: nexus-law-api-docs
+        paths:
+          - /docs
+          - /redoc
+          - /openapi.json
+        strip_path: false
+
+      - name: nexus-law-api-v1
+        paths:
+          - /api
+        strip_path: false
+
+plugins:
+  - name: jwt
+    route: nexus-law-api-v1
+    config:
+      key_claim_name: iss
+      claims_to_verify:
+        - exp
+      header_names:
+        - authorization
+      uri_param_names: []
+      cookie_names: []
+
+  - name: pre-function
+    route: nexus-law-api-v1
+    config:
+      access:
+        - |
+          local auth = kong.request.get_header("Authorization")
+          if not auth then return end
+
+          local token = auth:match("Bearer%s+(.+)")
+          if not token then return end
+
+          local payload = token:match("^[^.]+%.([^.]+)%.")
+          if not payload then return end
+
+          local b64 = payload:gsub("-", "+"):gsub("_", "/")
+          local pad = 4 - (#b64 % 4)
+          if pad < 4 then b64 = b64 .. string.rep("=", pad) end
+
+          local json = ngx.decode_base64(b64)
+          if not json then return end
+
+          local sub = json:match('"sub"%s*:%s*"([^"]+)"')
+          local tier = json:match('"tier"%s*:%s*"([^"]+)"')
+
+          if sub then kong.service.request.set_header("X-User-Id", sub) end
+          if tier then kong.service.request.set_header("X-User-Tier", tier) end
+
+          local consumer = kong.client.get_consumer()
+          if consumer and consumer.username then
+            kong.service.request.set_header("X-Consumer-Username", consumer.username)
+          end
+
+  - name: rate-limiting
+    route: nexus-law-api-v1
+    consumer: normal-user
+    config:
+      minute: ${KONG_NORMAL_RATE_LIMIT_PER_MINUTE}
+      policy: redis
+      redis:
+        host: redis
+        port: 6379
+      limit_by: consumer
+      fault_tolerant: true
+
+  - name: request-transformer
+    route: nexus-law-api-v1
+    config:
+      add:
+        headers:
+          - "X-Gateway-Auth:kong"

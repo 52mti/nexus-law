@@ -1,0 +1,159 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nexus-law-api-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: nexus_law
+    ports:
+      - "5432:5432"
+    volumes:
+      - nexus_law_api_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d nexus_law"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: nexus-law-api-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Dev & prod vector store: REST :8080 / gRPC :50051
+  weaviate:
+    image: cr.weaviate.io/semitechnologies/weaviate:1.28.4
+    container_name: nexus-law-api-weaviate
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "50051:50051"
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+      PERSISTENCE_DATA_PATH: /var/lib/weaviate
+      DEFAULT_VECTORIZER_MODULE: none
+      ENABLE_MODULES: ""
+      CLUSTER_HOSTNAME: node1
+      RAFT_BOOTSTRAP_EXPECT: 1
+    volumes:
+      - nexus_law_api_weaviate:/var/lib/weaviate
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/v1/.well-known/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  neo4j:
+    image: neo4j:5-community
+    container_name: nexus-law-api-neo4j
+    restart: unless-stopped
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      NEO4J_AUTH: neo4j/nexus_law_dev
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+    volumes:
+      - nexus_law_api_neo4j_data:/data
+      - nexus_law_api_neo4j_logs:/logs
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "cypher-shell -u neo4j -p nexus_law_dev 'RETURN 1' || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nexus-law-api
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nexus_law
+      REDIS_URL: redis://redis:6379/0
+      WEAVIATE_HOST: weaviate
+      WEAVIATE_HTTP_PORT: 8080
+      WEAVIATE_GRPC_PORT: 50051
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: nexus_law_dev
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me}
+      TRUST_KONG_HEADERS: "true"
+      SKIP_APP_RATE_LIMIT_FOR_GATEWAY: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      weaviate:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  kong:
+    image: kong:3.9
+    container_name: nexus-law-api-kong
+    restart: unless-stopped
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me}
+      KONG_NORMAL_RATE_LIMIT_PER_MINUTE: ${KONG_NORMAL_RATE_LIMIT_PER_MINUTE:-60}
+      KONG_DATABASE: "off"
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+    volumes:
+      - ./kong/kong.yml.template:/kong/kong.yml.template:ro
+      - ./scripts/kong-entrypoint.sh:/kong-entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/kong-entrypoint.sh"]
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  nexus_law_api_postgres:
+  nexus_law_api_weaviate:
+  nexus_law_api_neo4j_data:
+  nexus_law_api_neo4j_logs:
+
+networks:
+  default:
+    name: nexus_law_api_net
