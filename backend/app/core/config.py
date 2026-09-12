@@ -38,9 +38,11 @@ class Settings(BaseSettings):
     weaviate_http_port: int = 8080
     weaviate_grpc_port: int = 50051
     weaviate_collection: str = "NexusLawDocuments"
-    # Local Hugging Face embeddings (sentence-transformers)
+    # Remote embeddings via SiliconFlow (OpenAI-compatible). No local vector model.
+    embedding_api_key: str = ""
+    embedding_base_url: str = "https://api.siliconflow.cn/v1"
     embedding_model: str = "BAAI/bge-m3"
-    embedding_device: str = "cpu"
+    embedding_batch_size: int = 32
     rag_chunk_size: int = 800
     rag_chunk_overlap: int = 120
     rag_top_k: int = 4
@@ -81,6 +83,14 @@ class Settings(BaseSettings):
     @property
     def llm_configured(self) -> bool:
         return bool(self.llm_api_key.strip())
+
+    @property
+    def embedding_configured(self) -> bool:
+        return bool(
+            self.embedding_api_key.strip()
+            and self.embedding_base_url.strip()
+            and self.embedding_model.strip()
+        )
 
     @property
     def api_key_set(self) -> set[str]:

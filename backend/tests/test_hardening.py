@@ -84,4 +84,4 @@ async def test_ready_endpoint_shape(client: AsyncClient) -> None:
     body = response.json()
     assert "checks" in body["data"]
     names = {item["name"] for item in body["data"]["checks"]}
-    assert {"database", "weaviate", "redis", "llm_configured"} <= names
+    assert {"database", "weaviate", "redis", "llm_configured", "embedding_configured"} <= names

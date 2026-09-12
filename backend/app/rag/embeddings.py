@@ -6,12 +6,15 @@ from typing import Any
 
 from langchain_core.embeddings import Embeddings
 from loguru import logger
+from openai import AuthenticationError
 
 from app.core.config import Settings, get_settings
 from app.core.exceptions import AppError
 
 _MAX_EMBED_RETRIES = 4
 _BASE_BACKOFF_SECONDS = 1.5
+# SiliconFlow embeddings accept at most 32 inputs per request.
+_MAX_EMBED_BATCH_SIZE = 32
 
 
 class RetryingEmbeddings(Embeddings):
@@ -62,29 +65,45 @@ def _is_rate_limited(exc: Exception) -> bool:
 
 
 @lru_cache(maxsize=4)
-def _cached_huggingface_embeddings(model_name: str, device: str) -> Embeddings:
-    """Load once per (model, device); BGE-M3 is large and must not reload per request."""
-    from langchain_huggingface import HuggingFaceEmbeddings
+def _cached_openai_embeddings(
+    model_name: str,
+    api_key: str,
+    base_url: str,
+    chunk_size: int,
+) -> Embeddings:
+    """OpenAI-compatible client (SiliconFlow). Do not send `dimensions` for BGE-M3."""
+    from langchain_openai import OpenAIEmbeddings
 
-    logger.info("loading_hf_embeddings model={} device={}", model_name, device)
-    return HuggingFaceEmbeddings(
-        model_name=model_name,
-        model_kwargs={"device": device},
-        encode_kwargs={"normalize_embeddings": True},
+    logger.info(
+        "init_remote_embeddings model={} base_url={} batch_size={}",
+        model_name,
+        base_url,
+        chunk_size,
+    )
+    return OpenAIEmbeddings(
+        model=model_name,
+        api_key=api_key,
+        base_url=base_url,
+        check_embedding_ctx_length=False,
+        chunk_size=chunk_size,
     )
 
 
 def build_embeddings(settings: Settings | None = None) -> Embeddings:
     settings = settings or get_settings()
-    model = settings.embedding_model.strip()
-    if not model:
+    if not settings.embedding_configured:
         raise AppError(
-            "EMBEDDING_MODEL is required.",
+            "Embedding API is not configured. Set EMBEDDING_API_KEY and EMBEDDING_BASE_URL.",
             code="embedding_not_configured",
             status_code=503,
         )
-    device = settings.embedding_device.strip() or "cpu"
-    return RetryingEmbeddings(_cached_huggingface_embeddings(model, device))
+    model = settings.embedding_model.strip()
+    api_key = settings.embedding_api_key.strip()
+    base_url = settings.embedding_base_url.strip().rstrip("/")
+    chunk_size = max(1, min(settings.embedding_batch_size, _MAX_EMBED_BATCH_SIZE))
+    return RetryingEmbeddings(
+        _cached_openai_embeddings(model, api_key, base_url, chunk_size)
+    )
 
 
 def embed_documents_with_retry(
@@ -98,6 +117,12 @@ def embed_documents_with_retry(
 def map_embedding_error(exc: Exception | None) -> AppError:
     if isinstance(exc, AppError):
         return exc
+    if isinstance(exc, AuthenticationError) or getattr(exc, "status_code", None) == 401:
+        return AppError(
+            "Embedding authentication failed. Check EMBEDDING_API_KEY.",
+            code="embedding_unauthorized",
+            status_code=401,
+        )
     if _is_rate_limited(exc) if exc else False:
         return AppError(
             "Embedding provider rate limited (429). Retry publish later.",

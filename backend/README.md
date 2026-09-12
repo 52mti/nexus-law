@@ -194,7 +194,7 @@ curl -X POST http://127.0.0.1:8000/api/v1/agents/run \
 
 Vector store is **Weaviate** for both development and production (`WEAVIATE_HOST` / `WEAVIATE_HTTP_PORT=8080` / `WEAVIATE_GRPC_PORT=50051`).
 
-Embeddings use local Hugging Face `BAAI/bge-m3` (`EMBEDDING_MODEL` / `EMBEDDING_DEVICE`). First run downloads the model (~2GB). Use `EMBEDDING_DEVICE=cuda` if a GPU is available.
+Embeddings call **SiliconFlow** (`EMBEDDING_API_KEY` / `EMBEDDING_BASE_URL` / `EMBEDDING_MODEL=BAAI/bge-m3`). No local Hugging Face or GPU model is loaded.
 
 Switching embedding models changes vector dimensions (bge-m3 = 1024). Delete the Weaviate collection and re-publish documents after a model change.
 

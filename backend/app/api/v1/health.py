@@ -102,6 +102,11 @@ async def health_ready(request: Request) -> ReadyResponse:
             status="ok" if settings.llm_configured else "fail",
             detail=None if settings.llm_configured else "LLM_API_KEY missing",
         ),
+        ReadyCheck(
+            name="embedding_configured",
+            status="ok" if settings.embedding_configured else "fail",
+            detail=None if settings.embedding_configured else "EMBEDDING_API_KEY missing",
+        ),
     ]
 
     statuses = {item.status for item in checks if item.name != "redis"}

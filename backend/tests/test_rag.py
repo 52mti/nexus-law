@@ -279,23 +279,40 @@ async def test_supported_types() -> None:
     assert ".pdf" in response.json()["data"]["extensions"]
 
 
-def test_build_embeddings_uses_huggingface() -> None:
+def test_build_embeddings_uses_openai_compatible_client() -> None:
     from app.core.config import Settings
     from app.rag.embeddings import RetryingEmbeddings, build_embeddings
 
     settings = Settings(
+        embedding_api_key="sk-test",
+        embedding_base_url="https://api.siliconflow.cn/v1/",
         embedding_model="BAAI/bge-m3",
-        embedding_device="cpu",
+        embedding_batch_size=64,
     )
     fake = object()
     with patch(
-        "app.rag.embeddings._cached_huggingface_embeddings",
+        "app.rag.embeddings._cached_openai_embeddings",
         return_value=fake,
     ) as cached:
         emb = build_embeddings(settings)
-    cached.assert_called_once_with("BAAI/bge-m3", "cpu")
+    cached.assert_called_once_with(
+        "BAAI/bge-m3",
+        "sk-test",
+        "https://api.siliconflow.cn/v1",
+        32,
+    )
     assert isinstance(emb, RetryingEmbeddings)
     assert emb._inner is fake
+
+
+def test_build_embeddings_requires_api_key() -> None:
+    from app.core.config import Settings
+    from app.core.exceptions import AppError
+    from app.rag.embeddings import build_embeddings
+
+    with pytest.raises(AppError) as exc:
+        build_embeddings(Settings(embedding_api_key="", embedding_model="BAAI/bge-m3"))
+    assert exc.value.code == "embedding_not_configured"
 
 
 def test_map_embedding_rate_limited() -> None:
