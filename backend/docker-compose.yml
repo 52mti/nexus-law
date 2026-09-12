@@ -31,7 +31,7 @@ services:
 
   # Dev & prod vector store: REST :8080 / gRPC :50051
   weaviate:
-    image: cr.weaviate.io/semitechnologies/weaviate:1.28.4
+    image: docker.m.daocloud.io/semitechnologies/weaviate:1.28.4
     container_name: nexus-law-api-weaviate
     restart: unless-stopped
     ports:
