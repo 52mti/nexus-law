@@ -1,12 +1,13 @@
 import asyncio
 import json
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from app.core.config import Settings
 from app.db.models import Base
 from app.db.session import get_db_session
 from app.main import app
@@ -15,12 +16,19 @@ from app.utils.sse import format_sse
 
 
 def test_format_sse() -> None:
-    frame = format_sse("token", {"content": "hi"})
-    assert frame.startswith("event: token\n")
-    assert "data: " in frame
-    payload = json.loads(frame.split("data: ", 1)[1].strip())
-    assert payload["event"] == "token"
-    assert payload["data"]["content"] == "hi"
+    token_frame = format_sse("token", "hi")
+    assert token_frame.startswith("event: token\n")
+    token_payload = json.loads(token_frame.split("data: ", 1)[1].strip())
+    assert token_payload == {"event": "token", "data": "hi"}
+
+    meta_frame = format_sse(
+        "conversation_meta",
+        {"conversation_id": "c1", "request_id": "r1", "model": "gpt-4o-mini"},
+    )
+    meta_payload = json.loads(meta_frame.split("data: ", 1)[1].strip())
+    assert meta_payload["event"] == "conversation_meta"
+    assert meta_payload["data"]["conversation_id"] == "c1"
+    assert meta_payload["data"]["request_id"] == "r1"
 
 
 @pytest.fixture
@@ -58,9 +66,10 @@ async def test_agents_run_stream_endpoint(client: AsyncClient) -> None:
 
     async def fake_stream(*_args, **_kwargs):
         yield AgentStreamEvent(
-            event="token",
-            data={"conversation_id": "c1", "content": "Hello"},
+            event="conversation_meta",
+            data={"conversation_id": "c1", "title": "hi", "model": "gpt-4o-mini"},
         )
+        yield AgentStreamEvent(event="token", data="Hello")
         yield AgentStreamEvent(
             event="tool_start",
             data={"conversation_id": "c1", "name": "calculator", "args": {"expression": "1+1"}},
@@ -84,21 +93,37 @@ async def test_agents_run_stream_endpoint(client: AsyncClient) -> None:
     mock_service.stream = fake_stream
     app.dependency_overrides[get_agent_service] = lambda: mock_service
 
-    async with client.stream(
-        "POST",
-        "/api/v1/agents/run/stream",
-        json={"input": "hi", "debug": True},
-    ) as response:
-        assert response.status_code == 200
-        assert "text/event-stream" in response.headers["content-type"]
-        body = ""
-        async for chunk in response.aiter_text():
-            body += chunk
+    with patch(
+        "app.api.deps.get_settings",
+        return_value=Settings(auth_enabled=False),
+    ):
+        async with client.stream(
+            "POST",
+            "/api/v1/agents/run/stream",
+            json={"input": "hi", "debug": True},
+        ) as response:
+            assert response.status_code == 200
+            assert "text/event-stream" in response.headers["content-type"]
+            body = ""
+            async for chunk in response.aiter_text():
+                body += chunk
 
+    assert "event: conversation_meta" in body
     assert "event: token" in body
     assert "event: tool_start" in body
     assert "event: tool_end" in body
     assert "event: final" in body
+
+    frames = [
+        json.loads(part.split("data: ", 1)[1].strip())
+        for part in body.strip().split("\n\n")
+        if "data: " in part
+    ]
+    assert frames[0]["event"] == "conversation_meta"
+    assert frames[0]["data"]["conversation_id"] == "c1"
+    assert "request_id" in frames[0]["data"]
+    token_frame = next(item for item in frames if item["event"] == "token")
+    assert token_frame["data"] == "Hello"
 
 
 @pytest.mark.asyncio
@@ -154,9 +179,11 @@ async def test_agent_service_stream_cancel(tmp_path) -> None:
             cancel_event=cancel_event,
         ):
             events.append(item.event)
-            cancel_event.set()
+            if item.event == "token":
+                cancel_event.set()
         await session.commit()
 
+    assert events[0] == "conversation_meta"
     assert "token" in events
     assert "final" not in events
     assert fake_stream.closed is True
@@ -250,6 +277,9 @@ async def test_agent_service_stream_happy_path(tmp_path) -> None:
         await session.commit()
 
     names = [e.event for e in events]
-    assert names == ["tool_start", "tool_end", "token", "token", "final"]
+    assert names == ["conversation_meta", "tool_start", "tool_end", "token", "token", "final"]
+    assert events[0].data["conversation_id"]
+    assert events[-3].data == "Now "
+    assert events[-2].data == "UTC."
     assert events[-1].data["answer"] == "Now UTC."
     await engine.dispose()

@@ -27,7 +27,11 @@ async def require_principal(request: Request) -> Principal:
     request.state.principal = principal
 
     should_rate_limit = settings.rate_limit_enabled and not principal.is_vip
-    if should_rate_limit and principal.auth_type == "kong_jwt" and settings.skip_app_rate_limit_for_gateway:
+    if (
+        should_rate_limit
+        and principal.auth_type == "kong_jwt"
+        and settings.skip_app_rate_limit_for_gateway
+    ):
         should_rate_limit = False
 
     if should_rate_limit:

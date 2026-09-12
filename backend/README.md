@@ -96,15 +96,9 @@ Expected shape:
 }
 ```
 
-## Chat completions (Stage 3)
+## Intelligent dialogue (Agent)
 
-Configure `LLM_API_KEY` (and optional `LLM_BASE_URL` / `LLM_MODEL`) in `.env`, then:
-
-```bash
-curl -X POST http://127.0.0.1:8000/api/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d "{\"messages\":[{\"role\":\"user\",\"content\":\"What is a contract?\"}]}"
-```
+Configure `LLM_API_KEY` (and optional `LLM_BASE_URL` / `LLM_MODEL`) in `.env`. All conversation goes through the LangGraph agent — there is no separate `/chat/completions` endpoint.
 
 Missing `LLM_API_KEY` returns HTTP 503 with `error.code = llm_not_configured`.
 
@@ -133,7 +127,8 @@ curl -N -X POST http://127.0.0.1:8000/api/v1/agents/run/stream \
 ```
 
 Event types:
-- `token` — incremental assistant text
+- `conversation_meta` — first frame; `conversation_id`, `request_id`, `user_id`, `title`, `model`
+- `token` — incremental assistant text only (`data` is the raw model chunk)
 - `tool_start` / `tool_end` — tool lifecycle
 - `final` — completed answer (+ optional `tool_trace` when `debug=true`)
 - `error` — failure payload

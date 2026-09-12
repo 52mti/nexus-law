@@ -65,7 +65,7 @@ api/
 ## MVP 接口约定
 
 - `GET /api/v1/health`
-- `POST|GET /api/v1/conversations`；`GET .../{id}/messages`
+- `GET /api/v1/conversations`；`GET .../{id}/messages`
 - `POST /api/v1/chat/completions`
 - `POST /api/v1/agents/run`；`POST /api/v1/agents/run/stream`（Stage 5）
 

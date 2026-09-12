@@ -85,7 +85,9 @@ async def run_agent_stream(
                     cancel_event.set()
                     logger.info("sse_client_disconnected request_id={}", request_id)
                     break
-                data = {**item.data, "request_id": request_id}
+                data = item.data
+                if item.event in {"conversation_meta", "error", "final"} and isinstance(data, dict):
+                    data = {**data, "request_id": request_id}
                 yield format_sse(item.event, data)
         except asyncio.CancelledError:
             cancel_event.set()

@@ -9,10 +9,10 @@ import {
   UserOutlined,
   RobotOutlined,
 } from '@ant-design/icons'
-import { fetchEventSource } from '@microsoft/fetch-event-source'
 import { useParams, useNavigate } from 'react-router-dom'
+import { fetchSSE } from '@/utils/sseClient'
 import { useTranslation } from 'react-i18next'
-import { saveOrUpdateConsultation, saveOrUpdateConsultationSession, getConsultationSessionHistory } from '@/api/chat'
+import { getConversationMessages } from '@/api/chat'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -48,29 +48,31 @@ export const AIChatPage = () => {
   const isNavigatingRef = useRef(false)
 
   const chatContainerRef = useRef<HTMLDivElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort()
+    }
+  }, [])
 
   // 如果路径上有 sessionId，说明是已有对话，不展示首次居中 UI
   const isEmpty = messages.length === 0 && !sessionId
 
   const loadChatHistory = useCallback(
-    async (sessionId: string) => {
+    async (conversationId: string) => {
       setLoadingHistory(true)
       try {
-        const res = await getConsultationSessionHistory(sessionId)
-        const records = res?.data?.records || []
+        const res = await getConversationMessages(conversationId)
+        const records = res?.data || []
 
-        // 转换业务格式为前端展示格式，并按时间/顺序升序排列
-        const sortedRecords = [...records].sort((a: any, b: any) => {
-          const timeA = new Date(a.createTime || a.createdAt || 0).getTime()
-          const timeB = new Date(b.createTime || b.createdAt || 0).getTime()
-          return timeA - timeB
-        })
-
-        const historyMessages = sortedRecords.map((item: any) => ({
-          id: item.id || Date.now().toString() + Math.random(),
-          role: item.type === 0 ? 'user' : 'ai',
-          content: item.content || '',
-        }))
+        const historyMessages: ChatMessage[] = records
+          .filter((item) => item.role === 'user' || item.role === 'assistant')
+          .map((item) => ({
+            id: item.id,
+            role: item.role === 'user' ? 'user' : 'ai',
+            content: item.content || '',
+          }))
 
         setMessages(historyMessages)
       } catch (error) {
@@ -107,6 +109,8 @@ export const AIChatPage = () => {
 
   // 新建对话
   const handleNewChat = () => {
+    abortRef.current?.abort()
+    abortRef.current = null
     setMessages([])
     setIsStreaming(false)
     activeSessionIdRef.current = undefined
@@ -137,71 +141,54 @@ export const AIChatPage = () => {
     setIsStreaming(true)
 
     try {
-      let currentSessionId = activeSessionIdRef.current
       const token = localStorage.getItem('token')
-      let isUserMsgSaved = false
 
-      // 如果是全新的对话，还没有 sessionId，先调用 /consultation/saveOrUpdate 获取会话id
-      if (!currentSessionId) {
-        try {
-          const sessionRes = await saveOrUpdateConsultation({})
-          const newSessionId = sessionRes?.data?.id || sessionRes?.data || sessionRes?.id
-          if (newSessionId) {
-            currentSessionId = newSessionId
-            activeSessionIdRef.current = newSessionId
-            isNavigatingRef.current = true
-            navigate(`/chat/${newSessionId}`, { replace: true })
-          }
-        } catch (sessionErr) {
-          console.error('获取会话ID失败:', sessionErr)
-        }
-      }
+      abortRef.current?.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
 
-      // 如果有 sessionId，直接提前保存用户的提问
-      if (currentSessionId) {
-        saveOrUpdateConsultationSession({
-          consultationId: currentSessionId,
-          content: userText,
-          type: 0, // 问题
-        })
-          .then(() => {
-            isUserMsgSaved = true
-          })
-          .catch((err) => console.error('保存提问失败:', err))
-      }
-
-      let fullContent = ''
-      const difySessionId = currentSessionId ? localStorage.getItem(`dify_session_${currentSessionId}`) : undefined
-
-      await fetchEventSource(`${import.meta.env.VITE_API_BASE_URL}/api/chat/stream`, {
-        method: 'POST',
-        openWhenHidden: true,
+      await fetchSSE({
+        url: `${import.meta.env.VITE_API_BASE_URL}/api/v1/agents/run/stream`,
+        body: {
+          input: userText,
+          conversation_id: activeSessionIdRef.current || undefined,
+        },
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLTEiLCJ0aWVyIjoibm9ybWFsIiwiaXNzIjoibmV4dXMtbGF3LW5vcm1hbCIsImlhdCI6MTc4OTE5MzY1NSwiZXhwIjoxNzg5MjgwMDU1fQ.YffMKuP6JHbP7W6Yj2UpXXiCtmhVHSbeLx1PBblR0S8'}`,
           'target-language': i18n.language,
         },
-        body: JSON.stringify({
-          prompt: userText,
-          sessionId: difySessionId || undefined,
-        }),
+        signal: controller.signal,
+        onMessage(payload) {
+          if (controller.signal.aborted) return
 
-        onmessage(ev) {
-          // 🚀 接收后端返回的 Dify conversation_id 并与业务会话 ID 关联保存
-          if (ev.event === 'session_id') {
-            const difyId = ev.data
-            if (currentSessionId && difyId) {
-              localStorage.setItem(`dify_session_${currentSessionId}`, difyId)
+          if (payload.event === 'conversation_meta') {
+            const conversationId = payload.conversation_id
+            if (conversationId && conversationId !== activeSessionIdRef.current) {
+              activeSessionIdRef.current = conversationId
+              isNavigatingRef.current = true
+              navigate(`/chat/${conversationId}`, { replace: true })
             }
             return
           }
 
-          // 正常文本流处理
-          let data = ev.data
-          if (!data) return
+          if (
+            payload.event === 'thinking' ||
+            payload.event === 'status' ||
+            payload.event === 'tool_start' ||
+            payload.event === 'tool_end' ||
+            payload.event === 'final'
+          ) {
+            return
+          }
 
-          const parsedContent = data.replace(/\\n/g, '\n')
-          fullContent += parsedContent
+          if (payload.event === 'error') {
+            console.error('流式输出错误:', payload.delta)
+            message.error(t('pR5PPuOZ-nttTh54MM61X'))
+            return
+          }
+
+          const parsedContent = payload.delta
+          if (!parsedContent) return
 
           setMessages((prev) =>
             prev.map((msg) => {
@@ -212,32 +199,14 @@ export const AIChatPage = () => {
             }),
           )
         },
-
-        onclose() {
-          const finalSessionId = activeSessionIdRef.current
-          if (finalSessionId && fullContent) {
-            saveOrUpdateConsultationSession({
-              consultationId: finalSessionId,
-              content: fullContent,
-              type: 1, // 回答
-            }).catch((err) => console.error('保存回答失败:', err))
-          }
-          setIsStreaming(false)
-          throw new Error('STOP_RETRY')
-        },
-
-        onerror(err) {
-          if (err.message === 'STOP_RETRY') {
-            throw err
-          }
+        onError(err) {
           console.error('流式输出中断:', err)
           message.error(t('pR5PPuOZ-nttTh54MM61X'))
-          setIsStreaming(false)
-          throw err
         },
       })
     } catch (error) {
       console.error(error)
+    } finally {
       setIsStreaming(false)
     }
   }

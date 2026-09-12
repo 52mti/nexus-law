@@ -1,16 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
-
-
-class ConversationCreate(BaseModel):
-    title: str | None = Field(default=None, max_length=255)
-    user_external_id: str | None = Field(default=None, max_length=128)
-    email: str | None = Field(default=None, max_length=255)
-    initial_message: str | None = Field(
-        default=None,
-        description="Optional first user message; assistant reply is a Stage-2 placeholder.",
-    )
+from pydantic import BaseModel
 
 
 class ConversationRead(BaseModel):
@@ -32,21 +22,9 @@ class MessageRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class ConversationCreateResult(BaseModel):
-    conversation: ConversationRead
-    messages: list[MessageRead] = Field(default_factory=list)
-
-
 class ConversationListResponse(BaseModel):
     success: bool = True
     data: list[ConversationRead]
-    error: None = None
-    request_id: str | None = None
-
-
-class ConversationCreateResponse(BaseModel):
-    success: bool = True
-    data: ConversationCreateResult
     error: None = None
     request_id: str | None = None
 

@@ -16,6 +16,7 @@ from app.core.config import Settings, get_settings
 from app.core.exceptions import AppError
 from app.db.models import Conversation, Message, MessageRole
 from app.rag.retriever import extract_sources_from_tool_result
+from app.schemas.agent import ConversationMetaEventData
 from app.services import conversation as conversation_service
 from app.services.llm import LangChainLLMClient, _map_llm_error, get_llm_client
 
@@ -63,7 +64,7 @@ def collect_rag_sources(
 @dataclass(slots=True)
 class AgentStreamEvent:
     event: str
-    data: dict[str, Any]
+    data: dict[str, Any] | str
 
 
 class AgentService:
@@ -219,7 +220,7 @@ class AgentService:
         debug: bool = False,
         cancel_event: asyncio.Event | None = None,
     ) -> AsyncIterator[AgentStreamEvent]:
-        """Yield SSE-oriented events: token / tool_start / tool_end / final / error."""
+        """Yield SSE events: conversation_meta, token, tool_start, tool_end, final, error."""
         try:
             conversation, lc_messages = await self._prepare(
                 session,
@@ -234,6 +235,16 @@ class AgentService:
                 data={"code": exc.code, "message": exc.message, "details": exc.details},
             )
             return
+
+        yield AgentStreamEvent(
+            event="conversation_meta",
+            data=ConversationMetaEventData(
+                conversation_id=conversation.id,
+                user_id=conversation.user_id,
+                title=conversation.title,
+                model=self._settings.llm_model,
+            ).model_dump(exclude_none=True),
+        )
 
         max_iterations = self._settings.agent_max_iterations
         started = time.perf_counter()
@@ -272,19 +283,14 @@ class AgentService:
                     content = getattr(chunk, "content", None)
                     if isinstance(content, str) and content:
                         answer_parts.append(content)
-                        yield AgentStreamEvent(
-                            event="token",
-                            data={
-                                "conversation_id": conversation.id,
-                                "content": content,
-                            },
-                        )
+                        yield AgentStreamEvent(event="token", data=content)
                 elif kind == "on_tool_start":
                     name = event.get("name")
                     tool_input = data.get("input")
+                    args = tool_input if isinstance(tool_input, dict) else {"input": tool_input}
                     item = {
                         "name": name,
-                        "args": tool_input if isinstance(tool_input, dict) else {"input": tool_input},
+                        "args": args,
                         "result": None,
                     }
                     tool_trace.append(item)
@@ -414,12 +420,11 @@ class AgentService:
         if conversation_id:
             return await conversation_service.get_conversation(session, conversation_id)
 
-        conversation, _ = await conversation_service.create_conversation(
+        return await conversation_service.create_conversation(
             session,
             title=title,
             user_external_id=user_external_id,
         )
-        return conversation
 
 
 _agent_service: AgentService | None = None

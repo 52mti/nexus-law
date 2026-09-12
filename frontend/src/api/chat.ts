@@ -1,60 +1,29 @@
-import request from '@/utils/request'
-
-/**
- * 获取会话历史记录
- */
-export const getConsultationHistory = (sessionId: string, params?: { firstId?: string; limit?: number; userId?: string }) => {
-  return request.get<any, any>(`/api/chat/history/${sessionId}`, { params: { ...params, userId: params?.userId || 'guest' } });
-};
-
-/**
- * 获取 Dify 的会话列表
- */
-export const getDifyConversations = (params?: {
-  lastId?: string
-  limit?: number
-  user?: string
-}) => {
-  return request.get<any, any>(`/api/chat/conversations`, { params })
-}
-
-/**
- * 删除 Dify 的会话
- */
-export const deleteDifyConversation = (sessionId: string) => {
-  return request.delete<any, any>(`/api/chat/conversations/${sessionId}`)
-}
-
-/**
- * 保存或更新会话本身（用于获取或初始化会话 ID）
- */
-export const saveOrUpdateConsultation = (data: {
-  id?: string
-  response?: string
-}) => {
-  return request.post<any, any>('/consultation/saveOrUpdate', data)
-}
-
-/**
- * 保存或更新会话消息到业务数据库
- */
-export const saveOrUpdateConsultationSession = (data: {
-  consultationId: string
+export interface ConversationMessage {
+  id: string
+  conversation_id: string
+  role: string
   content: string
-  type: number // 0: 问题, 1: 回答
-}) => {
-  return request.post<any, any>('/consultationSession/saveOrUpdate', data)
+  created_at?: string
 }
 
 /**
- * 获取业务会话的问答历史记录
+ * 读取 Agent 自动落库的会话消息
  */
-export const getConsultationSessionHistory = (consultationId: string) => {
-  return request.post<any, any>('/consultationSession/pageList', {
-    current: 1,
-    size: 500,
-    consultationId,
-  })
+export const getConversationMessages = async (conversationId: string) => {
+  const token = localStorage.getItem('token')
+  const response = await fetch(
+    `${import.meta.env.VITE_API_BASE_URL}/api/v1/conversations/${conversationId}/messages`,
+    {
+      headers: {
+        Accept: 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    },
+  )
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} ${response.statusText}`)
+  }
+
+  return response.json() as Promise<{ data?: ConversationMessage[] }>
 }
-
-

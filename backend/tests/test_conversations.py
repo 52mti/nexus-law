@@ -1,14 +1,26 @@
+from unittest.mock import patch
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.db.models import Base
+from app.core.config import Settings, get_settings
+from app.db.models import Base, Message, MessageRole
 from app.db.session import get_db_session
 from app.main import app
+from app.services import conversation as conversation_service
 
 
 @pytest.fixture
 async def client(tmp_path):
+    get_settings.cache_clear()
+    test_settings = Settings(
+        jwt_secret="",
+        api_keys="",
+        auth_enabled=False,
+        trust_kong_headers=False,
+        rate_limit_enabled=False,
+    )
     db_path = tmp_path / "test.db"
     engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}", future=True)
     session_factory = async_sessionmaker(bind=engine, expire_on_commit=False, autoflush=False)
@@ -27,16 +39,19 @@ async def client(tmp_path):
 
     app.dependency_overrides[get_db_session] = override_get_db_session
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac
+    with patch("app.api.deps.get_settings", return_value=test_settings):
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            yield ac, session_factory
 
     app.dependency_overrides.clear()
+    get_settings.cache_clear()
     await engine.dispose()
 
 
 @pytest.mark.asyncio
-async def test_health(client: AsyncClient) -> None:
-    response = await client.get("/api/v1/health")
+async def test_health(client) -> None:
+    http, _ = client
+    response = await http.get("/api/v1/health")
     assert response.status_code == 200
     body = response.json()
     assert body["success"] is True
@@ -44,41 +59,63 @@ async def test_health(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_create_conversation_with_placeholder_messages(client: AsyncClient) -> None:
-    response = await client.post(
+async def test_create_conversation_endpoint_removed(client) -> None:
+    http, _ = client
+    response = await http.post(
         "/api/v1/conversations",
-        json={
-            "title": "劳动纠纷咨询",
-            "user_external_id": "user-001",
-            "initial_message": "未签劳动合同被辞退怎么办？",
-        },
+        json={"title": "劳动纠纷咨询"},
     )
-    assert response.status_code == 200
-    body = response.json()
-    assert body["success"] is True
-    conversation = body["data"]["conversation"]
-    messages = body["data"]["messages"]
-    assert conversation["title"] == "劳动纠纷咨询"
-    assert len(messages) == 2
-    assert messages[0]["role"] == "user"
-    assert messages[1]["role"] == "assistant"
-    assert "Stage 3" in messages[1]["content"]
+    assert response.status_code == 405
 
-    list_resp = await client.get(
+
+@pytest.mark.asyncio
+async def test_list_conversations_and_messages(client) -> None:
+    http, session_factory = client
+    async with session_factory() as session:
+        conversation = await conversation_service.create_conversation(
+            session,
+            title="劳动纠纷咨询",
+            user_external_id="user-001",
+        )
+        session.add(
+            Message(
+                conversation_id=conversation.id,
+                role=MessageRole.USER.value,
+                content="未签劳动合同被辞退怎么办？",
+            )
+        )
+        session.add(
+            Message(
+                conversation_id=conversation.id,
+                role=MessageRole.ASSISTANT.value,
+                content="建议先确认用工事实并协商补偿。",
+            )
+        )
+        conversation_id = conversation.id
+        await session.commit()
+
+    list_resp = await http.get(
         "/api/v1/conversations",
         params={"user_external_id": "user-001"},
     )
     assert list_resp.status_code == 200
-    assert len(list_resp.json()["data"]) == 1
+    rows = list_resp.json()["data"]
+    assert len(rows) == 1
+    assert rows[0]["id"] == conversation_id
+    assert rows[0]["title"] == "劳动纠纷咨询"
 
-    msg_resp = await client.get(f"/api/v1/conversations/{conversation['id']}/messages")
+    msg_resp = await http.get(f"/api/v1/conversations/{conversation_id}/messages")
     assert msg_resp.status_code == 200
-    assert len(msg_resp.json()["data"]) == 2
+    messages = msg_resp.json()["data"]
+    assert len(messages) == 2
+    assert messages[0]["role"] == "user"
+    assert messages[1]["role"] == "assistant"
 
 
 @pytest.mark.asyncio
-async def test_messages_not_found(client: AsyncClient) -> None:
-    response = await client.get("/api/v1/conversations/missing-id/messages")
+async def test_messages_not_found(client) -> None:
+    http, _ = client
+    response = await http.get("/api/v1/conversations/missing-id/messages")
     assert response.status_code == 404
     body = response.json()
     assert body["success"] is False

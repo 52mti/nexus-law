@@ -1,30 +1,18 @@
 from __future__ import annotations
 
-
 import asyncio
-
 import hashlib
-
 import re
-
 from pathlib import Path
-
 from uuid import uuid4
 
-
 from loguru import logger
-
 from sqlalchemy import delete, func, select
-
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from sqlalchemy.orm import selectinload
 
-
 from app.core.config import get_settings
-
 from app.core.exceptions import AppError
-
 from app.db.models import (
     Dataset,
     Document,
@@ -32,17 +20,11 @@ from app.db.models import (
     DocumentStatus,
     StorageStatus,
 )
-
 from app.db.session import AsyncSessionLocal
-
 from app.rag.ingest import new_document_id, parse_and_chunk, publish_to_weaviate
-
 from app.rag.store import delete_weaviate_by_document_id, delete_weaviate_collection
-
 from app.services.cos_storage import delete_objects as cos_delete_objects
-
 from app.services.cos_storage import upload_bytes as cos_upload_bytes
-
 
 # Weaviate collection / class names: start with uppercase letter.
 
@@ -60,7 +42,6 @@ def normalize_collection_name(collection: str) -> str:
     name = (collection or "").strip()
 
     if not name:
-
         raise AppError(
             "collection is required (dataset / Weaviate class name)",
             code="collection_required",
@@ -68,7 +49,6 @@ def normalize_collection_name(collection: str) -> str:
         )
 
     if not _COLLECTION_RE.match(name):
-
         raise AppError(
             "Invalid collection name. Use Weaviate class style: "
             "start with A-Z, then letters/digits/underscore "
@@ -104,7 +84,6 @@ async def get_or_create_dataset(
     dataset = result.scalar_one_or_none()
 
     if dataset:
-
         return dataset
 
     dataset = Dataset(
@@ -130,7 +109,6 @@ async def get_dataset(session: AsyncSession, dataset_id: str) -> Dataset:
     dataset = result.scalar_one_or_none()
 
     if not dataset:
-
         raise AppError("Dataset not found", code="dataset_not_found", status_code=404)
 
     return dataset
@@ -145,7 +123,6 @@ async def get_dataset_by_name(session: AsyncSession, name: str) -> Dataset:
     dataset = result.scalar_one_or_none()
 
     if not dataset:
-
         raise AppError(
             f"Dataset '{dataset_name}' not found",
             code="dataset_not_found",
@@ -173,12 +150,9 @@ async def create_dataset(
 
     dataset_name = normalize_dataset_name(name)
 
-    existing = await session.execute(
-        select(Dataset).where(Dataset.name == dataset_name)
-    )
+    existing = await session.execute(select(Dataset).where(Dataset.name == dataset_name))
 
     if existing.scalar_one_or_none():
-
         raise AppError(
             f"Dataset '{dataset_name}' already exists",
             code="dataset_exists",
@@ -215,7 +189,6 @@ async def _upload_raw_to_cos(
     await session.flush()
 
     try:
-
         result = await asyncio.to_thread(
             cos_upload_bytes,
             content=raw,
@@ -225,7 +198,6 @@ async def _upload_raw_to_cos(
         )
 
     except Exception as exc:  # noqa: BLE001
-
         document.storage_status = StorageStatus.FAILED.value
 
         logger.warning(
@@ -235,25 +207,16 @@ async def _upload_raw_to_cos(
         )
 
         if isinstance(exc, AppError):
-
-            logger.warning(
-                "cos_error document_id={} message={}", document.id, exc.message
-            )
+            logger.warning("cos_error document_id={} message={}", document.id, exc.message)
 
         return
 
     document.storage_status = StorageStatus.UPLOADED.value
-
     document.oss_bucket = result.bucket
-
     document.oss_region = result.region
-
     document.oss_key = result.key
-
     document.oss_url = result.url
-
     document.oss_etag = result.etag
-
     document.oss_uploaded_at = result.uploaded_at
 
     await session.flush()
@@ -297,9 +260,7 @@ async def create_upload_stub(
         status=DocumentStatus.UPLOADING.value,
         uploaded_by=uploaded_by,
         storage_provider="tencent_cos" if cos_on else None,
-        storage_status=(
-            StorageStatus.PENDING.value if cos_on else StorageStatus.NONE.value
-        ),
+        storage_status=(StorageStatus.PENDING.value if cos_on else StorageStatus.NONE.value),
     )
 
     document.dataset = dataset
@@ -314,15 +275,12 @@ async def create_upload_stub(
 async def get_document(session: AsyncSession, document_id: str) -> Document:
 
     result = await session.execute(
-        select(Document)
-        .where(Document.id == document_id)
-        .options(selectinload(Document.dataset))
+        select(Document).where(Document.id == document_id).options(selectinload(Document.dataset))
     )
 
     document = result.scalar_one_or_none()
 
     if not document:
-
         raise AppError("Document not found", code="document_not_found", status_code=404)
 
     return document
@@ -342,7 +300,6 @@ async def get_document_with_chunks(session: AsyncSession, document_id: str) -> D
     document = result.scalar_one_or_none()
 
     if not document:
-
         raise AppError("Document not found", code="document_not_found", status_code=404)
 
     return document
@@ -372,7 +329,6 @@ async def replace_chunks(
     document = await get_document(session, document_id)
 
     if document.status not in _EDITABLE_STATUSES:
-
         raise AppError(
             f"Document status '{document.status}' does not allow chunk edits",
             code="document_not_editable",
@@ -380,7 +336,6 @@ async def replace_chunks(
         )
 
     if not items:
-
         raise AppError(
             "At least one chunk is required",
             code="empty_chunks",
@@ -396,11 +351,9 @@ async def replace_chunks(
     new_chunks: list[DocumentChunk] = []
 
     for index, item in enumerate(items):
-
         content = (item.get("content") or "").strip()
 
         if not content:
-
             raise AppError(
                 f"Chunk at index {index} has empty content",
                 code="empty_chunk_content",
@@ -410,11 +363,8 @@ async def replace_chunks(
         chunk_id = item.get("id")
 
         if chunk_id and chunk_id in by_id:
-
             chunk = by_id[chunk_id]
-
             chunk.content = content
-
             chunk.char_count = len(content)
 
             chunk.chunk_index = index
@@ -424,7 +374,6 @@ async def replace_chunks(
             new_chunks.append(chunk)
 
         else:
-
             chunk = DocumentChunk(
                 document_id=document_id,
                 chunk_index=index,
@@ -437,15 +386,12 @@ async def replace_chunks(
             new_chunks.append(chunk)
 
     for chunk in existing:
-
         if chunk.id not in kept_ids:
-
             await session.delete(chunk)
 
     document.chunk_count = len(new_chunks)
 
     if document.status == DocumentStatus.FAILED.value:
-
         document.status = DocumentStatus.DRAFT.value
 
         document.error_message = None
@@ -460,7 +406,6 @@ async def mark_publishing(session: AsyncSession, document_id: str) -> Document:
     document = await get_document_with_chunks(session, document_id)
 
     if document.status not in _PUBLISHABLE_STATUSES:
-
         raise AppError(
             f"Document status '{document.status}' cannot be published",
             code="document_not_publishable",
@@ -468,7 +413,6 @@ async def mark_publishing(session: AsyncSession, document_id: str) -> Document:
         )
 
     if not document.chunks:
-
         raise AppError(
             "Document has no chunks to publish",
             code="empty_chunks",
@@ -488,16 +432,13 @@ async def run_parse_task(document_id: str) -> None:
     """BackgroundTask: parse raw_content into draft chunks. Uses its own DB session."""
 
     async with AsyncSessionLocal() as session:
-
         try:
-
             document = await get_document(session, document_id)
 
             if document.status not in {
                 DocumentStatus.UPLOADING.value,
                 DocumentStatus.PARSING.value,
             }:
-
                 logger.info(
                     "parse_skip document_id={} status={}",
                     document_id,
@@ -513,7 +454,6 @@ async def run_parse_task(document_id: str) -> None:
             raw = document.raw_content
 
             if not raw:
-
                 raise AppError(
                     "Missing raw file content for parsing",
                     code="missing_raw_content",
@@ -523,7 +463,6 @@ async def run_parse_task(document_id: str) -> None:
             settings = get_settings()
 
             if settings.cos_enabled:
-
                 await _upload_raw_to_cos(session, document, raw)
 
             parsed = await asyncio.to_thread(
@@ -549,13 +488,9 @@ async def run_parse_task(document_id: str) -> None:
             session.add_all(chunks)
 
             document.extracted_text = parsed.extracted_text
-
             document.chunk_count = len(chunks)
-
             document.raw_content = None
-
             document.status = DocumentStatus.DRAFT.value
-
             document.error_message = None
 
             await session.commit()
@@ -568,21 +503,16 @@ async def run_parse_task(document_id: str) -> None:
             )
 
         except Exception as exc:  # noqa: BLE001
-
             await session.rollback()
 
             async with AsyncSessionLocal() as err_session:
-
                 document = await get_document(err_session, document_id)
-
                 document.status = DocumentStatus.FAILED.value
 
                 if isinstance(exc, AppError):
-
                     document.error_message = exc.message
 
                 else:
-
                     document.error_message = str(exc)
 
                 await err_session.commit()
@@ -598,13 +528,10 @@ async def run_publish_task(document_id: str) -> None:
     """BackgroundTask: embed + Weaviate write. Uses its own DB session."""
 
     async with AsyncSessionLocal() as session:
-
         try:
-
             document = await get_document_with_chunks(session, document_id)
 
             if document.status != DocumentStatus.PUBLISHING.value:
-
                 logger.info(
                     "publish_skip document_id={} status={}",
                     document_id,
@@ -616,7 +543,6 @@ async def run_publish_task(document_id: str) -> None:
             collection = document.collection
 
             if not collection:
-
                 raise AppError(
                     "Document dataset has no Weaviate collection name",
                     code="dataset_collection_missing",
@@ -648,21 +574,16 @@ async def run_publish_task(document_id: str) -> None:
             )
 
         except Exception as exc:  # noqa: BLE001
-
             await session.rollback()
 
             async with AsyncSessionLocal() as err_session:
-
                 document = await get_document(err_session, document_id)
-
                 document.status = DocumentStatus.DRAFT.value
 
                 if isinstance(exc, AppError):
-
                     document.error_message = exc.message
 
                 else:
-
                     document.error_message = str(exc)
 
                 await err_session.commit()
@@ -685,17 +606,12 @@ async def delete_document_by_id(
     document = await get_document_with_chunks(session, document_id)
 
     chunk_count = len(document.chunks)
-
     collection = document.collection
-
     dataset_id = document.dataset_id
-
     cos_deleted_count = 0
 
     if document.oss_key and str(document.oss_key).strip():
-
         if not settings.cos_enabled:
-
             raise AppError(
                 "Document has a COS original but COS_ENABLED=false; "
                 "enable COS to delete the object storage file.",
@@ -748,31 +664,22 @@ async def delete_collection_dataset(
     """Delete a dataset: COS originals + Weaviate collection + PG dataset/docs/chunks."""
 
     name = normalize_collection_name(collection)
-
     settings = get_settings()
-
     dataset_result = await session.execute(select(Dataset).where(Dataset.name == name))
-
     dataset = dataset_result.scalar_one_or_none()
-
     documents: list[Document] = []
 
     if dataset:
-
         docs_result = await session.execute(
             select(Document).where(Document.dataset_id == dataset.id)
         )
-
         documents = list(docs_result.scalars().all())
 
     document_count = len(documents)
-
     weaviate_name = dataset.weaviate_collection if dataset else name
-
     chunk_count = 0
 
     if dataset:
-
         chunk_count_result = await session.execute(
             select(func.count())
             .select_from(DocumentChunk)
@@ -791,9 +698,7 @@ async def delete_collection_dataset(
     cos_deleted_count = 0
 
     if cos_items:
-
         if not settings.cos_enabled:
-
             raise AppError(
                 "Dataset has COS originals but COS_ENABLED=false; "
                 "enable COS to delete object storage files.",
@@ -808,12 +713,9 @@ async def delete_collection_dataset(
             settings=settings,
         )
 
-    weaviate_deleted = await asyncio.to_thread(
-        delete_weaviate_collection, weaviate_name
-    )
+    weaviate_deleted = await asyncio.to_thread(delete_weaviate_collection, weaviate_name)
 
     if dataset is None and not weaviate_deleted and cos_deleted_count == 0:
-
         raise AppError(
             f"Dataset / collection '{name}' not found in database or Weaviate",
             code="collection_not_found",
@@ -823,7 +725,6 @@ async def delete_collection_dataset(
     dataset_id = dataset.id if dataset else None
 
     if dataset:
-
         await session.delete(dataset)
 
         await session.flush()

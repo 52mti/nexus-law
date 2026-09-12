@@ -1,14 +1,16 @@
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.agents.tools import get_agent_tools
 from app.core.config import Settings, get_settings
+from app.core.exceptions import AppError
 from app.core.prompt_guard import assert_safe_user_text
 from app.core.rate_limit import check_rate_limit, reset_rate_limits
-from app.core.exceptions import AppError
+from app.db.session import get_db_session
 from app.main import app
+from app.services.agent import AgentRunResult, get_agent_service
 
 
 @pytest.fixture(autouse=True)
@@ -36,24 +38,47 @@ async def test_health_public(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_auth_required_when_api_keys_configured(client: AsyncClient) -> None:
-    with patch(
-        "app.api.deps.get_settings",
-        return_value=Settings(api_keys="secret-key-1234", auth_enabled=True),
-    ):
-        denied = await client.post(
-            "/api/v1/chat/completions",
-            json={"messages": [{"role": "user", "content": "hi"}]},
-        )
-        assert denied.status_code == 401
-        assert denied.json()["error"]["code"] == "unauthorized"
+    async def override_get_db_session():
+        yield MagicMock()
 
-        allowed = await client.post(
-            "/api/v1/chat/completions",
-            headers={"X-API-Key": "secret-key-1234"},
-            json={"messages": [{"role": "user", "content": "hi"}]},
-        )
-        # May fail later on LLM config, but must pass auth.
-        assert allowed.status_code != 401
+    mock_service = AsyncMock()
+    mock_service.run.return_value = AgentRunResult(
+        conversation_id="c1",
+        answer="ok",
+        model="gpt-4o-mini",
+        latency_ms=1.0,
+    )
+    app.dependency_overrides[get_db_session] = override_get_db_session
+    app.dependency_overrides[get_agent_service] = lambda: mock_service
+    try:
+        with patch(
+            "app.api.deps.get_settings",
+            return_value=Settings(api_keys="secret-key-1234", auth_enabled=True),
+        ):
+            denied = await client.post(
+                "/api/v1/agents/run",
+                json={"input": "hi"},
+            )
+            assert denied.status_code == 401
+            assert denied.json()["error"]["code"] == "unauthorized"
+
+            allowed = await client.post(
+                "/api/v1/agents/run",
+                headers={"X-API-Key": "secret-key-1234"},
+                json={"input": "hi"},
+            )
+            assert allowed.status_code != 401
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_chat_completions_endpoint_removed(client: AsyncClient) -> None:
+    response = await client.post(
+        "/api/v1/chat/completions",
+        json={"messages": [{"role": "user", "content": "hi"}]},
+    )
+    assert response.status_code == 404
 
 
 def test_prompt_guard_blocks_injection() -> None:

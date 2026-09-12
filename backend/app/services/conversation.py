@@ -3,11 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import AppError
-from app.db.models import Conversation, Message, MessageRole, User
-
-PLACEHOLDER_ASSISTANT_REPLY = (
-    "（占位回复）已收到你的问题。真实大模型回复将在 Stage 3 接入。"
-)
+from app.db.models import Conversation, Message, User
 
 
 async def get_or_create_user(
@@ -44,8 +40,7 @@ async def create_conversation(
     title: str | None = None,
     user_external_id: str | None = None,
     email: str | None = None,
-    initial_message: str | None = None,
-) -> tuple[Conversation, list[Message]]:
+) -> Conversation:
     user = await get_or_create_user(
         session,
         external_id=user_external_id,
@@ -54,24 +49,7 @@ async def create_conversation(
     conversation = Conversation(user_id=user.id, title=title)
     session.add(conversation)
     await session.flush()
-
-    messages: list[Message] = []
-    if initial_message:
-        user_msg = Message(
-            conversation_id=conversation.id,
-            role=MessageRole.USER.value,
-            content=initial_message,
-        )
-        assistant_msg = Message(
-            conversation_id=conversation.id,
-            role=MessageRole.ASSISTANT.value,
-            content=PLACEHOLDER_ASSISTANT_REPLY,
-        )
-        session.add_all([user_msg, assistant_msg])
-        await session.flush()
-        messages = [user_msg, assistant_msg]
-
-    return conversation, messages
+    return conversation
 
 
 async def list_conversations(
