@@ -12,10 +12,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { deleteConsultation, deleteDoc, deleteCompliance } from '@/api/delete'
 import { useTranslation } from 'react-i18next'
 // 引入三个接口
-import { getConsultationList, getDocumentList, getComplianceReviewList } from '@/api/common'
+import { getDocumentList, getComplianceReviewList } from '@/api/common'
+import { listConversations } from '@/api/chat'
+import { formatEventTime } from '@/utils/formatDate'
 
 export const HistoryPage: React.FC = () => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { message, modal } = App.useApp()
   const [searchParams, setSearchParams] = useSearchParams()
   const initialTab = searchParams.get('tab') || 'doc'
@@ -30,6 +32,7 @@ export const HistoryPage: React.FC = () => {
   const [hasMore, setHasMore] = useState(true)
   const observerLoader = React.useRef<HTMLDivElement>(null)
   const activeTabRef = React.useRef(activeTab)
+  const fetchingRef = React.useRef(false)
 
   // 保持 ref 与 activeTab 同步
   useEffect(() => {
@@ -59,13 +62,9 @@ export const HistoryPage: React.FC = () => {
     const groups: Record<string, any[]> = {}
 
     records.forEach((item) => {
-      // 提取日期 (假设后端返回 createTime: '2026-06-25 14:30:00')
-      const fullTime = item.createTime || item.createdAt || ''
-      const dateMatch = fullTime.match(/\d{4}-(\d{2}-\d{2})/)
-      const dateKey = dateMatch ? dateMatch[1] : t('A0O6IpsZ2Nj7_nQ3BPCly') // 提取 '06-25'
-
-      const timeMatch = fullTime.match(/\d{4}-\d{2}-\d{2} (\d{2}:\d{2})/)
-      const timeVal = timeMatch ? timeMatch[1] : '' // 提取 '14:30'
+      const fullTime = item.createTime || item.createdAt || item.created_at || ''
+      const { dateKey: formattedDate, display } = formatEventTime(fullTime, i18n.language)
+      const dateKey = formattedDate || t('A0O6IpsZ2Nj7_nQ3BPCly')
 
       if (!groups[dateKey]) {
         groups[dateKey] = []
@@ -90,7 +89,7 @@ export const HistoryPage: React.FC = () => {
         title: title,
         desc: desc,
         detail: detail,
-        time: `${dateKey} ${timeVal}`,
+        time: display || dateKey,
         raw: item, // 保留原始数据备用
       })
     })
@@ -109,6 +108,8 @@ export const HistoryPage: React.FC = () => {
   // 🚀 3. 核心请求逻辑：支持初始加载与分页
   // ==========================================
   const fetchData = async (pageNum: number, isInitial = false) => {
+    if (fetchingRef.current) return
+    fetchingRef.current = true
     const currentTab = activeTabRef.current // 保存本次请求对应的 Tab
 
     if (isInitial) {
@@ -118,33 +119,39 @@ export const HistoryPage: React.FC = () => {
     }
 
     try {
-      let res: any
+      let newRecords: any[] = []
+      let hasNext = false
       const pageParams = { current: pageNum, size: 10 }
 
       if (currentTab === 'doc') {
-        res = await getDocumentList(pageParams)
+        const res = await getDocumentList(pageParams)
+        newRecords = res?.successful ? res?.data?.records || [] : []
+        hasNext = pageNum < (res?.data?.pages || 0) && newRecords.length > 0
       } else if (currentTab === 'consult') {
-        res = await getConsultationList(pageParams)
+        const res = await listConversations(pageParams)
+        newRecords = res?.data?.records || []
+        hasNext = pageNum < (res?.data?.pages || 0) && newRecords.length > 0
       } else if (currentTab === 'compliance') {
-        res = await getComplianceReviewList(pageParams)
+        const res = await getComplianceReviewList(pageParams)
+        newRecords = res?.successful ? res?.data?.records || [] : []
+        hasNext = pageNum < (res?.data?.pages || 0) && newRecords.length > 0
       }
 
       // 如果请求完成时，用户已经切走了 Tab，则丢弃结果防止数据错乱
       if (activeTabRef.current !== currentTab) return
 
-      if (res?.successful && res?.data?.records) {
-        const newRecords = res.data.records
-
+      if (newRecords.length > 0 || !isInitial) {
         setAllRecords((prev) => {
-          const nextRecords = isInitial ? newRecords : [...prev, ...newRecords]
-          // 同步更新格式化后的数据
+          const nextRecords = isInitial
+            ? newRecords
+            : [
+                ...prev,
+                ...newRecords.filter((item) => !prev.some((exists) => exists.id === item.id)),
+              ]
           setHistoryData(formatHistoryData(nextRecords, currentTab))
           return nextRecords
         })
-
-        // 判断是否还有更多：当前页 < 总页数
-        const totalPages = res.data.pages || 0
-        setHasMore(pageNum < totalPages && newRecords.length > 0)
+        setHasMore(hasNext)
       } else {
         if (isInitial) {
           setAllRecords([])
@@ -156,6 +163,7 @@ export const HistoryPage: React.FC = () => {
       console.error('获取历史记录异常:', error)
       message.error(t('L_0WlkIJsGCEZUj8o7H_A'))
     } finally {
+      fetchingRef.current = false
       setLoading(false)
       setLoadingMore(false)
     }
@@ -163,6 +171,7 @@ export const HistoryPage: React.FC = () => {
 
   // 监听 Tab 切换，重置分页并执行初始加载
   useEffect(() => {
+    fetchingRef.current = false
     setPage(1)
     setHasMore(true)
     fetchData(1, true)
@@ -175,7 +184,13 @@ export const HistoryPage: React.FC = () => {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
+        if (
+          entries[0].isIntersecting &&
+          hasMore &&
+          !loading &&
+          !loadingMore &&
+          !fetchingRef.current
+        ) {
           const nextPage = page + 1
           setPage(nextPage)
           fetchData(nextPage)

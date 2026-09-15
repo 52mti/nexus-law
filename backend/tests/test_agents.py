@@ -118,26 +118,36 @@ async def test_agent_service_with_fake_graph(tmp_path) -> None:
 
     graph = MagicMock()
     graph.ainvoke = AsyncMock(
-        return_value={
-            "messages": [
-                HumanMessage(content="now?"),
-                AIMessage(
-                    content="",
-                    tool_calls=[
-                        {
-                            "name": "get_current_time",
-                            "args": {},
-                            "id": "t1",
-                            "type": "tool_call",
-                        }
-                    ],
-                ),
-                ToolMessage(content="2026-07-21T01:00:00+00:00", tool_call_id="t1"),
-                AIMessage(content="Current UTC time is 2026-07-21T01:00:00+00:00."),
-            ],
-            "iteration": 2,
-            "context": {"max_iterations": 6},
-        }
+        side_effect=[
+            {
+                "messages": [
+                    HumanMessage(content="now?"),
+                    AIMessage(
+                        content="",
+                        tool_calls=[
+                            {
+                                "name": "get_current_time",
+                                "args": {},
+                                "id": "t1",
+                                "type": "tool_call",
+                            }
+                        ],
+                    ),
+                    ToolMessage(content="2026-07-21T01:00:00+00:00", tool_call_id="t1"),
+                    AIMessage(content="Current UTC time is 2026-07-21T01:00:00+00:00."),
+                ],
+                "iteration": 2,
+                "context": {"max_iterations": 6},
+            },
+            {
+                "messages": [
+                    HumanMessage(content="and tomorrow?"),
+                    AIMessage(content="Tomorrow is 2026-07-22."),
+                ],
+                "iteration": 1,
+                "context": {"max_iterations": 6},
+            },
+        ]
     )
 
     service = AgentService(graph=graph)
@@ -148,10 +158,26 @@ async def test_agent_service_with_fake_graph(tmp_path) -> None:
             user_external_id="u-time",
             debug=True,
         )
+        follow_up = await service.run(
+            session,
+            user_input="What about tomorrow?",
+            conversation_id=result.conversation_id,
+            user_external_id="u-time",
+        )
         await session.commit()
 
     assert result.conversation_id
     assert "2026-07-21" in result.answer
     assert result.tool_trace[0]["name"] == "get_current_time"
     assert result.iterations == 2
+    assert follow_up.conversation_id == result.conversation_id
+
+    from app.db.models import Conversation
+
+    async with session_factory() as session:
+        stored = await session.get(Conversation, result.conversation_id)
+        assert stored is not None
+        assert stored.title == "What about tomorrow?"
+        assert stored.content == "Tomorrow is 2026-07-22."
+
     await engine.dispose()

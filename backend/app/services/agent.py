@@ -61,6 +61,29 @@ def collect_rag_sources(
     return sources
 
 
+def _stream_token_text(chunk: Any) -> str:
+    """Extract visible model text from an AIMessageChunk / content block."""
+    if chunk is None:
+        return ""
+    text = getattr(chunk, "text", None)
+    if isinstance(text, str) and text:
+        return text
+    content = getattr(chunk, "content", None)
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str) and block:
+                parts.append(block)
+            elif isinstance(block, dict) and block.get("type") == "text":
+                value = block.get("text")
+                if isinstance(value, str) and value:
+                    parts.append(value)
+        return "".join(parts)
+    return ""
+
+
 @dataclass(slots=True)
 class AgentStreamEvent:
     event: str
@@ -101,7 +124,7 @@ class AgentService:
             session,
             conversation_id=conversation_id,
             user_external_id=user_external_id,
-            title=title or user_input[:80],
+            title=user_input,
         )
         history = await conversation_service.get_conversation_messages(session, conversation.id)
         lc_messages = [SystemMessage(content=SYSTEM_PROMPT)]
@@ -121,6 +144,13 @@ class AgentService:
         user_input: str,
         answer: str,
     ) -> None:
+        conversation = await conversation_service.get_conversation(session, conversation_id)
+        await conversation_service.sync_conversation_preview(
+            session,
+            conversation,
+            title=user_input,
+            content=answer,
+        )
         session.add(
             Message(
                 conversation_id=conversation_id,
@@ -166,7 +196,7 @@ class AgentService:
                 },
                 config={"recursion_limit": max(10, max_iterations * 2 + 2)},
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("agent_error type={}", type(exc).__name__)
             raise _map_llm_error(exc) from exc
 
@@ -185,9 +215,7 @@ class AgentService:
             answer=answer,
         )
 
-        tool_names = sorted(
-            {item.get("name") for item in full_trace if item.get("name")}
-        )
+        tool_names = sorted({item.get("name") for item in full_trace if item.get("name")})
         logger.info(
             "agent_run conversation_id={} model={} latency_ms={:.2f} "
             "iterations={} sources={} tool_names={}",
@@ -240,8 +268,7 @@ class AgentService:
             event="conversation_meta",
             data=ConversationMetaEventData(
                 conversation_id=conversation.id,
-                user_id=conversation.user_id,
-                title=conversation.title,
+                title=conversation_service.preview_title(user_input),
                 model=self._settings.llm_model,
             ).model_dump(exclude_none=True),
         )
@@ -278,10 +305,10 @@ class AgentService:
                 meta = event.get("metadata") or {}
                 node = meta.get("langgraph_node")
 
-                if kind == "on_chat_model_stream" and node == "agent":
+                if kind == "on_chat_model_stream" and node != "tools":
                     chunk = data.get("chunk")
-                    content = getattr(chunk, "content", None)
-                    if isinstance(content, str) and content:
+                    content = _stream_token_text(chunk)
+                    if content:
                         answer_parts.append(content)
                         yield AgentStreamEvent(event="token", data=content)
                 elif kind == "on_tool_start":
@@ -383,9 +410,7 @@ class AgentService:
             )
             return
 
-        tool_names = sorted(
-            {item.get("name") for item in (tool_trace or []) if item.get("name")}
-        )
+        tool_names = sorted({item.get("name") for item in (tool_trace or []) if item.get("name")})
         logger.info(
             "agent_stream_done conversation_id={} model={} latency_ms={:.2f} "
             "iterations={} sources={} tool_names={}",

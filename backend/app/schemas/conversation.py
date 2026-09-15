@@ -5,8 +5,8 @@ from pydantic import BaseModel
 
 class ConversationRead(BaseModel):
     id: str
-    user_id: str
     title: str | None
+    content: str | None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -22,9 +22,17 @@ class MessageRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ConversationPage(BaseModel):
+    records: list[ConversationRead]
+    total: int
+    current: int
+    size: int
+    pages: int
+
+
 class ConversationListResponse(BaseModel):
     success: bool = True
-    data: list[ConversationRead]
+    data: ConversationPage
     error: None = None
     request_id: str | None = None
 

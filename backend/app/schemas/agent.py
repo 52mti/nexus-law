@@ -45,6 +45,5 @@ class AgentRunResponse(BaseModel):
 class ConversationMetaEventData(BaseModel):
     conversation_id: str
     request_id: str | None = None
-    user_id: str | None = None
     title: str | None = None
     model: str

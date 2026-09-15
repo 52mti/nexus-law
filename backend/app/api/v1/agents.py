@@ -81,10 +81,6 @@ async def run_agent_stream(
                 debug=payload.debug,
                 cancel_event=cancel_event,
             ):
-                if await request.is_disconnected():
-                    cancel_event.set()
-                    logger.info("sse_client_disconnected request_id={}", request_id)
-                    break
                 data = item.data
                 if item.event in {"conversation_meta", "error", "final"} and isinstance(data, dict):
                     data = {**data, "request_id": request_id}
@@ -93,7 +89,7 @@ async def run_agent_stream(
             cancel_event.set()
             logger.info("sse_generator_cancelled request_id={}", request_id)
             raise
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.exception("sse_unhandled_error request_id={}", request_id)
             yield format_sse(
                 "error",

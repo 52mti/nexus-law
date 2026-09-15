@@ -6,6 +6,7 @@ from app.core.security import Principal
 from app.db.session import get_db_session
 from app.schemas.conversation import (
     ConversationListResponse,
+    ConversationPage,
     ConversationRead,
     MessageListResponse,
     MessageRead,
@@ -20,20 +21,27 @@ async def list_conversations(
     request: Request,
     user_external_id: str | None = Query(default=None),
     user_id: str | None = Query(default=None),
-    limit: int = Query(default=50, ge=1, le=200),
-    offset: int = Query(default=0, ge=0),
+    current: int = Query(default=1, ge=1, description="1-based page number"),
+    size: int = Query(default=50, ge=1, le=200, description="page size"),
     _principal: Principal = Depends(require_principal),
     session: AsyncSession = Depends(get_db_session),
 ) -> ConversationListResponse:
-    conversations = await conversation_service.list_conversations(
+    conversations, total = await conversation_service.list_conversations(
         session,
         user_external_id=user_external_id,
         user_id=user_id,
-        limit=limit,
-        offset=offset,
+        limit=size,
+        offset=(current - 1) * size,
     )
+    pages = (total + size - 1) // size if size else 0
     return ConversationListResponse(
-        data=[ConversationRead.model_validate(item) for item in conversations],
+        data=ConversationPage(
+            records=[ConversationRead.model_validate(item) for item in conversations],
+            total=total,
+            current=current,
+            size=size,
+            pages=pages,
+        ),
         request_id=getattr(request.state, "request_id", None),
     )
 

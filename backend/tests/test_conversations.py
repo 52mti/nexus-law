@@ -9,6 +9,7 @@ from app.db.models import Base, Message, MessageRole
 from app.db.session import get_db_session
 from app.main import app
 from app.services import conversation as conversation_service
+from app.services.conversation import TITLE_MAX_LENGTH, preview_title
 
 
 @pytest.fixture
@@ -91,18 +92,31 @@ async def test_list_conversations_and_messages(client) -> None:
                 content="建议先确认用工事实并协商补偿。",
             )
         )
+        await conversation_service.sync_conversation_preview(
+            session,
+            conversation,
+            title="未签劳动合同被辞退怎么办？",
+            content="建议先确认用工事实并协商补偿。",
+        )
         conversation_id = conversation.id
         await session.commit()
 
     list_resp = await http.get(
         "/api/v1/conversations",
-        params={"user_external_id": "user-001"},
+        params={"user_external_id": "user-001", "current": 1, "size": 10},
     )
     assert list_resp.status_code == 200
-    rows = list_resp.json()["data"]
+    page = list_resp.json()["data"]
+    rows = page["records"]
+    assert page["total"] == 1
+    assert page["current"] == 1
+    assert page["size"] == 10
+    assert page["pages"] == 1
     assert len(rows) == 1
     assert rows[0]["id"] == conversation_id
-    assert rows[0]["title"] == "劳动纠纷咨询"
+    assert rows[0]["title"] == "未签劳动合同被辞退怎么办？"
+    assert rows[0]["content"] == "建议先确认用工事实并协商补偿。"
+    assert "user_id" not in rows[0]
 
     msg_resp = await http.get(f"/api/v1/conversations/{conversation_id}/messages")
     assert msg_resp.status_code == 200
@@ -113,6 +127,49 @@ async def test_list_conversations_and_messages(client) -> None:
 
 
 @pytest.mark.asyncio
+async def test_list_conversations_pages_do_not_overlap(client) -> None:
+    http, session_factory = client
+    async with session_factory() as session:
+        ids: list[str] = []
+        for index in range(15):
+            conversation = await conversation_service.create_conversation(
+                session,
+                title=f"会话 {index}",
+                user_external_id="user-page",
+            )
+            ids.append(conversation.id)
+        await session.commit()
+
+    first = await http.get(
+        "/api/v1/conversations",
+        params={"user_external_id": "user-page", "current": 1, "size": 10},
+    )
+    second = await http.get(
+        "/api/v1/conversations",
+        params={"user_external_id": "user-page", "current": 2, "size": 10},
+    )
+    assert first.status_code == 200
+    assert second.status_code == 200
+    page1 = first.json()["data"]
+    page2 = second.json()["data"]
+    assert page1["total"] == 15
+    assert page1["pages"] == 2
+    assert len(page1["records"]) == 10
+    assert len(page2["records"]) == 5
+    ids1 = {item["id"] for item in page1["records"]}
+    ids2 = {item["id"] for item in page2["records"]}
+    assert ids1.isdisjoint(ids2)
+    assert ids1 | ids2 == set(ids)
+
+    empty = await http.get(
+        "/api/v1/conversations",
+        params={"user_external_id": "user-page", "current": 3, "size": 10},
+    )
+    assert empty.json()["data"]["records"] == []
+    assert empty.json()["data"]["pages"] == 2
+
+
+@pytest.mark.asyncio
 async def test_messages_not_found(client) -> None:
     http, _ = client
     response = await http.get("/api/v1/conversations/missing-id/messages")
@@ -120,3 +177,9 @@ async def test_messages_not_found(client) -> None:
     body = response.json()
     assert body["success"] is False
     assert body["error"]["code"] == "conversation_not_found"
+
+
+def test_preview_title_truncates() -> None:
+    assert preview_title("  劳动纠纷  ") == "劳动纠纷"
+    long_title = "问" * (TITLE_MAX_LENGTH + 10)
+    assert preview_title(long_title) == "问" * TITLE_MAX_LENGTH

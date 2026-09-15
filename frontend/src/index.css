@@ -68,6 +68,24 @@ svg {
   }
 }
 
+/* SSE 渐进渲染：Markdown 标签首次出现时淡入 */
+.sse-chunk-in {
+  animation: sse-chunk-fade 0.3s ease-out both;
+}
+
+@keyframes sse-chunk-fade {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
 /* 自定义 Ant Design 样式 */
 .custom-steps-text-sm .ant-steps-item-title {
   font-size: 13px;

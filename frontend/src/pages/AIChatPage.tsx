@@ -13,8 +13,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { fetchSSE } from '@/utils/sseClient'
 import { useTranslation } from 'react-i18next'
 import { getConversationMessages } from '@/api/chat'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { ChatMarkdown, createSseContentBuffer } from '@/components/ChatMarkdown'
 
 const { Content } = Layout
 
@@ -140,12 +139,19 @@ export const AIChatPage = () => {
     setMessages((prev) => [...prev, newUserMsg, emptyAiMsg])
     setIsStreaming(true)
 
+    const contentBuffer = createSseContentBuffer((text) => {
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === aiMsgId ? { ...msg, content: msg.content + text } : msg)),
+      )
+    })
+
     try {
       const token = localStorage.getItem('token')
 
       abortRef.current?.abort()
       const controller = new AbortController()
       abortRef.current = controller
+      controller.signal.addEventListener('abort', () => contentBuffer.close())
 
       await fetchSSE({
         url: `${import.meta.env.VITE_API_BASE_URL}/api/v1/agents/run/stream`,
@@ -154,7 +160,7 @@ export const AIChatPage = () => {
           conversation_id: activeSessionIdRef.current || undefined,
         },
         headers: {
-          Authorization: `Bearer ${token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLTEiLCJ0aWVyIjoibm9ybWFsIiwiaXNzIjoibmV4dXMtbGF3LW5vcm1hbCIsImlhdCI6MTc4OTE5MzY1NSwiZXhwIjoxNzg5MjgwMDU1fQ.YffMKuP6JHbP7W6Yj2UpXXiCtmhVHSbeLx1PBblR0S8'}`,
+          Authorization: `Bearer ${token}`,
           'target-language': i18n.language,
         },
         signal: controller.signal,
@@ -176,7 +182,8 @@ export const AIChatPage = () => {
             payload.event === 'status' ||
             payload.event === 'tool_start' ||
             payload.event === 'tool_end' ||
-            payload.event === 'final'
+            payload.event === 'final' ||
+            payload.event === 'done'
           ) {
             return
           }
@@ -187,26 +194,20 @@ export const AIChatPage = () => {
             return
           }
 
-          const parsedContent = payload.delta
-          if (!parsedContent) return
-
-          setMessages((prev) =>
-            prev.map((msg) => {
-              if (msg.id === aiMsgId) {
-                return { ...msg, content: msg.content + parsedContent }
-              }
-              return msg
-            }),
-          )
+          if (payload.event !== 'chunk' && payload.event !== 'token') return
+          contentBuffer.push(payload.delta)
         },
         onError(err) {
           console.error('流式输出中断:', err)
           message.error(t('pR5PPuOZ-nttTh54MM61X'))
         },
       })
+
+      await contentBuffer.done()
     } catch (error) {
       console.error(error)
     } finally {
+      contentBuffer.close()
       setIsStreaming(false)
     }
   }
@@ -252,15 +253,15 @@ export const AIChatPage = () => {
                     </div>
                   ) : (
                     <div className="bg-white rounded-2xl rounded-tl-sm shadow-sm border border-gray-100 p-6">
-                      <div className="prose prose-slate max-w-none text-gray-700 leading-relaxed text-[15px] break-words overflow-x-auto">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {msg.content +
-                            (isStreaming && msg.id === messages[messages.length - 1].id
-                              ? ' ▎'
-                              : '')}
-                        </ReactMarkdown>
-                        {isStreaming && msg.content === '' && (
-                          <span className="inline-block w-2 h-4 bg-gray-400 animate-pulse ml-1" />
+                      <div className="max-w-none text-[15px] break-words overflow-x-auto">
+                        {msg.content ? (
+                          <ChatMarkdown
+                            content={msg.content}
+                            animate={isStreaming && msg.id === messages[messages.length - 1].id}
+                          />
+                        ) : null}
+                        {isStreaming && msg.id === messages[messages.length - 1].id && (
+                          <span className="inline-block w-2 h-4 bg-gray-400 animate-pulse ml-1 align-text-bottom" />
                         )}
                       </div>
                       <div className="flex items-center gap-4 mt-6 text-gray-400">

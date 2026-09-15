@@ -1,9 +1,18 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import AppError
 from app.db.models import Conversation, Message, User
+
+TITLE_MAX_LENGTH = 255
+
+
+def preview_title(text: str) -> str:
+    normalized = text.strip()
+    if len(normalized) <= TITLE_MAX_LENGTH:
+        return normalized
+    return normalized[:TITLE_MAX_LENGTH]
 
 
 async def get_or_create_user(
@@ -46,10 +55,27 @@ async def create_conversation(
         external_id=user_external_id,
         email=email,
     )
-    conversation = Conversation(user_id=user.id, title=title)
+    conversation = Conversation(
+        user_id=user.id,
+        title=preview_title(title) if title else None,
+    )
     session.add(conversation)
     await session.flush()
     return conversation
+
+
+async def sync_conversation_preview(
+    session: AsyncSession,
+    conversation: Conversation,
+    *,
+    title: str | None = None,
+    content: str | None = None,
+) -> None:
+    if title is not None:
+        conversation.title = preview_title(title)
+    if content is not None:
+        conversation.content = content
+    await session.flush()
 
 
 async def list_conversations(
@@ -59,23 +85,35 @@ async def list_conversations(
     user_id: str | None = None,
     limit: int = 50,
     offset: int = 0,
-) -> list[Conversation]:
-    stmt = select(Conversation).order_by(Conversation.created_at.desc())
-
+) -> tuple[list[Conversation], int]:
+    filters = []
     if user_id:
-        stmt = stmt.where(Conversation.user_id == user_id)
+        filters.append(Conversation.user_id == user_id)
     elif user_external_id:
         user_result = await session.execute(
             select(User).where(User.external_id == user_external_id)
         )
         user = user_result.scalar_one_or_none()
         if not user:
-            return []
-        stmt = stmt.where(Conversation.user_id == user.id)
+            return [], 0
+        filters.append(Conversation.user_id == user.id)
 
-    stmt = stmt.offset(offset).limit(limit)
+    count_stmt = select(func.count()).select_from(Conversation)
+    if filters:
+        count_stmt = count_stmt.where(*filters)
+    total = int((await session.execute(count_stmt)).scalar_one())
+
+    stmt = select(Conversation)
+    if filters:
+        stmt = stmt.where(*filters)
+    # Secondary id sort keeps OFFSET pages stable when created_at ties.
+    stmt = (
+        stmt.order_by(Conversation.created_at.desc(), Conversation.id.desc())
+        .offset(offset)
+        .limit(limit)
+    )
     result = await session.execute(stmt)
-    return list(result.scalars().all())
+    return list(result.scalars().all()), total
 
 
 async def get_conversation(

@@ -11,7 +11,7 @@ from app.core.config import Settings
 from app.db.models import Base
 from app.db.session import get_db_session
 from app.main import app
-from app.services.agent import AgentService, AgentStreamEvent
+from app.services.agent import AgentService, AgentStreamEvent, _stream_token_text
 from app.utils.sse import format_sse
 
 
@@ -283,3 +283,15 @@ async def test_agent_service_stream_happy_path(tmp_path) -> None:
     assert events[-2].data == "UTC."
     assert events[-1].data["answer"] == "Now UTC."
     await engine.dispose()
+
+
+def test_stream_token_text_supports_content_blocks() -> None:
+    class Chunk:
+        def __init__(self, content: object, text: str | None = None) -> None:
+            self.content = content
+            self.text = text
+
+    assert _stream_token_text(Chunk("hello", text="hello")) == "hello"
+    assert _stream_token_text(Chunk([{"type": "text", "text": "合同"}])) == "合同"
+    assert _stream_token_text(Chunk([{"type": "tool_call_chunk", "args": "{}"}])) == ""
+    assert _stream_token_text(None) == ""
