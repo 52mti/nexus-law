@@ -20,10 +20,11 @@ COPY alembic.ini ./
 COPY alembic/ alembic/
 COPY app/ app/
 COPY scripts/docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh \
+RUN sed -i 's/\r$//' /docker-entrypoint.sh \
+    && chmod +x /docker-entrypoint.sh \
     && uv sync --frozen --no-dev
 
 EXPOSE 8000
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
+ENTRYPOINT ["/bin/sh", "/docker-entrypoint.sh"]
 CMD ["run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
