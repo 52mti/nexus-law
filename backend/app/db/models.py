@@ -8,10 +8,12 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     JSON,
     LargeBinary,
+    MetaData,
     Numeric,
     String,
     Text,
@@ -30,6 +32,14 @@ def _uuid() -> str:
 
 class Base(DeclarativeBase):
     pass
+
+
+def omit_physical_foreign_keys(metadata: MetaData) -> None:
+    """Keep Column.foreign_keys / relationship() for ORM; emit no DB FOREIGN KEY."""
+    for table in metadata.tables.values():
+        for constraint in list(table.constraints):
+            if isinstance(constraint, ForeignKeyConstraint):
+                table.constraints.discard(constraint)
 
 
 class PersistentModel(Base):
@@ -570,3 +580,7 @@ class AdminAuditLog(PersistentModel):
     target_type: Mapped[str] = mapped_column(String(64), nullable=False)
     target_id: Mapped[str | None] = mapped_column(String(36), index=True)
     detail_json: Mapped[dict | list | None] = mapped_column(JSON)
+
+
+# ForeignKey() stays on columns so ORM/AI can read relations; DDL must not emit them.
+omit_physical_foreign_keys(Base.metadata)

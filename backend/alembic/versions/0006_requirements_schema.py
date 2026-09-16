@@ -188,8 +188,6 @@ def upgrade() -> None:
         *_audit_columns(),
         sa.Column("user_id", sa.String(length=36), nullable=False),
         sa.Column("role_id", sa.String(length=36), nullable=False),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["role_id"], ["roles.id"], ondelete="CASCADE"),
         sa.UniqueConstraint("user_id", "role_id", name="uq_user_roles_user_role"),
     )
     op.create_index(op.f("ix_user_roles_is_deleted"), "user_roles", ["is_deleted"], unique=False)
@@ -201,8 +199,6 @@ def upgrade() -> None:
         *_audit_columns(),
         sa.Column("role_id", sa.String(length=36), nullable=False),
         sa.Column("permission_id", sa.String(length=36), nullable=False),
-        sa.ForeignKeyConstraint(["role_id"], ["roles.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["permission_id"], ["permissions.id"], ondelete="CASCADE"),
         sa.UniqueConstraint("role_id", "permission_id", name="uq_role_permissions_role_perm"),
     )
     op.create_index(
@@ -241,22 +237,12 @@ def upgrade() -> None:
 
     op.add_column("conversations", sa.Column("agent_id", sa.String(length=36), nullable=True))
     op.create_index(op.f("ix_conversations_agent_id"), "conversations", ["agent_id"], unique=False)
-    op.create_foreign_key(
-        "fk_conversations_agent_id",
-        "conversations",
-        "agents",
-        ["agent_id"],
-        ["id"],
-        ondelete="SET NULL",
-    )
 
     op.create_table(
         "agent_role_binds",
         *_audit_columns(),
         sa.Column("agent_id", sa.String(length=36), nullable=False),
         sa.Column("role_id", sa.String(length=36), nullable=False),
-        sa.ForeignKeyConstraint(["agent_id"], ["agents.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["role_id"], ["roles.id"], ondelete="CASCADE"),
         sa.UniqueConstraint("agent_id", "role_id", name="uq_agent_role_binds_agent_role"),
     )
     op.create_index(
@@ -286,7 +272,6 @@ def upgrade() -> None:
         sa.Column("content", sa.Text(), nullable=False),
         sa.Column("version", sa.Integer(), server_default=sa.text("1"), nullable=False),
         sa.Column("is_active", sa.Boolean(), server_default=sa.true(), nullable=False),
-        sa.ForeignKeyConstraint(["agent_id"], ["agents.id"], ondelete="CASCADE"),
         sa.UniqueConstraint("agent_id", "scene", "version", name="uq_prompts_agent_scene_version"),
     )
     op.create_index(op.f("ix_prompts_is_deleted"), "prompts", ["is_deleted"], unique=False)
@@ -304,7 +289,6 @@ def upgrade() -> None:
         sa.Column("type", sa.String(length=32), nullable=False),
         sa.Column("biz_id", sa.String(length=36), nullable=True),
         sa.Column("remark", sa.String(length=512), nullable=True),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
     )
     op.create_index(op.f("ix_point_ledgers_is_deleted"), "point_ledgers", ["is_deleted"], unique=False)
     op.create_index(op.f("ix_point_ledgers_user_id"), "point_ledgers", ["user_id"], unique=False)
@@ -339,8 +323,6 @@ def upgrade() -> None:
         sa.Column("start_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("expire_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("status", sa.String(length=32), nullable=False),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["plan_id"], ["plans.id"], ondelete="RESTRICT"),
     )
     op.create_index(op.f("ix_subscriptions_is_deleted"), "subscriptions", ["is_deleted"], unique=False)
     op.create_index(op.f("ix_subscriptions_user_id"), "subscriptions", ["user_id"], unique=False)
@@ -364,7 +346,6 @@ def upgrade() -> None:
         sa.Column("status", sa.String(length=32), nullable=False),
         sa.Column("channel", sa.String(length=32), nullable=True),
         sa.Column("paid_at", sa.DateTime(timezone=True), nullable=True),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
     )
     op.create_index(op.f("ix_orders_is_deleted"), "orders", ["is_deleted"], unique=False)
     op.create_index(op.f("ix_orders_user_id"), "orders", ["user_id"], unique=False)
@@ -381,7 +362,6 @@ def upgrade() -> None:
         sa.Column("target_type", sa.String(length=64), nullable=False),
         sa.Column("target_id", sa.String(length=36), nullable=True),
         sa.Column("detail_json", sa.JSON(), nullable=True),
-        sa.ForeignKeyConstraint(["admin_id"], ["users.id"], ondelete="SET NULL"),
     )
     op.create_index(
         op.f("ix_admin_audit_logs_is_deleted"),
@@ -565,7 +545,6 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_agent_role_binds_is_deleted"), table_name="agent_role_binds")
     op.drop_table("agent_role_binds")
 
-    op.drop_constraint("fk_conversations_agent_id", "conversations", type_="foreignkey")
     op.drop_index(op.f("ix_conversations_agent_id"), table_name="conversations")
     op.drop_column("conversations", "agent_id")
 

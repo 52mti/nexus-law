@@ -108,14 +108,6 @@ def upgrade() -> None:
 
     op.alter_column("documents", "dataset_id", nullable=False)
     op.create_index("ix_documents_dataset_id", "documents", ["dataset_id"])
-    op.create_foreign_key(
-        "fk_documents_dataset_id_datasets",
-        "documents",
-        "datasets",
-        ["dataset_id"],
-        ["id"],
-        ondelete="CASCADE",
-    )
     op.drop_column("documents", "collection")
 
 
@@ -134,7 +126,6 @@ def downgrade() -> None:
     op.execute(sa.text("UPDATE documents SET collection = 'NexusLawDocuments' WHERE collection IS NULL"))
     op.alter_column("documents", "collection", nullable=False)
 
-    op.drop_constraint("fk_documents_dataset_id_datasets", "documents", type_="foreignkey")
     op.drop_index("ix_documents_dataset_id", table_name="documents")
     op.drop_column("documents", "dataset_id")
 

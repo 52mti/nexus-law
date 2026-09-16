@@ -17,6 +17,13 @@ settings = get_settings()
 config.set_main_option("sqlalchemy.url", settings.database_url)
 
 
+def include_object(object_, name, type_, reflected, compare_to) -> bool:
+    # Physical FOREIGN KEY is forbidden; relationships live only in SQLAlchemy models.
+    if type_ == "foreign_key_constraint":
+        return False
+    return True
+
+
 def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
@@ -25,6 +32,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -36,6 +44,7 @@ def do_run_migrations(connection: Connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         compare_type=True,
+        include_object=include_object,
     )
     with context.begin_transaction():
         context.run_migrations()

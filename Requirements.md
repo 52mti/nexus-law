@@ -75,7 +75,7 @@ nexus-law/
 
 - 删除一律逻辑删除（`is_deleted=true`），MUST NOT 物理删除，除非后台提供「彻底清理」且单独授权。
 - 所有列表/详情查询 MUST 默认过滤已删除数据。
-- 索引至少覆盖：主键、`is_deleted`、高频筛选字段、排序字段。
+- 索引至少覆盖：主键、`is_deleted`、高频筛选字段、排序字段、以及所有逻辑外键列（如 `user_id`、`conversation_id`）。逻辑外键规则见 2.2.5。
 
 #### 2.2.2 统一响应格式（MUST）
 
@@ -135,6 +135,38 @@ nexus-law/
 - 密码 MUST 哈希存储；验证码有过期与一次性使用限制。
 - 后端 MUST 做参数校验、越权校验（用户只能操作自己的对话/订单，管理员除外）。
 - 法律回答 MUST 标注「不构成正式法律意见」类免责声明（前端固定展示 + 系统提示词约束）。
+
+#### 2.2.5 逻辑外键：只在 SQLAlchemy 声明，物理库不建 FOREIGN KEY（MUST）
+
+关联关系 **MUST** 在 ORM 里写清楚，让读模型的人（含 AI）能还原表之间的引用；**MUST NOT** 在 PostgreSQL 等真实库里创建 `FOREIGN KEY` 约束。引用完整性由业务代码保证，库内只给外键列建索引。
+
+| 层 | 做什么 | 禁止做什么 |
+|---|---|---|
+| SQLAlchemy 模型 | `mapped_column(..., ForeignKey("父表.id"), index=True)`；需要时加 `relationship()` | 为了「库里没外键」而删掉模型上的 `ForeignKey` / `relationship` |
+| Alembic / DDL / 真实库 | 为逻辑外键列建普通索引（及业务需要的联合索引） | `CONSTRAINT ... FOREIGN KEY`、`REFERENCES`、`ON DELETE CASCADE/SET NULL` 等数据库级外键 |
+| 业务代码 | 写入前校验父行存在且未删除；删除/停用时按产品规则处理子行（逻辑删或拒绝） | 依赖数据库去拦脏数据或自动级联删除 |
+
+实现细则（给 AI 落地）：
+
+1. **模型怎么写（示例，语义必须保留）**
+
+```python
+user_id: Mapped[str] = mapped_column(
+    String(36),
+    ForeignKey("users.id"),  # 仅供 ORM / 读模型的人理解关系，不落到物理库
+    index=True,
+    nullable=False,
+)
+user: Mapped["User"] = relationship(back_populates="conversations")
+```
+
+2. **Alembic `env.py` MUST** 忽略外键约束对比与生成，例如 `include_object` 在 `type_ == "foreign_key_constraint"` 时返回 `False`。手工迁移同样 MUST NOT `op.create_foreign_key`。
+3. **`Base.metadata.create_all` 与生产库行为必须一致**：若开发用 `create_all`，也不得创建物理外键（可通过 `MetaData`/`naming`/`include_object` 或等价手段关掉 FK 产出，只留列和索引）。
+4. 逻辑外键列命名保持 `*_id`；联合唯一（如 `user_id + role_id`）仍可在库内建 `UNIQUE` 索引，这不是 FOREIGN KEY。
+5. 模型上即使写了 `ondelete="CASCADE"` / `SET NULL`，也只表示业务意图，**真实库不会执行**。级联删除、置空、拒绝删除 MUST 写在 Service 里。
+6. 查询关联数据用 SQLAlchemy `relationship` 或显式 `JOIN`；不得假定数据库会拒绝孤儿 `user_id`。
+
+验收口径：`information_schema.table_constraints`（或 `\d 表名`）中不得出现 FOREIGN KEY；对应列上必须有索引；`models.py` 中仍能看到 `ForeignKey("表.列")`。
 
 ---
 
@@ -330,7 +362,7 @@ nexus-law/
 
 ### 2.9 核心数据对象（逻辑模型）
 
-下列为逻辑实体，不是最终 DDL。每张表仍须满足 2.2.1。关系用外键；名称可按实现微调，语义不得缺。
+下列为逻辑实体，不是最终 DDL。每张表仍须满足 2.2.1。表之间的引用在 **SQLAlchemy 用 `ForeignKey` + `relationship` 声明**（见 2.2.5），物理库 **不建 FOREIGN KEY**，只给 `*_id` 列建索引。名称可按实现微调，语义不得缺。
 
 | 实体 | 关键字段（除公共字段外） |
 |---|---|
@@ -443,7 +475,7 @@ nexus-law/
 
 ### 3.1 一句话收束
 
-Nexus Law 要用 **C 端（`frontend/`：React + Ant Design + Markdown）** 服务大众和律师问答，用 **管理端（`admin/`：Shadcn Admin 独立工程）** 运营提示词、Agent 权限和消费账本，后端为 **FastAPI + Celery**，鉴权为 **JWT + RBAC**。知识库覆盖本地法律，商业闭环是积分与会员。全局必须遵守：**表有四字段、接口只有 GET/POST、响应永远是 `{ code, data, message }`。**
+Nexus Law 要用 **C 端（`frontend/`：React + Ant Design + Markdown）** 服务大众和律师问答，用 **管理端（`admin/`：Shadcn Admin 独立工程）** 运营提示词、Agent 权限和消费账本，后端为 **FastAPI + Celery**，鉴权为 **JWT + RBAC**。知识库覆盖本地法律，商业闭环是积分与会员。全局必须遵守：**表有四字段、接口只有 GET/POST、响应永远是 `{ code, data, message }`、外键只存在于 SQLAlchemy 声明、物理库只建索引。**
 
 ### 3.2 给实现者的硬约束（MUST）
 
@@ -457,6 +489,7 @@ Nexus Law 要用 **C 端（`frontend/`：React + Ant Design + Markdown）** 服�
 8. 知识库未发布切片不得进入检索。
 9. 任何新表都必须带 `id, created_at, updated_at, is_deleted`。
 10. 管理端 MUST 放在独立工程 `admin/`，基于 Shadcn Admin 实现；不得在 `frontend/` 内做后台，不得把两套 UI 库交叉引入。
+11. 外键只在 SQLAlchemy 用 `ForeignKey` / `relationship` 声明；Alembic 与真实库 MUST NOT 创建 FOREIGN KEY，逻辑外键列 MUST 建索引，引用完整性由业务代码保证。
 
 ### 3.3 明确不做（MUST NOT 当作本需求已承诺）
 
@@ -467,6 +500,7 @@ Nexus Law 要用 **C 端（`frontend/`：React + Ant Design + Markdown）** 服�
 - 使用 PUT/DELETE 的开放 REST API
 - 独立的会话创建接口、会话详情接口（会话随问答创建；回溯用 list + messages）
 - 在 C 端 `frontend/` 内用 Ant Design 做 `/admin` 后台，或把管理端与 C 端打成同一个前端工程
+- 在 PostgreSQL（或其它真实库）创建 `FOREIGN KEY` / `REFERENCES` 约束；也不得为了避开物理外键而从 SQLAlchemy 模型中删除 `ForeignKey`
 - 未在本文出现的「文档生成 / 合规审查 / 案例检索」等扩展模块（可列为后续迭代，本需求不验收）
 
 ### 3.4 验收清单
@@ -485,6 +519,7 @@ Nexus Law 要用 **C 端（`frontend/`：React + Ant Design + Markdown）** 服�
 - [ ] 管理端为独立工程 `admin/`，基于 Shadcn Admin，可维护提示词、Agent 权限、用户消费记录；无管理角色无法进入
 - [ ] 所有接口仅 GET/POST，响应均为 `{ code, data, message }`
 - [ ] 全表具备 `id, created_at, updated_at, is_deleted`
+- [ ] SQLAlchemy 模型保留 `ForeignKey` / `relationship`；真实库无 FOREIGN KEY 约束，逻辑外键列有索引
 
 ---
 
