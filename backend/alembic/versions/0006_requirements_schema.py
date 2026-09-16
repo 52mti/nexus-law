@@ -6,7 +6,6 @@ Create Date: 2026-09-16 09:10:00
 """
 
 from collections.abc import Sequence
-from datetime import datetime, timezone
 from uuid import uuid4
 
 import sqlalchemy as sa
@@ -409,86 +408,40 @@ def upgrade() -> None:
 
 
 def _seed_rbac_and_agent() -> None:
-    now = datetime.now(timezone.utc)
-    roles = sa.table(
-        "roles",
-        sa.column("id", sa.String),
-        sa.column("code", sa.String),
-        sa.column("name", sa.String),
-        sa.column("description", sa.Text),
-        sa.column("created_at", sa.DateTime),
-        sa.column("updated_at", sa.DateTime),
-        sa.column("is_deleted", sa.Boolean),
-    )
-    op.bulk_insert(
-        roles,
-        [
-            {
-                "id": ROLE_SUPER_ADMIN,
-                "code": "super_admin",
-                "name": "超级管理员",
-                "description": "后台全部权限；不可删除最后一个超管",
-                "created_at": now,
-                "updated_at": now,
-                "is_deleted": False,
-            },
-            {
-                "id": ROLE_ADMIN,
-                "code": "admin",
-                "name": "运营管理员",
-                "description": "用户、订单、积分、会员、消费记录、提示词、知识库",
-                "created_at": now,
-                "updated_at": now,
-                "is_deleted": False,
-            },
-            {
-                "id": ROLE_LAWYER,
-                "code": "lawyer",
-                "name": "专业律师",
-                "description": "C 端全部问答能力；可使用专业 Agent / 专业知识库",
-                "created_at": now,
-                "updated_at": now,
-                "is_deleted": False,
-            },
-            {
-                "id": ROLE_USER,
-                "code": "user",
-                "name": "普通用户",
-                "description": "C 端基础问答、积分购买、会员订阅",
-                "created_at": now,
-                "updated_at": now,
-                "is_deleted": False,
-            },
-        ],
+    bind = op.get_bind()
+    bind.execute(
+        sa.text(
+            """
+            INSERT INTO roles (id, code, name, description)
+            VALUES
+                (:super_id, 'super_admin', '超级管理员', '后台全部权限；不可删除最后一个超管'),
+                (:admin_id, 'admin', '运营管理员', '用户、订单、积分、会员、消费记录、提示词、知识库'),
+                (:lawyer_id, 'lawyer', '专业律师', 'C 端全部问答能力；可使用专业 Agent / 专业知识库'),
+                (:user_id, 'user', '普通用户', 'C 端基础问答、积分购买、会员订阅')
+            """
+        ),
+        {
+            "super_id": ROLE_SUPER_ADMIN,
+            "admin_id": ROLE_ADMIN,
+            "lawyer_id": ROLE_LAWYER,
+            "user_id": ROLE_USER,
+        },
     )
 
-    perm_rows = []
     perm_ids: dict[str, str] = {}
-    permissions = sa.table(
-        "permissions",
-        sa.column("id", sa.String),
-        sa.column("code", sa.String),
-        sa.column("name", sa.String),
-        sa.column("type", sa.String),
-        sa.column("created_at", sa.DateTime),
-        sa.column("updated_at", sa.DateTime),
-        sa.column("is_deleted", sa.Boolean),
+    perm_stmt = sa.text(
+        """
+        INSERT INTO permissions (id, code, name, "type")
+        VALUES (:id, :code, :name, :perm_type)
+        """
     )
     for code, name, perm_type in PERMISSIONS:
         perm_id = str(uuid4())
         perm_ids[code] = perm_id
-        perm_rows.append(
-            {
-                "id": perm_id,
-                "code": code,
-                "name": name,
-                "type": perm_type,
-                "created_at": now,
-                "updated_at": now,
-                "is_deleted": False,
-            }
+        bind.execute(
+            perm_stmt,
+            {"id": perm_id, "code": code, "name": name, "perm_type": perm_type},
         )
-    op.bulk_insert(permissions, perm_rows)
 
     admin_codes = {
         "user:manage",
@@ -501,91 +454,67 @@ def _seed_rbac_and_agent() -> None:
         "chat:history",
     }
     client_codes = {"chat:use", "chat:history", "kb:retrieve", "points:recharge"}
-    role_perm_rows = []
-    role_permissions = sa.table(
-        "role_permissions",
-        sa.column("id", sa.String),
-        sa.column("role_id", sa.String),
-        sa.column("permission_id", sa.String),
-        sa.column("created_at", sa.DateTime),
-        sa.column("updated_at", sa.DateTime),
-        sa.column("is_deleted", sa.Boolean),
-    )
     mapping = {
         ROLE_SUPER_ADMIN: set(perm_ids),
         ROLE_ADMIN: admin_codes,
         ROLE_LAWYER: client_codes,
         ROLE_USER: client_codes,
     }
+    role_perm_stmt = sa.text(
+        """
+        INSERT INTO role_permissions (id, role_id, permission_id)
+        VALUES (:id, :role_id, :permission_id)
+        """
+    )
     for role_id, codes in mapping.items():
         for code in codes:
-            role_perm_rows.append(
+            bind.execute(
+                role_perm_stmt,
                 {
                     "id": str(uuid4()),
                     "role_id": role_id,
                     "permission_id": perm_ids[code],
-                    "created_at": now,
-                    "updated_at": now,
-                    "is_deleted": False,
-                }
+                },
             )
-    op.bulk_insert(role_permissions, role_perm_rows)
 
-    agents = sa.table(
-        "agents",
-        sa.column("id", sa.String),
-        sa.column("name", sa.String),
-        sa.column("code", sa.String),
-        sa.column("description", sa.Text),
-        sa.column("tool_whitelist", sa.JSON),
-        sa.column("dataset_ids", sa.JSON),
-        sa.column("temperature", sa.Numeric),
-        sa.column("is_active", sa.Boolean),
-        sa.column("created_at", sa.DateTime),
-        sa.column("updated_at", sa.DateTime),
-        sa.column("is_deleted", sa.Boolean),
-    )
-    op.bulk_insert(
-        agents,
-        [
-            {
-                "id": AGENT_LEGAL_QA,
-                "name": "法律问答",
-                "code": "legal_qa",
-                "description": "默认法律智能问答 Agent",
-                "tool_whitelist": ["search_documents", "get_current_time", "calculator"],
-                "dataset_ids": [],
-                "temperature": "0.20",
-                "is_active": True,
-                "created_at": now,
-                "updated_at": now,
-                "is_deleted": False,
-            }
-        ],
+    bind.execute(
+        sa.text(
+            """
+            INSERT INTO agents (
+                id, name, code, description, tool_whitelist, dataset_ids, temperature, is_active
+            )
+            VALUES (
+                :id, :name, :code, :description,
+                CAST(:tool_whitelist AS json), CAST(:dataset_ids AS json),
+                0.20, true
+            )
+            """
+        ),
+        {
+            "id": AGENT_LEGAL_QA,
+            "name": "法律问答",
+            "code": "legal_qa",
+            "description": "默认法律智能问答 Agent",
+            "tool_whitelist": '["search_documents", "get_current_time", "calculator"]',
+            "dataset_ids": "[]",
+        },
     )
 
-    agent_role_binds = sa.table(
-        "agent_role_binds",
-        sa.column("id", sa.String),
-        sa.column("agent_id", sa.String),
-        sa.column("role_id", sa.String),
-        sa.column("created_at", sa.DateTime),
-        sa.column("updated_at", sa.DateTime),
-        sa.column("is_deleted", sa.Boolean),
+    bind_stmt = sa.text(
+        """
+        INSERT INTO agent_role_binds (id, agent_id, role_id)
+        VALUES (:id, :agent_id, :role_id)
+        """
     )
-    bind_rows = []
     for role_id in (ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_LAWYER, ROLE_USER):
-        bind_rows.append(
+        bind.execute(
+            bind_stmt,
             {
                 "id": str(uuid4()),
                 "agent_id": AGENT_LEGAL_QA,
                 "role_id": role_id,
-                "created_at": now,
-                "updated_at": now,
-                "is_deleted": False,
-            }
+            },
         )
-    op.bulk_insert(agent_role_binds, bind_rows)
 
 
 def downgrade() -> None:

@@ -2,7 +2,12 @@
 set -e
 
 echo "Running database migrations..."
-uv run alembic upgrade head
+if ! uv run alembic upgrade head; then
+  echo "ERROR: alembic upgrade failed"
+  uv run alembic current || true
+  exit 1
+fi
+uv run alembic current || true
 
 echo "Starting application..."
 exec uv "$@"

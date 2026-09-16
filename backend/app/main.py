@@ -38,6 +38,11 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(RequestLoggingMiddleware)
     register_exception_handlers(app)
+
+    @app.get("/healthz", include_in_schema=False)
+    async def healthz() -> dict[str, str]:
+        return {"status": "ok"}
+
     app.include_router(api_router, prefix=settings.api_prefix)
     return app
 
