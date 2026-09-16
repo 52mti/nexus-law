@@ -22,7 +22,9 @@ async def get_or_create_user(
     email: str | None = None,
 ) -> User:
     if external_id:
-        result = await session.execute(select(User).where(User.external_id == external_id))
+        result = await session.execute(
+            select(User).where(User.external_id == external_id, User.is_deleted.is_(False))
+        )
         user = result.scalar_one_or_none()
         if user:
             if email and not user.email:
@@ -30,7 +32,9 @@ async def get_or_create_user(
             return user
 
     if email:
-        result = await session.execute(select(User).where(User.email == email))
+        result = await session.execute(
+            select(User).where(User.email == email, User.is_deleted.is_(False))
+        )
         user = result.scalar_one_or_none()
         if user:
             if external_id and not user.external_id:
@@ -86,12 +90,12 @@ async def list_conversations(
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[list[Conversation], int]:
-    filters = []
+    filters = [Conversation.is_deleted.is_(False)]
     if user_id:
         filters.append(Conversation.user_id == user_id)
     elif user_external_id:
         user_result = await session.execute(
-            select(User).where(User.external_id == user_external_id)
+            select(User).where(User.external_id == user_external_id, User.is_deleted.is_(False))
         )
         user = user_result.scalar_one_or_none()
         if not user:
@@ -122,7 +126,10 @@ async def get_conversation(
     *,
     with_messages: bool = False,
 ) -> Conversation:
-    stmt = select(Conversation).where(Conversation.id == conversation_id)
+    stmt = select(Conversation).where(
+        Conversation.id == conversation_id,
+        Conversation.is_deleted.is_(False),
+    )
     if with_messages:
         stmt = stmt.options(selectinload(Conversation.messages))
     result = await session.execute(stmt)

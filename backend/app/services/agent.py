@@ -4,6 +4,7 @@ import asyncio
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -145,6 +146,8 @@ class AgentService:
         answer: str,
     ) -> None:
         conversation = await conversation_service.get_conversation(session, conversation_id)
+        now = datetime.now(UTC)
+        conversation.last_message_at = now
         await conversation_service.sync_conversation_preview(
             session,
             conversation,

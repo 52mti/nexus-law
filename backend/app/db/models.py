@@ -1,23 +1,61 @@
 from datetime import datetime
+from decimal import Decimal
 from enum import StrEnum
 from uuid import uuid4
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
+    JSON,
     LargeBinary,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
+    false as sa_false,
     func,
+    text,
+    true as sa_true,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
+def _uuid() -> str:
+    return str(uuid4())
+
+
 class Base(DeclarativeBase):
     pass
+
+
+class PersistentModel(Base):
+    """Every business table: id, created_at, updated_at, is_deleted."""
+
+    __abstract__ = True
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_false(),
+        index=True,
+    )
 
 
 class MessageRole(StrEnum):
@@ -25,6 +63,16 @@ class MessageRole(StrEnum):
     ASSISTANT = "assistant"
     SYSTEM = "system"
     TOOL = "tool"
+
+
+class UserStatus(StrEnum):
+    ACTIVE = "active"
+    DISABLED = "disabled"
+
+
+class PermissionType(StrEnum):
+    API = "api"
+    MENU = "menu"
 
 
 class DocumentStatus(StrEnum):
@@ -46,40 +94,236 @@ class StorageStatus(StrEnum):
     FAILED = "failed"
 
 
-class User(Base):
+class DatasetVisibility(StrEnum):
+    ALL = "all"
+    LAWYER = "lawyer"
+    INTERNAL = "internal"
+
+
+class PointLedgerType(StrEnum):
+    RECHARGE = "recharge"
+    SUBSCRIBE_GIFT = "subscribe_gift"
+    CONSUME_CHAT = "consume_chat"
+    REFUND = "refund"
+    ADMIN_ADJUST = "admin_adjust"
+
+
+class SubscriptionStatus(StrEnum):
+    PENDING = "pending"
+    ACTIVE = "active"
+    EXPIRED = "expired"
+    CANCELLED = "cancelled"
+
+
+class OrderStatus(StrEnum):
+    PENDING = "pending"
+    PAID = "paid"
+    FULFILLED = "fulfilled"
+    CANCELLED = "cancelled"
+    REFUNDED = "refunded"
+
+
+class ProductType(StrEnum):
+    PLAN = "plan"
+    POINTS = "points"
+
+
+class User(PersistentModel):
     __tablename__ = "users"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     external_id: Mapped[str | None] = mapped_column(String(128), unique=True, index=True)
     email: Mapped[str | None] = mapped_column(String(255), unique=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
+    phone: Mapped[str | None] = mapped_column(String(32), unique=True, index=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255))
+    nickname: Mapped[str | None] = mapped_column(String(64))
+    avatar_url: Mapped[str | None] = mapped_column(String(1024))
+    points: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    status: Mapped[str] = mapped_column(
+        String(32),
         nullable=False,
+        default=UserStatus.ACTIVE.value,
+        server_default=UserStatus.ACTIVE.value,
+        index=True,
     )
 
     conversations: Mapped[list["Conversation"]] = relationship(back_populates="user")
+    user_roles: Mapped[list["UserRole"]] = relationship(back_populates="user")
+    point_ledgers: Mapped[list["PointLedger"]] = relationship(back_populates="user")
+    orders: Mapped[list["Order"]] = relationship(back_populates="user")
+    subscriptions: Mapped[list["Subscription"]] = relationship(back_populates="user")
 
 
-class Conversation(Base):
-    __tablename__ = "conversations"
+class Role(PersistentModel):
+    __tablename__ = "roles"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    code: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+
+    user_roles: Mapped[list["UserRole"]] = relationship(back_populates="role")
+    role_permissions: Mapped[list["RolePermission"]] = relationship(back_populates="role")
+    agent_binds: Mapped[list["AgentRoleBind"]] = relationship(back_populates="role")
+
+
+class Permission(PersistentModel):
+    __tablename__ = "permissions"
+
+    code: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    type: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+
+    role_permissions: Mapped[list["RolePermission"]] = relationship(back_populates="permission")
+
+
+class UserRole(PersistentModel):
+    __tablename__ = "user_roles"
+    __table_args__ = (UniqueConstraint("user_id", "role_id", name="uq_user_roles_user_role"),)
+
     user_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("users.id", ondelete="CASCADE"),
         index=True,
         nullable=False,
     )
-    title: Mapped[str | None] = mapped_column(String(255))
-    content: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
+    role_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("roles.id", ondelete="CASCADE"),
+        index=True,
         nullable=False,
     )
 
+    user: Mapped[User] = relationship(back_populates="user_roles")
+    role: Mapped[Role] = relationship(back_populates="user_roles")
+
+
+class RolePermission(PersistentModel):
+    __tablename__ = "role_permissions"
+    __table_args__ = (
+        UniqueConstraint("role_id", "permission_id", name="uq_role_permissions_role_perm"),
+    )
+
+    role_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("roles.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    permission_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("permissions.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+
+    role: Mapped[Role] = relationship(back_populates="role_permissions")
+    permission: Mapped[Permission] = relationship(back_populates="role_permissions")
+
+
+class Agent(PersistentModel):
+    __tablename__ = "agents"
+
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    code: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    tool_whitelist: Mapped[list | None] = mapped_column(JSON)
+    dataset_ids: Mapped[list | None] = mapped_column(JSON)
+    temperature: Mapped[Decimal] = mapped_column(
+        Numeric(3, 2),
+        nullable=False,
+        default=Decimal("0.20"),
+        server_default=text("0.20"),
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=sa_true(),
+        index=True,
+    )
+
+    conversations: Mapped[list["Conversation"]] = relationship(back_populates="agent")
+    prompts: Mapped[list["Prompt"]] = relationship(back_populates="agent")
+    role_binds: Mapped[list["AgentRoleBind"]] = relationship(back_populates="agent")
+
+
+class AgentRoleBind(PersistentModel):
+    __tablename__ = "agent_role_binds"
+    __table_args__ = (
+        UniqueConstraint("agent_id", "role_id", name="uq_agent_role_binds_agent_role"),
+    )
+
+    agent_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("agents.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    role_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("roles.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+
+    agent: Mapped[Agent] = relationship(back_populates="role_binds")
+    role: Mapped[Role] = relationship(back_populates="agent_binds")
+
+
+class Prompt(PersistentModel):
+    __tablename__ = "prompts"
+    __table_args__ = (
+        UniqueConstraint("agent_id", "scene", "version", name="uq_prompts_agent_scene_version"),
+        Index("ix_prompts_agent_active", "agent_id", "is_active"),
+    )
+
+    agent_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("agents.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    scene: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default=text("1"))
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=sa_true(),
+        index=True,
+    )
+
+    agent: Mapped[Agent] = relationship(back_populates="prompts")
+
+
+class Conversation(PersistentModel):
+    __tablename__ = "conversations"
+    __table_args__ = (
+        Index("ix_conversations_user_deleted_last_msg", "user_id", "is_deleted", "last_message_at"),
+        Index("ix_conversations_user_deleted_created", "user_id", "is_deleted", "created_at"),
+    )
+
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    agent_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("agents.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
+    )
+    title: Mapped[str | None] = mapped_column(String(255))
+    content: Mapped[str | None] = mapped_column(Text)
+    last_message_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        index=True,
+    )
+
     user: Mapped[User] = relationship(back_populates="conversations")
+    agent: Mapped[Agent | None] = relationship(back_populates="conversations")
     messages: Mapped[list["Message"]] = relationship(
         back_populates="conversation",
         order_by="Message.created_at",
@@ -87,10 +331,9 @@ class Conversation(Base):
     )
 
 
-class Message(Base):
+class Message(PersistentModel):
     __tablename__ = "messages"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     conversation_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("conversations.id", ondelete="CASCADE"),
@@ -99,24 +342,24 @@ class Message(Base):
     )
     role: Mapped[str] = mapped_column(String(32), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
+    token_usage: Mapped[int | None] = mapped_column(Integer)
+    points_cost: Mapped[int] = mapped_column(
+        Integer,
         nullable=False,
+        default=0,
+        server_default=text("0"),
     )
+    sources_json: Mapped[list | dict | None] = mapped_column(JSON)
 
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
 
 
-class Dataset(Base):
+class Dataset(PersistentModel):
     """Logical RAG dataset; maps 1:1 to a Weaviate collection/class."""
 
     __tablename__ = "datasets"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    # Stable API / display key (Weaviate class style, e.g. NexusLawDocuments).
     name: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
-    # Weaviate class name; defaults to name. Kept explicit for renames later.
     weaviate_collection: Mapped[str] = mapped_column(
         String(128),
         nullable=False,
@@ -125,28 +368,24 @@ class Dataset(Base):
     )
     title: Mapped[str | None] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text)
+    region: Mapped[str | None] = mapped_column(String(64), index=True)
+    visibility: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default=DatasetVisibility.ALL.value,
+        server_default=DatasetVisibility.ALL.value,
+        index=True,
+    )
     created_by: Mapped[str | None] = mapped_column(String(128), index=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
 
     documents: Mapped[list["Document"]] = relationship(back_populates="dataset")
 
 
-class Document(Base):
+class Document(PersistentModel):
     """RAG document metadata. Vectors live in Weaviate; chunk text is mirrored in PG."""
 
     __tablename__ = "documents"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     dataset_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("datasets.id", ondelete="CASCADE"),
@@ -155,11 +394,14 @@ class Document(Base):
     )
     source: Mapped[str] = mapped_column(String(512), nullable=False, index=True)
     title: Mapped[str | None] = mapped_column(String(512))
+    law_level: Mapped[str | None] = mapped_column(String(64), index=True)
+    region: Mapped[str | None] = mapped_column(String(64), index=True)
+    effective_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     content_type: Mapped[str | None] = mapped_column(String(128))
     file_extension: Mapped[str | None] = mapped_column(String(32))
     file_size_bytes: Mapped[int | None] = mapped_column(BigInteger)
     checksum_sha256: Mapped[str | None] = mapped_column(String(64), index=True)
-    # Temporary bytes for BackgroundTask parse; cleared after draft is ready.
     raw_content: Mapped[bytes | None] = mapped_column(LargeBinary)
     extracted_text: Mapped[str | None] = mapped_column(Text)
     chunk_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -172,7 +414,6 @@ class Document(Base):
     error_message: Mapped[str | None] = mapped_column(Text)
     uploaded_by: Mapped[str | None] = mapped_column(String(128), index=True)
 
-    # Reserved for Tencent Cloud COS (object storage). Leave null until upload is wired.
     storage_provider: Mapped[str | None] = mapped_column(String(32))
     storage_status: Mapped[str] = mapped_column(
         String(32),
@@ -186,18 +427,6 @@ class Document(Base):
     oss_url: Mapped[str | None] = mapped_column(String(2048))
     oss_etag: Mapped[str | None] = mapped_column(String(128))
     oss_uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
 
     dataset: Mapped["Dataset"] = relationship(back_populates="documents")
     chunks: Mapped[list["DocumentChunk"]] = relationship(
@@ -214,15 +443,14 @@ class Document(Base):
         return ""
 
 
-class DocumentChunk(Base):
-    """Source text for each chunk (aligned with Weaviate metadata.chunk_index)."""
+class DocumentChunk(PersistentModel):
+    """Source text for each chunk. `chunk_index` is the spec ordinal (0-based)."""
 
     __tablename__ = "document_chunks"
     __table_args__ = (
         UniqueConstraint("document_id", "chunk_index", name="uq_document_chunks_doc_index"),
     )
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     document_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("documents.id", ondelete="CASCADE"),
@@ -232,16 +460,113 @@ class DocumentChunk(Base):
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     char_count: Mapped[int | None] = mapped_column(Integer)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
 
     document: Mapped[Document] = relationship(back_populates="chunks")
+
+
+class PointLedger(PersistentModel):
+    __tablename__ = "point_ledgers"
+    __table_args__ = (Index("ix_point_ledgers_user_created", "user_id", "created_at"),)
+
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    change: Mapped[int] = mapped_column(Integer, nullable=False)
+    balance: Mapped[int] = mapped_column(Integer, nullable=False)
+    type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    biz_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    remark: Mapped[str | None] = mapped_column(String(512))
+
+    user: Mapped[User] = relationship(back_populates="point_ledgers")
+
+
+class Plan(PersistentModel):
+    __tablename__ = "plans"
+
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    period: Mapped[str | None] = mapped_column(String(32))
+    benefits_json: Mapped[dict | list | None] = mapped_column(JSON)
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=sa_true(),
+        index=True,
+    )
+
+    subscriptions: Mapped[list["Subscription"]] = relationship(back_populates="plan")
+
+
+class Subscription(PersistentModel):
+    __tablename__ = "subscriptions"
+    __table_args__ = (Index("ix_subscriptions_user_status", "user_id", "status"),)
+
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    plan_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("plans.id", ondelete="RESTRICT"),
+        index=True,
+        nullable=False,
+    )
+    start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expire_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default=SubscriptionStatus.PENDING.value,
+        index=True,
+    )
+
+    user: Mapped[User] = relationship(back_populates="subscriptions")
+    plan: Mapped[Plan] = relationship(back_populates="subscriptions")
+
+
+class Order(PersistentModel):
+    __tablename__ = "orders"
+    __table_args__ = (Index("ix_orders_user_status", "user_id", "status"),)
+
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    product_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    product_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default=OrderStatus.PENDING.value,
+        index=True,
+    )
+    channel: Mapped[str | None] = mapped_column(String(32))
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    user: Mapped[User] = relationship(back_populates="orders")
+
+
+class AdminAuditLog(PersistentModel):
+    __tablename__ = "admin_audit_logs"
+    __table_args__ = (Index("ix_admin_audit_logs_admin_created", "admin_id", "created_at"),)
+
+    admin_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
+    )
+    action: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    target_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    target_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    detail_json: Mapped[dict | list | None] = mapped_column(JSON)

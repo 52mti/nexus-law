@@ -79,7 +79,9 @@ async def get_or_create_dataset(
 
     dataset_name = normalize_dataset_name(name)
 
-    result = await session.execute(select(Dataset).where(Dataset.name == dataset_name))
+    result = await session.execute(
+        select(Dataset).where(Dataset.name == dataset_name, Dataset.is_deleted.is_(False))
+    )
 
     dataset = result.scalar_one_or_none()
 
@@ -104,7 +106,9 @@ async def get_or_create_dataset(
 
 async def get_dataset(session: AsyncSession, dataset_id: str) -> Dataset:
 
-    result = await session.execute(select(Dataset).where(Dataset.id == dataset_id))
+    result = await session.execute(
+        select(Dataset).where(Dataset.id == dataset_id, Dataset.is_deleted.is_(False))
+    )
 
     dataset = result.scalar_one_or_none()
 
@@ -118,7 +122,9 @@ async def get_dataset_by_name(session: AsyncSession, name: str) -> Dataset:
 
     dataset_name = normalize_dataset_name(name)
 
-    result = await session.execute(select(Dataset).where(Dataset.name == dataset_name))
+    result = await session.execute(
+        select(Dataset).where(Dataset.name == dataset_name, Dataset.is_deleted.is_(False))
+    )
 
     dataset = result.scalar_one_or_none()
 
@@ -134,7 +140,9 @@ async def get_dataset_by_name(session: AsyncSession, name: str) -> Dataset:
 
 async def list_datasets(session: AsyncSession) -> list[Dataset]:
 
-    result = await session.execute(select(Dataset).order_by(Dataset.created_at.desc()))
+    result = await session.execute(
+        select(Dataset).where(Dataset.is_deleted.is_(False)).order_by(Dataset.created_at.desc())
+    )
 
     return list(result.scalars().all())
 
@@ -150,7 +158,9 @@ async def create_dataset(
 
     dataset_name = normalize_dataset_name(name)
 
-    existing = await session.execute(select(Dataset).where(Dataset.name == dataset_name))
+    existing = await session.execute(
+        select(Dataset).where(Dataset.name == dataset_name, Dataset.is_deleted.is_(False))
+    )
 
     if existing.scalar_one_or_none():
         raise AppError(
@@ -275,7 +285,9 @@ async def create_upload_stub(
 async def get_document(session: AsyncSession, document_id: str) -> Document:
 
     result = await session.execute(
-        select(Document).where(Document.id == document_id).options(selectinload(Document.dataset))
+        select(Document)
+        .where(Document.id == document_id, Document.is_deleted.is_(False))
+        .options(selectinload(Document.dataset))
     )
 
     document = result.scalar_one_or_none()
@@ -290,7 +302,7 @@ async def get_document_with_chunks(session: AsyncSession, document_id: str) -> D
 
     result = await session.execute(
         select(Document)
-        .where(Document.id == document_id)
+        .where(Document.id == document_id, Document.is_deleted.is_(False))
         .options(
             selectinload(Document.chunks),
             selectinload(Document.dataset),
@@ -311,7 +323,10 @@ async def list_chunks(session: AsyncSession, document_id: str) -> list[DocumentC
 
     result = await session.execute(
         select(DocumentChunk)
-        .where(DocumentChunk.document_id == document_id)
+        .where(
+            DocumentChunk.document_id == document_id,
+            DocumentChunk.is_deleted.is_(False),
+        )
         .order_by(DocumentChunk.chunk_index)
     )
 
