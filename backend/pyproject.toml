@@ -26,6 +26,7 @@ dependencies = [
     "pyjwt>=2.10.0",
     "cos-python-sdk-v5>=1.9.44",
     "langchain-community>=0.4.2",
+    "bcrypt>=5.0.0",
 ]
 
 [project.optional-dependencies]

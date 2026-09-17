@@ -49,14 +49,50 @@ def build_object_key(
     document_id: str,
     filename: str,
     settings: Settings | None = None,
+    key_prefix: str | None = None,
 ) -> str:
     settings = settings or get_settings()
-    prefix = settings.cos_key_prefix.strip().lstrip("/")
+    prefix = (key_prefix if key_prefix is not None else settings.cos_key_prefix).strip().lstrip("/")
     if prefix and not prefix.endswith("/"):
         prefix = f"{prefix}/"
     safe_name = Path(filename).name or "file"
-    # Avoid collisions: documents/{document_id}/{uuid}_{filename}
     return f"{prefix}{document_id}/{uuid4().hex[:8]}_{safe_name}"
+
+
+def build_avatar_object_key(
+    *,
+    user_id: str,
+    filename: str,
+    settings: Settings | None = None,
+) -> str:
+    settings = settings or get_settings()
+    prefix = settings.cos_avatar_prefix.strip().lstrip("/")
+    if prefix and not prefix.endswith("/"):
+        prefix = f"{prefix}/"
+    suffix = Path(filename).suffix.lower()
+    if suffix not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
+        suffix = ".jpg"
+    return f"{prefix}{user_id}/{uuid4().hex}{suffix}"
+
+
+def avatar_key_from_url(url: str, *, settings: Settings | None = None) -> str | None:
+    """Return COS object key if url is a COS avatar we manage; otherwise None."""
+    settings = settings or get_settings()
+    raw = (url or "").strip()
+    if not raw:
+        return None
+    bucket = settings.cos_bucket.strip()
+    region = settings.cos_region.strip()
+    prefix = f"https://{bucket}.cos.{region}.myqcloud.com/"
+    if not raw.startswith(prefix):
+        return None
+    key = raw[len(prefix) :].lstrip("/")
+    avatar_prefix = settings.cos_avatar_prefix.strip().lstrip("/")
+    if avatar_prefix and not avatar_prefix.endswith("/"):
+        avatar_prefix = f"{avatar_prefix}/"
+    if avatar_prefix and not key.startswith(avatar_prefix):
+        return None
+    return key or None
 
 
 def public_object_url(*, bucket: str, region: str, key: str) -> str:
@@ -71,6 +107,7 @@ def upload_bytes(
     filename: str,
     content_type: str | None = None,
     settings: Settings | None = None,
+    object_key: str | None = None,
 ) -> CosUploadResult:
     """Upload original file bytes to Tencent COS. Blocking; call via to_thread."""
     settings = settings or get_settings()
@@ -84,7 +121,11 @@ def upload_bytes(
     client = _build_client(settings)
     bucket = settings.cos_bucket.strip()
     region = settings.cos_region.strip()
-    key = build_object_key(document_id=document_id, filename=filename, settings=settings)
+    key = object_key or build_object_key(
+        document_id=document_id,
+        filename=filename,
+        settings=settings,
+    )
 
     try:
         response = client.put_object(

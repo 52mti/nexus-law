@@ -22,6 +22,8 @@ from app.db.models import (
     Subscription,
     User,
     UserRole,
+    VerificationCode,
+    VerificationScene,
 )
 
 __all__ = [
@@ -48,4 +50,6 @@ __all__ = [
     "Subscription",
     "User",
     "UserRole",
+    "VerificationCode",
+    "VerificationScene",
 ]

@@ -6,6 +6,8 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.core.biz import BizError
+
 
 class AppError(Exception):
     def __init__(
@@ -43,6 +45,13 @@ def _error_body(
 
 
 def register_exception_handlers(app: FastAPI) -> None:
+    @app.exception_handler(BizError)
+    async def biz_error_handler(_request: Request, exc: BizError) -> JSONResponse:
+        return JSONResponse(
+            status_code=200,
+            content={"code": exc.code, "data": exc.data, "message": exc.message},
+        )
+
     @app.exception_handler(AppError)
     async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
         request_id = getattr(request.state, "request_id", None)

@@ -4,6 +4,7 @@ from enum import StrEnum
 from uuid import uuid4
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     DateTime,
@@ -11,16 +12,19 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
-    JSON,
     LargeBinary,
     MetaData,
     Numeric,
     String,
     Text,
     UniqueConstraint,
-    false as sa_false,
     func,
     text,
+)
+from sqlalchemy import (
+    false as sa_false,
+)
+from sqlalchemy import (
     true as sa_true,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -147,7 +151,12 @@ class User(PersistentModel):
     password_hash: Mapped[str | None] = mapped_column(String(255))
     nickname: Mapped[str | None] = mapped_column(String(64))
     avatar_url: Mapped[str | None] = mapped_column(String(1024))
-    points: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    points: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=text("0"),
+    )
     status: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
@@ -294,7 +303,12 @@ class Prompt(PersistentModel):
     )
     scene: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default=text("1"))
+    version: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+        server_default=text("1"),
+    )
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
@@ -580,6 +594,34 @@ class AdminAuditLog(PersistentModel):
     target_type: Mapped[str] = mapped_column(String(64), nullable=False)
     target_id: Mapped[str | None] = mapped_column(String(36), index=True)
     detail_json: Mapped[dict | list | None] = mapped_column(JSON)
+
+
+class VerificationScene(StrEnum):
+    REGISTER = "register"
+    LOGIN = "login"
+    RESET_PASSWORD = "reset_password"
+    BIND_CONTACT = "bind_contact"
+
+
+class VerificationCode(PersistentModel):
+    __tablename__ = "verification_codes"
+    __table_args__ = (Index("ix_verification_codes_target_scene", "target", "scene"),)
+
+    target: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    channel: Mapped[str] = mapped_column(String(16), nullable=False)
+    scene: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    code: Mapped[str] = mapped_column(String(16), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True,
+    )
+    used: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_false(),
+    )
 
 
 # ForeignKey() stays on columns so ORM/AI can read relations; DDL must not emit them.

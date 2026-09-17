@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     cos_region: str = ""
     cos_bucket: str = ""
     cos_key_prefix: str = "documents/"
+    cos_avatar_prefix: str = "avatars/"
 
     # Stage 7 — hardening
     # Comma-separated API keys. Auth auto-enables when non-empty unless AUTH_ENABLED overrides.

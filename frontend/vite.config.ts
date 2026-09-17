@@ -4,11 +4,11 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
-const BASE = ''
+const SERVER_URL = 'http://101.200.206.159:8000/'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: BASE,
+  base: '',
   plugins: [
     react(),
     // 2. 将其添加到插件列表中
@@ -26,7 +26,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000/',
+        target: SERVER_URL,
         changeOrigin: true,
         secure: false,
       },

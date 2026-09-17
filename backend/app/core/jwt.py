@@ -21,6 +21,7 @@ def create_access_token(
     user_id: str,
     tier: UserTier,
     *,
+    role_codes: list[str] | None = None,
     settings: Settings | None = None,
     expires_hours: int | None = None,
 ) -> str:
@@ -37,7 +38,9 @@ def create_access_token(
     now = datetime.now(UTC)
     payload = {
         "sub": user_id,
+        "user_id": user_id,
         "tier": tier,
+        "role_codes": role_codes or [],
         "iss": issuer_for_tier(tier, settings),
         "iat": now,
         "exp": now + timedelta(hours=lifetime),
