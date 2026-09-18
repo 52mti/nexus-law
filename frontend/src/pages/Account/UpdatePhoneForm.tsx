@@ -1,47 +1,62 @@
 import React, { useState } from 'react'
-import { Form, Input, Button, Steps } from 'antd'
+import { Form, Input, Button, Steps, App } from 'antd'
 import { MailOutlined, MobileOutlined, CheckCircleFilled } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'
+import { getApiErrorMessage, sendCode, updateProfile } from '@/api/auth'
+import { useUserStore } from '@/store/useUserStore'
+
 interface UpdatePhoneFormProps {
-  onClose: () => void // 用于在最后一步完成后关闭弹窗
+  onClose: () => void
 }
 
 export const UpdatePhoneForm: React.FC<UpdatePhoneFormProps> = ({ onClose }) => {
   const { t } = useTranslation()
+  const { message } = App.useApp()
+  const setMemberInfo = useUserStore((state) => state.setMemberInfo)
   const [currentStep, setCurrentStep] = useState(0)
-  const [formStep0] = Form.useForm()
-  const [formStep1] = Form.useForm()
+  const [form] = Form.useForm()
   const [countdown, setCountdown] = useState(0)
+  const [submitting, setSubmitting] = useState(false)
 
-  // 模拟获取验证码的通用倒计时逻辑
-  const handleGetCode = () => {
+  const handleGetCode = async () => {
     if (countdown > 0) return
-    setCountdown(60)
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer)
-          return 0
-        }
-        return prev - 1
+    try {
+      await form.validateFields(['newPhone'])
+      const phone = form.getFieldValue('newPhone')
+      const data = await sendCode({ scene: 'bind_contact', phone })
+      setCountdown(60)
+      const timer = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+      message.success(data.code ? `验证码：${data.code}` : t('6N65PF1mph7tUzYruoBZ-'))
+    } catch (error: any) {
+      const errorMsg = error.errorFields?.[0]?.errors?.[0] || getApiErrorMessage(error)
+      message.error(errorMsg)
+    }
+  }
+
+  const onFinish = async (values: { newPhone: string; newCode: string }) => {
+    try {
+      setSubmitting(true)
+      const profile = await updateProfile({
+        phone: values.newPhone,
+        code: values.newCode,
       })
-    }, 1000)
+      setMemberInfo(profile)
+      setCurrentStep(1)
+    } catch (error) {
+      message.error(getApiErrorMessage(error))
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  // 第一步：验证原手机号
-  const onFinishStep0 = (values: any) => {
-    console.log('原手机号验证码:', values)
-    setCurrentStep(1) // 验证成功，进入下一步
-    setCountdown(0) // 重置倒计时，供下一步使用
-  }
-
-  // 第二步：绑定新手机号
-  const onFinishStep1 = (values: any) => {
-    console.log('新手机号及验证码:', values)
-    setCurrentStep(2) // 绑定成功，进入成功提示页
-  }
-
-  // 统一的 UI 样式
   const inputStyles =
     'rounded-lg h-12 bg-[#f7f8fa] border-transparent hover:border-transparent focus:bg-white focus:border-primary  transition-all'
   const buttonStyles =
@@ -49,63 +64,15 @@ export const UpdatePhoneForm: React.FC<UpdatePhoneFormProps> = ({ onClose }) => 
 
   return (
     <div className="w-full pt-2">
-      {/* 顶部步骤条 */}
       <Steps
         current={currentStep}
         type="dot"
-        items={[
-          { title: t('p7GD4B8AnU3TwI9-huawh') },
-          { title: t('lG3tjJSqJHzO08P7BKcwB') },
-          { title: t('EO9WF7b0HVOFibftS0iLW') },
-        ]}
+        items={[{ title: t('lG3tjJSqJHzO08P7BKcwB') }, { title: t('EO9WF7b0HVOFibftS0iLW') }]}
         className="mb-8 custom-steps-text-sm"
       />
 
-      {/* ======= 步骤 0：验证原手机号 (严格还原原型图) ======= */}
       {currentStep === 0 && (
-        <Form form={formStep0} onFinish={onFinishStep0} size="large" className="px-4">
-          <Form.Item
-            name="oldCode"
-            className="mb-6"
-            rules={[{ required: true, message: t('ElK_5bnTZNp2icI2YGtV1') }]}
-          >
-            <Input
-              prefix={<MailOutlined className="text-gray-400 text-lg mr-1.5" />}
-              placeholder={t('ElK_5bnTZNp2icI2YGtV1')}
-              className={inputStyles}
-              suffix={
-                <span
-                  onClick={handleGetCode}
-                  className={`text-[14px] transition-colors select-none ${
-                    countdown > 0
-                      ? 'text-gray-400 cursor-not-allowed'
-                      : 'text-primary hover:text-secondary cursor-pointer'
-                  }`}
-                >
-                  {countdown > 0
-                    ? t('EQYTcDCN5wpUaylPv-Ktn', { countdown })
-                    : t('CzJkxAofKnEZhPz2Xi_Lw')}
-                </span>
-              }
-            />
-          </Form.Item>
-
-          <Form.Item className="mb-2">
-            <Button type="primary" htmlType="submit" className={buttonStyles}>
-              {t('2jMJBEGZFAaWJ41IB208Z')}
-            </Button>
-          </Form.Item>
-        </Form>
-      )}
-
-      {/* ======= 步骤 1：验证新手机号 ======= */}
-      {currentStep === 1 && (
-        <Form
-          form={formStep1}
-          onFinish={onFinishStep1}
-          size="large"
-          className="px-4 animate-fade-in"
-        >
+        <Form form={form} onFinish={onFinish} size="large" className="px-4 animate-fade-in">
           <Form.Item
             name="newPhone"
             className="mb-5"
@@ -148,15 +115,14 @@ export const UpdatePhoneForm: React.FC<UpdatePhoneFormProps> = ({ onClose }) => 
           </Form.Item>
 
           <Form.Item className="mb-2">
-            <Button type="primary" htmlType="submit" className={buttonStyles}>
+            <Button type="primary" htmlType="submit" loading={submitting} className={buttonStyles}>
               {t('mCzAHgECjBBSMsiSEZioJ')}
             </Button>
           </Form.Item>
         </Form>
       )}
 
-      {/* ======= 步骤 2：修改成功 ======= */}
-      {currentStep === 2 && (
+      {currentStep === 1 && (
         <div className="flex flex-col items-center justify-center py-6 animate-fade-in">
           <CheckCircleFilled className="text-primary text-[64px] mb-4" />
           <h2 className="text-lg font-bold text-gray-800 mb-2">{t('0Ar0qTDnCmjgSc2BM1RU1')}</h2>

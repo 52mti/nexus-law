@@ -196,3 +196,34 @@ async def test_avatar_upload_uses_avatars_prefix(client: AsyncClient) -> None:
     assert captured["key"].startswith("avatars/")
     assert "documents/" not in captured["key"]
     assert body["data"]["avatar_url"].endswith(captured["key"])
+
+
+@pytest.mark.asyncio
+async def test_register_accepts_phone_and_email(client: AsyncClient) -> None:
+    phone = "13600136000"
+    email = "both@example.com"
+    code_resp = await client.post(
+        "/api/v1/auth/send_code",
+        json={"scene": "register", "phone": phone},
+    )
+    assert code_resp.json()["code"] == 0
+    resp = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "phone": phone,
+            "email": email,
+            "code": code_resp.json()["data"]["code"],
+            "password": "Passw0rd!",
+            "nickname": "双联系人",
+        },
+    )
+    body = resp.json()
+    assert body["code"] == 0
+    assert body["data"]["user"]["phone"] == phone
+    assert body["data"]["user"]["email"] == email
+
+    login_email = await client.post(
+        "/api/v1/auth/login",
+        json={"login_type": "password", "email": email, "password": "Passw0rd!"},
+    )
+    assert login_email.json()["code"] == 0

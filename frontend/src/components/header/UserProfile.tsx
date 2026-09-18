@@ -12,30 +12,27 @@ import {
   LogoutOutlined,
 } from '@ant-design/icons'
 // 🚀 1. 确保引入了真实的 API 接口
-import { getMemberInfo } from '@/api/auth'
+import { getProfile } from '@/api/auth'
 import { useTranslation } from 'react-i18next'
 import { useUserStore } from '@/store/useUserStore'
 
 export const UserProfile: React.FC = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { modal, message } = App.useApp()
+  const { modal } = App.useApp()
 
   const setMemberInfo = useUserStore((state) => state.setMemberInfo)
+  const logout = useUserStore((state) => state.logout)
   const userInfo = useUserStore((state) => state.memberInfo)
   const [loading, setLoading] = useState(false)
 
-  // 🚀 3. 在组件挂载时拉取真实用户数据
   useEffect(() => {
     const fetchUserInfo = async () => {
+      if (!localStorage.getItem('token')) return
       setLoading(true)
       try {
-        const res = await getMemberInfo()
-        if (res && res.successful && res.data) {
-          setMemberInfo(res.data)
-        } else {
-          message.error(res.message || t('G8XfVyjWumDYyekOLvT3w'))
-        }
+        const profile = await getProfile()
+        setMemberInfo(profile)
       } catch (error) {
         console.error('获取用户信息报错:', error)
       } finally {
@@ -44,7 +41,7 @@ export const UserProfile: React.FC = () => {
     }
 
     fetchUserInfo()
-  }, [message])
+  }, [setMemberInfo])
 
   const userMenuItems = [
     {
@@ -88,9 +85,8 @@ export const UserProfile: React.FC = () => {
         okText: t('T5bq3YlfX7mCU7KvmW7HZ'),
         cancelText: t('_GHogb_X8_F5-Yq_WFMNL'),
         onOk: () => {
-          // 💡 提示：退出时记得清除 localStorage/sessionStorage 里的 token
-          localStorage.removeItem('token')
-          navigate('/login')
+          logout()
+          navigate('nexus-law/login')
         },
       })
       return
@@ -123,24 +119,24 @@ export const UserProfile: React.FC = () => {
           {/* 🚀 6. 动态渲染头像，如果有真实头像则显示，否则回退到默认图标 */}
           <Avatar
             size={46}
-            src={userInfo?.avatar}
-            icon={!userInfo?.avatar && <UserOutlined />}
+            src={userInfo?.avatar_url}
+            icon={!userInfo?.avatar_url && <UserOutlined />}
             className="bg-white text-[#5c6bc0]"
           />
           <div className="text-white">
             {/* 🚀 7. 动态渲染昵称和脱敏手机号 */}
             <div className="text-base font-medium">
-              {userInfo?.nickName || userInfo?.username || t('Zma4IeIyptcUuTT4A66KW')}
+              {userInfo?.nickname || t('Zma4IeIyptcUuTT4A66KW')}
             </div>
             <div className="text-sm text-gray-200 mt-0.5 tracking-wide">
-              {maskMobile(userInfo?.mobile)}
+              {maskMobile(userInfo?.phone || '')}
             </div>
           </div>
         </div>
         <div className="flex items-center gap-1 text-[13px] border border-[#dcb36d] text-[#dcb36d] px-2 py-0.5 rounded">
           <CrownFilled className="text-xs" />
           {/* 🚀 8. 动态渲染会员名称 */}
-          {getVipName(userInfo?.membershipPlanId)}
+          {getVipName(userInfo?.membership?.plan_id || '')}
         </div>
       </div>
 
@@ -188,12 +184,14 @@ export const UserProfile: React.FC = () => {
         styles={{ container: { padding: 0 } }}
       >
         {/* 外部的触发头像也与内部数据保持一致 */}
-        <Avatar
-          size="default"
-          src={userInfo?.avatar}
-          icon={!userInfo?.avatar && <UserOutlined />}
-          className="bg-[#5c6bc0] cursor-pointer hover:opacity-80 transition-opacity"
-        />
+        <Spin spinning={loading} size="small">
+          <Avatar
+            size="default"
+            src={userInfo?.avatar_url}
+            icon={!userInfo?.avatar_url && <UserOutlined />}
+            className="bg-[#5c6bc0] cursor-pointer hover:opacity-80 transition-opacity"
+          />
+        </Spin>
       </Popover>
     </>
   )

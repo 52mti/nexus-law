@@ -7,7 +7,7 @@ import {
   type ErrorState,
 } from "@/components/FormErrorMessage";
 
-import { login } from "@/api/auth";
+import { contactFromAccount, getApiErrorMessage, login } from "@/api/auth";
 import { useUserStore } from "@/store/useUserStore";
 import { useTranslation } from "react-i18next";
 interface Props {
@@ -26,31 +26,25 @@ export const PasswordLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
   const [errorData, setErrorData] = useState<ErrorState | null>(null);
   const [shakeKey, setShakeKey] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
-  const setUser = useUserStore((state) => state.setUser);
+  const loginSuccess = useUserStore((state) => state.loginSuccess);
 
   const onFinish = async (values: formValue) => {
     try {
       setLoading(true);
-      const response = await login({
-        username: values.email, // 映射到真实的接口 username
+      const result = await login({
+        login_type: "password",
         password: values.password,
-        loginType: "member_password",
-        code: "123456",
+        ...contactFromAccount(values.email),
       });
-      // 修改兼容后端的真实数据包裹层，以避免 TypeScript 类型校验报错
-      const token =
-        (response as any)?.data?.accessToken || (response as any)?.accessToken;
-      if (token) {
-        localStorage.setItem("token", token);
-      }
-
-      // 保存用户信息到全局store
-      setUser(response);
+      loginSuccess(result);
       setErrorData(null);
       navigate("/");
     } catch (err) {
       console.error(err);
-      setErrorData({ msg: t("nIO4XnSftkLpv06cCgfl2"), type: "error" });
+      setErrorData({
+        msg: getApiErrorMessage(err, t("nIO4XnSftkLpv06cCgfl2")),
+        type: "error",
+      });
       setShakeKey(Date.now());
     } finally {
       setLoading(false);

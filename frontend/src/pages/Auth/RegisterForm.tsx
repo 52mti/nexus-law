@@ -1,8 +1,7 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Form, Input, Checkbox, Button, App } from 'antd'
 import { FormErrorMessage, type ErrorState } from '@/components/FormErrorMessage'
-import { register, getVerificationCode } from '@/api/auth'
+import { getApiErrorMessage, register, sendCode } from '@/api/auth'
 import { useTranslation } from 'react-i18next'
 interface Props {
   onSwitchMode: (mode: AuthMode) => void
@@ -10,7 +9,6 @@ interface Props {
 
 export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const { message } = App.useApp()
   const [form] = Form.useForm()
   const [countdown, setCountdown] = useState(0)
@@ -19,20 +17,14 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
   const [errorData, setErrorData] = useState<ErrorState | null>(null)
   const [shakeKey, setShakeKey] = useState<number>(0)
 
-  // 获取验证码倒计时逻辑
+  // 获取验证码：禁止触发表单原生提交（否则会整页刷新并回到登录）
   const handleGetCode = async () => {
     if (countdown > 0) return
 
     try {
-      // 🚀 先校验手机号字段
       await form.validateFields(['phone'])
       const phone = form.getFieldValue('phone')
-      console.log(phone)
-
-      // 注意：真实接口未定义
-      getVerificationCode({ mobile: phone })
-
-      // 校验通过，清空错误，开始倒计时
+      const data = await sendCode({ scene: 'register', phone })
       setErrorData(null)
       setCountdown(60)
       const timer = setInterval(() => {
@@ -44,9 +36,11 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
           return prev - 1
         })
       }, 1000)
+      if (data.code) {
+        message.success(`验证码：${data.code}`)
+      }
     } catch (errorInfo: any) {
-      // 校验失败，触发底部抖动提示
-      const errorMsg = errorInfo.errorFields[0]?.errors[0]
+      const errorMsg = errorInfo.errorFields?.[0]?.errors?.[0] || getApiErrorMessage(errorInfo)
       if (errorMsg) {
         setErrorData({ msg: errorMsg, type: 'warning' })
         setShakeKey(Date.now())
@@ -57,27 +51,23 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
   const onFinish = async (values: any) => {
     // 成功提交时清空报错
     setErrorData(null)
-    
-    // 提取 exclusiveLink
-    const searchParams = new URLSearchParams(window.location.search);
-    const exclusiveLink = searchParams.get('exclusiveLink');
 
     try {
       await register({
-        username: values.username,
-        nickName: values.username,
+        phone: values.phone,
         email: values.email,
-        password: values.password,
-        mobile: values.phone,
         code: values.code,
-        exclusiveLink: exclusiveLink || undefined,
+        password: values.password,
+        nickname: values.username,
       })
       message.success(t('aELL9mgSuqys9CHTtF2jR'))
       onSwitchMode('pwd_login')
     } catch (err: any) {
       console.error(err)
-      const errorMsg = err.response?.data?.message || err.message || t('ABwks52RGAfXD5Y3lP55Y')
-      setErrorData({ msg: errorMsg, type: 'warning' })
+      setErrorData({
+        msg: getApiErrorMessage(err, t('ABwks52RGAfXD5Y3lP55Y')),
+        type: 'warning',
+      })
       setShakeKey(Date.now())
     }
   }
@@ -110,6 +100,7 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
       <Form
         form={form}
         name="register_form"
+        component="div"
         onFinish={onFinish}
         onFinishFailed={onFinishFailed} // 绑定失败事件
         onValuesChange={() => setErrorData(null)} // 输入内容时自动清空底部的报错
@@ -117,7 +108,6 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
         // 🚀 隐藏 Antd 默认的红色文字提示
         className="w-full [&_.ant-form-item-explain]:hidden"
       >
-        {/* ================= 1. 用户名 (新增) ================= */}
         <Form.Item
           name="username"
           className="mb-4"
@@ -129,7 +119,6 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
           <Input placeholder={t('jhWz8vHGwDGGDhpVnROtS')} className={inputStyles} />
         </Form.Item>
 
-        {/* ================= 2. 邮箱地址 ================= */}
         <Form.Item
           name="email"
           className="mb-4"
@@ -141,19 +130,17 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
           <Input placeholder={t('PzrY3bTUSZEzDPQLALeKP')} className={inputStyles} />
         </Form.Item>
 
-        {/* ================= 3. 登录密码 ================= */}
         <Form.Item
           name="password"
           className="mb-4"
           rules={[
             { required: true, message: t('ibJBLfFgAZA4pJFvsgxUa') },
-            { min: 6, message: t('TDu1A9D9uQ5C1EeRh5faN') },
+            { min: 8, message: t('TDu1A9D9uQ5C1EeRh5faN') },
           ]}
         >
           <Input.Password placeholder={t('ibJBLfFgAZA4pJFvsgxUa')} className={inputStyles} />
         </Form.Item>
 
-        {/* ================= 4. 手机号码 ================= */}
         <Form.Item
           name="phone"
           className="mb-4"
@@ -165,7 +152,6 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
           <Input placeholder={t('vQnMeRoaUdpZTxYSZfd1b')} className={inputStyles} />
         </Form.Item>
 
-        {/* ================= 5. 手机验证码 ================= */}
         <Form.Item
           name="code"
           className="mb-5"
@@ -175,18 +161,17 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
             placeholder={t('MuXpdQ3cGHsb4eW8eDxKo')}
             className={inputStyles}
             suffix={
-              <span
+              <Button
+                type="link"
+                htmlType="button"
+                disabled={countdown > 0}
                 onClick={handleGetCode}
-                className={`text-[14px] transition-colors select-none ${
-                  countdown > 0
-                    ? 'text-gray-400 cursor-not-allowed'
-                    : 'text-blue-500 hover:text-blue-600 cursor-pointer'
-                }`}
+                className="h-auto p-0 text-[14px]"
               >
                 {countdown > 0
                   ? t('EQYTcDCN5wpUaylPv-Ktn', { countdown })
                   : t('CzJkxAofKnEZhPz2Xi_Lw')}
-              </span>
+              </Button>
             }
           />
         </Form.Item>
@@ -221,7 +206,8 @@ export const RegisterForm: React.FC<Props> = ({ onSwitchMode }) => {
         <Form.Item className="mb-0">
           <Button
             type="primary"
-            htmlType="submit"
+            htmlType="button"
+            onClick={() => form.submit()}
             className="w-full h-12 bg-primary hover:bg-secondary border-none rounded-lg text-[16px] font-medium tracking-wide shadow-md shadow-indigo-500/20"
           >
             {t('Q3lVWqRdv4O4B59Xn48OR')}

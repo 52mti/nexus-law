@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Form, Input, Button, Avatar, Modal } from "antd";
+import React, { useState, useEffect, useRef } from "react";
+import { Form, Input, Button, Avatar, Modal, App } from "antd";
 import {
   IdcardOutlined,
   UserOutlined,
@@ -10,29 +10,64 @@ import { UpdatePhoneForm } from "./UpdatePhoneForm";
 import { UpdatePwdForm } from "./UpdatePwdForm";
 import { useTranslation } from "react-i18next";
 import { useUserStore } from "@/store/useUserStore";
+import { getApiErrorMessage, updateProfile, uploadAvatar } from "@/api/auth";
 
 export const AccountInfoPage: React.FC = () => {
   const { t } = useTranslation();
+  const { message } = App.useApp();
   const [form] = Form.useForm();
   const memberInfo = useUserStore((state) => state.memberInfo);
+  const setMemberInfo = useUserStore((state) => state.setMemberInfo);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     if (memberInfo) {
       form.setFieldsValue({
-        nickname: memberInfo.nickName || memberInfo.nickname || "",
-        phone: memberInfo.mobile || "",
+        nickname: memberInfo.nickname || "",
+        phone: memberInfo.phone || "",
         email: memberInfo.email || "",
       });
     }
   }, [form, memberInfo]);
 
-  // 预留的弹窗控制状态
   const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
   const [isPwdModalOpen, setIsPwdModalOpen] = useState(false);
 
-  // 提交表单
-  const onFinish = (values: any) => {
-    console.log("保存账号信息:", values);
+  const onFinish = async (values: { nickname?: string }) => {
+    try {
+      setSaving(true);
+      const profile = await updateProfile({
+        nickname: values.nickname?.trim() || undefined,
+      });
+      setMemberInfo(profile);
+      message.success(t("yxmUI6--n80gpeto9U3BY"));
+    } catch (error) {
+      message.error(getApiErrorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      setUploadingAvatar(true);
+      const profile = await uploadAvatar(file);
+      setMemberInfo(profile);
+      message.success("头像已更新");
+    } catch (error) {
+      message.error(getApiErrorMessage(error));
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   // 统一的输入框无边框浅灰底样式
@@ -83,15 +118,27 @@ export const AccountInfoPage: React.FC = () => {
         {/* 顶部深灰色用户信息横幅 */}
         <div className="bg-[#757575] rounded-xl p-6 flex justify-between items-center mb-8 shadow-inner">
           {/* 左侧头像区 */}
-          <div className="flex flex-col items-center gap-2 cursor-pointer group">
+          <div
+            className="flex flex-col items-center gap-2 cursor-pointer group"
+            onClick={handleAvatarClick}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
             <Avatar
               size={56}
-              src={memberInfo?.avatar || undefined}
-              icon={!memberInfo?.avatar ? <UserOutlined /> : undefined}
+              src={memberInfo?.avatar_url || undefined}
+              icon={!memberInfo?.avatar_url ? <UserOutlined /> : undefined}
               className="bg-white text-primary group-hover:opacity-80 transition-opacity"
             />
             <span className="text-xs text-white tracking-widest">
-              {memberInfo?.nickName || t("D-gRZ59bNyDKl30c-kjq9")}
+              {uploadingAvatar
+                ? "上传中..."
+                : memberInfo?.nickname || t("D-gRZ59bNyDKl30c-kjq9")}
             </span>
           </div>
 
@@ -99,13 +146,13 @@ export const AccountInfoPage: React.FC = () => {
           <div className="flex flex-col items-end gap-3">
             {/* 黄金会员描边徽章 */}
             <div className="flex items-center gap-1 text-[13px] border border-[#dcb36d] text-[#dcb36d] px-2 py-0.5 rounded">
-              <CrownFilled className="text-xs" /> {getVipName(memberInfo?.membershipPlanId)}
+              <CrownFilled className="text-xs" /> {getVipName(memberInfo?.membership?.plan_id)}
             </div>
             {/* 积分展示 */}
             <div className="text-white text-sm flex items-center gap-1.5">
               <FireFilled className="text-gray-300" />
               {t("fiBgQpgbqy2hy1nW1pOwU")}{" "}
-              <span className="font-bold text-base ml-0.5">{memberInfo?.giftPoints ?? 0}</span>
+              <span className="font-bold text-base ml-0.5">{memberInfo?.points ?? 0}</span>
             </div>
           </div>
         </div>
@@ -116,8 +163,8 @@ export const AccountInfoPage: React.FC = () => {
           layout="vertical"
           onFinish={onFinish}
           initialValues={{
-            nickname: memberInfo?.nickName || "",
-            phone: memberInfo?.mobile || "",
+            nickname: memberInfo?.nickname || "",
+            phone: memberInfo?.phone || "",
             password: "********",
             email: memberInfo?.email || "",
           }}
@@ -186,6 +233,7 @@ export const AccountInfoPage: React.FC = () => {
             <Button
               type="primary"
               htmlType="submit"
+              loading={saving}
               className="w-48 h-11 bg-[#5a72ef] hover:bg-[#7466ec] border-none rounded-lg text-base font-medium tracking-wide shadow-md shadow-indigo-500/20 text-white"
             >
               {t("yxmUI6--n80gpeto9U3BY")}

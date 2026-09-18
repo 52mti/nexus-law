@@ -24,7 +24,7 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
   const { t } = useTranslation();
   const { message } = App.useApp();
   const userInfo = useUserStore((state) => state.memberInfo);
-  const giftPoints = userInfo?.giftPoints ?? 0;
+  const giftPoints = userInfo?.points ?? 0;
 
   // 🚀 状态管理
   const [packages, setPackages] = useState<PointPackage[]>([]);
@@ -122,12 +122,12 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
         <div className="flex items-center gap-3">
           <Avatar
             size={32}
-            src={userInfo?.avatar}
-            icon={!userInfo?.avatar && <UserOutlined />}
+            src={userInfo?.avatar_url}
+            icon={!userInfo?.avatar_url && <UserOutlined />}
             className="bg-white text-gray-500"
           />
           <span className="text-base font-medium">
-            {userInfo?.nickName || userInfo?.username || 'user'}
+            {userInfo?.nickname || 'user'}
           </span>
         </div>
         <div className="flex items-center gap-4">

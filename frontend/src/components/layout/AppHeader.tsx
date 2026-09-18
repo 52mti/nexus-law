@@ -17,7 +17,7 @@ interface AppHeaderProps {
 export const AppHeader: React.FC<AppHeaderProps> = ({ onlyLanguage = false }) => {
   const { t, i18n } = useTranslation()
   const userInfo = useUserStore((state) => state.memberInfo)
-  const giftPoints = userInfo?.giftPoints ?? 0
+  const giftPoints = userInfo?.points ?? 0
 
   const [isRechargeModalOpen, setIsRechargeModalOpen] = useState(false)
   const [isNotificationOpen, setIsNotificationOpen] = useState(false)

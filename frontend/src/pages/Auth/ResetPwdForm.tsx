@@ -3,8 +3,7 @@ import { Form, Input, Button, Steps, App } from 'antd'
 import { MobileOutlined, MailOutlined, KeyOutlined, CheckCircleFilled } from '@ant-design/icons'
 // 🚀 引入公共报错组件和类型
 import { FormErrorMessage, type ErrorState } from '@/components/FormErrorMessage'
-import { getVerificationCode, checkCode, changePassword } from '@/api/auth'
-import { useUserStore } from '@/store/useUserStore'
+import { getApiErrorMessage, resetPassword, sendCode } from '@/api/auth'
 import { useTranslation } from 'react-i18next'
 interface Props {
   onSwitchMode: (mode: AuthMode) => void
@@ -13,8 +12,9 @@ interface Props {
 export const ResetPwdForm: React.FC<Props> = ({ onSwitchMode }) => {
   const { t } = useTranslation()
   const { message } = App.useApp()
-  const user = useUserStore((state) => state.user)
   const [currentStep, setCurrentStep] = useState(0)
+  const [verifiedPhone, setVerifiedPhone] = useState('')
+  const [verifiedCode, setVerifiedCode] = useState('')
 
   const [formStep0] = Form.useForm()
   const [formStep1] = Form.useForm()
@@ -30,12 +30,10 @@ export const ResetPwdForm: React.FC<Props> = ({ onSwitchMode }) => {
     if (countdown > 0) return
 
     try {
-      // 🚀 优先校验手机号字段
       await formStep0.validateFields(['phone'])
       const phone = formStep0.getFieldValue('phone')
-
-      await getVerificationCode({ mobile: phone })
-      message.success(t('6N65PF1mph7tUzYruoBZ-'))
+      const data = await sendCode({ scene: 'reset_password', phone })
+      message.success(data.code ? `验证码：${data.code}` : t('6N65PF1mph7tUzYruoBZ-'))
 
       setErrorData(null)
       setCountdown(60)
@@ -49,8 +47,7 @@ export const ResetPwdForm: React.FC<Props> = ({ onSwitchMode }) => {
         })
       }, 1000)
     } catch (errorInfo: any) {
-      // 校验失败，触发警告
-      const errorMsg = errorInfo.errorFields[0]?.errors[0]
+      const errorMsg = errorInfo.errorFields?.[0]?.errors?.[0] || getApiErrorMessage(errorInfo)
       if (errorMsg) {
         setErrorData({ msg: errorMsg, type: 'warning' })
         setShakeKey(Date.now())
@@ -61,14 +58,17 @@ export const ResetPwdForm: React.FC<Props> = ({ onSwitchMode }) => {
   // 步骤 1：验证手机号提交
   const onFinishStep0 = async (values: any) => {
     console.log('Step 0 (Phone verified):', values)
-    setErrorData(null) // 成功进入下一步前清空报错
+    setErrorData(null)
     try {
-      await checkCode({ mobile: values.phone, code: values.code })
+      setVerifiedPhone(values.phone)
+      setVerifiedCode(values.code)
       setCurrentStep(1)
     } catch (err: any) {
       console.error(err)
-      const errorMsg = err.response?.data?.message || err.message || t('vyehiUGFNeOfBe6vKuwsS')
-      setErrorData({ msg: errorMsg, type: 'warning' })
+      setErrorData({
+        msg: getApiErrorMessage(err, t('vyehiUGFNeOfBe6vKuwsS')),
+        type: 'warning',
+      })
       setShakeKey(Date.now())
     }
   }
@@ -76,19 +76,23 @@ export const ResetPwdForm: React.FC<Props> = ({ onSwitchMode }) => {
   // 步骤 2：设置新密码提交
   const onFinishStep1 = async (values: any) => {
     console.log('Step 1 (New password set):', values)
-    setErrorData(null) // 成功进入下一步前清空报错
+    setErrorData(null)
     try {
-      // 尝试从 Store 中提取 username，这里做了 any 强转是因为 LoginResp 类型中未显式声明 username
-      const username = (user as any)?.username || (user as any)?.account || 'test'
-      if (!username) {
+      if (!verifiedPhone || !verifiedCode) {
         throw new Error(t('dFSGj2Q8dYvPQYufuCtHV'))
       }
-      await changePassword({ username, password: values.password })
+      await resetPassword({
+        phone: verifiedPhone,
+        code: verifiedCode,
+        new_password: values.password,
+      })
       setCurrentStep(2)
     } catch (err: any) {
       console.error(err)
-      const errorMsg = err.response?.data?.message || err.message || t('ryPcp5kGMqj2qiHfC6VuG')
-      setErrorData({ msg: errorMsg, type: 'warning' })
+      setErrorData({
+        msg: getApiErrorMessage(err, t('ryPcp5kGMqj2qiHfC6VuG')),
+        type: 'warning',
+      })
       setShakeKey(Date.now())
     }
   }
@@ -214,7 +218,7 @@ export const ResetPwdForm: React.FC<Props> = ({ onSwitchMode }) => {
             className="mb-5"
             rules={[
               { required: true, message: t('cBdmAnp2fES_Ix_a4N0uv') },
-              { min: 6, message: t('TDu1A9D9uQ5C1EeRh5faN') },
+              { min: 8, message: t('TDu1A9D9uQ5C1EeRh5faN') },
             ]}
           >
             <Input.Password

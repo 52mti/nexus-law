@@ -1,17 +1,17 @@
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
-import type { LoginResp } from '@/api/auth'
+import type { AuthResult, UserProfile } from '@/api/auth'
 
 export interface UserState {
-  user: LoginResp | null
+  user: UserProfile | null
   isAuthenticated: boolean
-  memberInfo: any | null
-  setUser: (user: LoginResp | null) => void
-  setMemberInfo: (info: any | null) => void
+  memberInfo: UserProfile | null
+  setUser: (user: UserProfile | null) => void
+  setMemberInfo: (info: UserProfile | null) => void
+  loginSuccess: (result: AuthResult) => void
   logout: () => void
 }
 
-// 💡 注意中间件的嵌套顺序：create -> devtools -> persist
 export const useUserStore = create<UserState>()(
   devtools(
     persist(
@@ -21,14 +21,13 @@ export const useUserStore = create<UserState>()(
         memberInfo: null,
 
         setUser: (user) => {
-          // 💡 第三个参数是给 Redux DevTools 显示的 Action 名字，极大地提升调试体验
           set(
             {
               user,
               isAuthenticated: !!user,
             },
             false,
-            'auth/setUser'
+            'auth/setUser',
           )
         },
 
@@ -36,13 +35,28 @@ export const useUserStore = create<UserState>()(
           set(
             {
               memberInfo: info,
+              ...(info ? { user: info, isAuthenticated: true } : {}),
             },
             false,
-            'auth/setMemberInfo'
+            'auth/setMemberInfo',
+          )
+        },
+
+        loginSuccess: (result) => {
+          localStorage.setItem('token', result.access_token)
+          set(
+            {
+              user: result.user,
+              memberInfo: result.user,
+              isAuthenticated: true,
+            },
+            false,
+            'auth/loginSuccess',
           )
         },
 
         logout: () => {
+          localStorage.removeItem('token')
           set(
             {
               user: null,
@@ -50,15 +64,14 @@ export const useUserStore = create<UserState>()(
               memberInfo: null,
             },
             false,
-            'auth/logout'
+            'auth/logout',
           )
         },
       }),
       {
-        name: 'user-storage', // 💡 localStorage 中存储的 key 的名字
-        // persist 中间件会自动帮你处理 localStorage 的存取，不需要手动写 setItem/removeItem 了！
-      }
+        name: 'user-storage',
+      },
     ),
-    { name: 'UserStore' } // 💡 Redux DevTools 中显示的 Store 名字
-  )
+    { name: 'UserStore' },
+  ),
 )

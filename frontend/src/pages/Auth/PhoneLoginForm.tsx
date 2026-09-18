@@ -7,7 +7,7 @@ import {
   CloseCircleOutlined,
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
-import { login } from '@/api/auth'
+import { getApiErrorMessage, login, sendCode } from '@/api/auth'
 import { useUserStore } from '@/store/useUserStore'
 import { useTranslation } from 'react-i18next'
 // 错误提示的状态结构
@@ -23,7 +23,7 @@ interface Props {
 export const PhoneLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const setUser = useUserStore((state) => state.setUser)
+  const loginSuccess = useUserStore((state) => state.loginSuccess)
   const [loading, setLoading] = useState(false)
   const [form] = Form.useForm()
   const [countdown, setCountdown] = useState(0)
@@ -37,10 +37,9 @@ export const PhoneLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
     if (countdown > 0) return
 
     try {
-      // 🚀 核心逻辑：先触发表单手机号字段的校验
       await form.validateFields(['phone'])
-
-      // 校验通过，清空错误并开始倒计时
+      const phone = form.getFieldValue('phone')
+      const data = await sendCode({ scene: 'login', phone })
       setErrorData(null)
       setCountdown(60)
       const timer = setInterval(() => {
@@ -52,9 +51,11 @@ export const PhoneLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
           return prev - 1
         })
       }, 1000)
+      if (data.code) {
+        setErrorData({ msg: `验证码：${data.code}`, type: 'warning' })
+      }
     } catch (errorInfo: any) {
-      // 校验不通过，捕获错误并触发底部抖动提示
-      const errorMsg = errorInfo.errorFields[0]?.errors[0]
+      const errorMsg = errorInfo.errorFields?.[0]?.errors?.[0] || getApiErrorMessage(errorInfo)
       if (errorMsg) {
         setErrorData({ msg: errorMsg, type: 'warning' })
         setShakeKey(Date.now())
@@ -65,23 +66,20 @@ export const PhoneLoginForm: React.FC<Props> = ({ onSwitchMode }) => {
   const onFinish = async (values: any) => {
     try {
       setLoading(true)
-      const response = await login({
-        username: values.phone,
-        password: values.code,
-        grantType: 'sms', // 短信验证码登录
+      const result = await login({
+        login_type: 'code',
+        phone: values.phone,
+        code: values.code,
       })
-      // 修改兼容后端的真实数据包裹层，以避免 TypeScript 类型校验报错
-      const token = (response as any)?.data?.accessToken || (response as any)?.accessToken
-      if (token) {
-        localStorage.setItem('token', token)
-      }
-
-      setUser(response)
+      loginSuccess(result)
       setErrorData(null)
       navigate('/')
     } catch (err) {
       console.error(err)
-      setErrorData({ msg: t('ENCvcvlO1_Q9pUxA_Lf6g'), type: 'error' })
+      setErrorData({
+        msg: getApiErrorMessage(err, t('ENCvcvlO1_Q9pUxA_Lf6g')),
+        type: 'error',
+      })
       setShakeKey(Date.now())
     } finally {
       setLoading(false)

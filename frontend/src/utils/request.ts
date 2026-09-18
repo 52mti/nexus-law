@@ -1,9 +1,13 @@
 // src/utils/request.ts
 import axios, { type AxiosResponse } from 'axios'
 import { globalMessage } from '@/utils/globalAntd';
-import { useUserStore } from '@/store/useUserStore';
-// 🚀 1. 核心：直接引入配置好的 i18n 实例（注意路径根据你的实际位置调整）
-import i18n from '../i18n'; 
+import i18n from '../i18n';
+
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    skipAuth?: boolean
+  }
+} 
 
 // ==========================================
 // 定义后端响应格式
@@ -29,7 +33,7 @@ const request = axios.create({
 request.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token')
-    if (token) {
+    if (token && !config.skipAuth) {
       config.headers.Authorization = `Bearer ${token}`
     }
 
@@ -58,12 +62,7 @@ request.interceptors.response.use(
     if (error.response) {
       switch (error.response.status) {
         case 401:
-          // 🚀 2. 使用 i18n.t 替换中文
           globalMessage.error(i18n.t('error.token_expired'))
-          localStorage.removeItem('token')
-          // 同时清除 Zustand 中的用户信息，防止 App.tsx 等组件继续发起需要授权的请求
-          useUserStore.getState().logout()
-          window.location.href = `${import.meta.env.BASE_URL}login`.replace(/\/+/g, '/')
           break
         case 403:
           globalMessage.error(i18n.t('error.no_permission'))

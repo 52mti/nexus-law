@@ -53,6 +53,18 @@ def normalize_email(value: str | None) -> str | None:
     return compact or None
 
 
+def _validate_phone(phone_n: str) -> str:
+    if not PHONE_RE.match(phone_n):
+        raise BizError(BizCode.INVALID_CONTACT, "手机号格式不正确")
+    return phone_n
+
+
+def _validate_email(email_n: str) -> str:
+    if not EMAIL_RE.match(email_n):
+        raise BizError(BizCode.INVALID_CONTACT, "邮箱格式不正确")
+    return email_n
+
+
 def resolve_contact(
     *,
     phone: str | None,
@@ -63,14 +75,26 @@ def resolve_contact(
     if phone_n and email_n:
         raise BizError(BizCode.INVALID_PARAMS, "请只填写手机号或邮箱中的一项")
     if phone_n:
-        if not PHONE_RE.match(phone_n):
-            raise BizError(BizCode.INVALID_CONTACT, "手机号格式不正确")
-        return phone_n, "phone"
+        return _validate_phone(phone_n), "phone"
     if email_n:
-        if not EMAIL_RE.match(email_n):
-            raise BizError(BizCode.INVALID_CONTACT, "邮箱格式不正确")
-        return email_n, "email"
+        return _validate_email(email_n), "email"
     raise BizError(BizCode.INVALID_PARAMS, "请填写手机号或邮箱")
+
+
+def normalize_contacts(
+    *,
+    phone: str | None,
+    email: str | None,
+) -> tuple[str | None, str | None]:
+    phone_n = normalize_phone(phone)
+    email_n = normalize_email(email)
+    if phone_n:
+        phone_n = _validate_phone(phone_n)
+    if email_n:
+        email_n = _validate_email(email_n)
+    if not phone_n and not email_n:
+        raise BizError(BizCode.INVALID_PARAMS, "请填写手机号或邮箱")
+    return phone_n, email_n
 
 
 def _generate_code() -> str:
@@ -305,6 +329,29 @@ async def _consume_code(
     await session.flush()
 
 
+async def _consume_code_for_contacts(
+    session: AsyncSession,
+    *,
+    phone: str | None,
+    email: str | None,
+    scene: str,
+    code: str,
+) -> None:
+    last_error: BizError | None = None
+    for target in (phone, email):
+        if not target:
+            continue
+        try:
+            await _consume_code(session, target=target, scene=scene, code=code)
+            return
+        except BizError as exc:
+            if exc.code in {BizCode.INVALID_CODE, BizCode.CODE_EXPIRED}:
+                last_error = exc
+                continue
+            raise
+    raise last_error or BizError(BizCode.INVALID_CODE, "验证码不正确")
+
+
 async def register(
     session: AsyncSession,
     *,
@@ -316,20 +363,37 @@ async def register(
     settings: Settings | None = None,
 ) -> dict[str, Any]:
     settings = settings or get_settings()
-    target, channel = resolve_contact(phone=phone, email=email)
+    phone_n, email_n = normalize_contacts(phone=phone, email=email)
     if len(password) < 8:
         raise BizError(BizCode.INVALID_PASSWORD, "密码至少 8 位")
-    await _consume_code(session, target=target, scene=VerificationScene.REGISTER.value, code=code)
+    await _consume_code_for_contacts(
+        session,
+        phone=phone_n,
+        email=email_n,
+        scene=VerificationScene.REGISTER.value,
+        code=code,
+    )
 
-    existing = await _find_user_by_contact(session, target=target, channel=channel)
-    if existing:
-        if channel == "phone":
+    if phone_n:
+        existing_phone = await _find_user_by_contact(
+            session,
+            target=phone_n,
+            channel="phone",
+        )
+        if existing_phone:
             raise BizError(BizCode.PHONE_REGISTERED, "该手机号已注册")
-        raise BizError(BizCode.EMAIL_REGISTERED, "该邮箱已注册")
+    if email_n:
+        existing_email = await _find_user_by_contact(
+            session,
+            target=email_n,
+            channel="email",
+        )
+        if existing_email:
+            raise BizError(BizCode.EMAIL_REGISTERED, "该邮箱已注册")
 
     user = User(
-        phone=target if channel == "phone" else None,
-        email=target if channel == "email" else None,
+        phone=phone_n,
+        email=email_n,
         password_hash=hash_password(password),
         nickname=(nickname or "").strip() or None,
         status=UserStatus.ACTIVE.value,
