@@ -5,9 +5,9 @@ import { CrownOutlined, CheckCircleOutlined } from '@ant-design/icons'
 // 🚀 引入支付弹窗组件与 API
 import { PaymentModal } from '@/components/PaymentModal'
 import { PaymentSuccessModal } from '@/components/PaymentSuccessModal'
-import { MembershipPlan } from '@/api/plan' // 假设你的 api 路径在这里
-// 根据你上一步生成的类型，引入真实的后端类型
-import type { PlanSubscription } from '@/api/plan'
+import { confirmPayment, createOrder, listPlans, type PlanItem } from '@/api/commerce'
+import { getProfile } from '@/api/auth'
+import { useUserStore } from '@/store/useUserStore'
 import { useTranslation } from 'react-i18next'
 
 // ==========================================
@@ -27,24 +27,28 @@ export interface UIPlanType {
   pointsDesc: string
   features: string[]
   // 🚀 把后端的原始数据保留一份，将来点击“购买”生成订单时会用到
-  originalData: PlanSubscription
+  originalData: PlanItem
 }
 
 export const MembershipPage: React.FC = () => {
   const { t } = useTranslation()
   const { message } = App.useApp()
+  const setMemberInfo = useUserStore((state) => state.setMemberInfo)
 
-  // ==========================================
-  // 🚀 状态管理
-  // ==========================================
-  const [loading, setLoading] = useState(true) // 页面初始化加载状态
-  const [plans, setPlans] = useState<UIPlanType[]>([]) // 存放转换后的套餐数据
+  const [loading, setLoading] = useState(true)
+  const [plans, setPlans] = useState<UIPlanType[]>([])
+  const [buying, setBuying] = useState(false)
 
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
   const [currentPlan, setCurrentPlan] = useState<UIPlanType | null>(null)
-
-  const MEMBERSHIP_PLANS_CACHE_KEY = 'membership_plans'
+  const [payInfo, setPayInfo] = useState<{
+    order_id: string
+    checkout_url: string
+    amount: string
+    sign?: string
+    channel: string
+  } | null>(null)
 
   // ==========================================
   // 🚀 核心：初始化加载与数据映射 (Mapping)
@@ -53,95 +57,36 @@ export const MembershipPage: React.FC = () => {
     const fetchPlans = async () => {
       setLoading(true)
       try {
-        let records: PlanSubscription[] | undefined = undefined
-
-        // 1. 优先从 sessionStorage 获取缓存数据
-        const cachedData = sessionStorage.getItem(MEMBERSHIP_PLANS_CACHE_KEY)
-        if (cachedData) {
-          try {
-            const parsed = JSON.parse(cachedData)
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              records = parsed
-            }
-          } catch (e) {
-            console.error('Failed to parse cached membership plans:', e)
+        const data = await listPlans({ current: 1, size: 100 })
+        const records = (data.records || []).filter((record) => record.type !== 'points')
+        const formattedPlans: UIPlanType[] = records.map((record) => {
+          const priceNum = Number(record.price)
+          const isFree = priceNum === 0
+          const giftPoints = record.benefits?.gift_points || 0
+          const features = record.benefits?.features?.length
+            ? record.benefits.features
+            : [t('haMa5NKgtArvQU6lZ5LHR', { count: giftPoints })]
+          return {
+            id: record.id,
+            title: record.name || t('TpztAoVIZ1BnWXeGtIvBT'),
+            icon: isFree ? null : <CrownOutlined className="mr-1" />,
+            price: isFree ? t('5orx1DyQY2gLVgf5OsX0b') : String(priceNum),
+            priceUnit: isFree ? '' : t('SN0eJqECHeRaU7DfLdk1l'),
+            subtitle: record.benefits?.hint || record.period || '',
+            buttonText: isFree ? t('TW3Qxm3H9mjNuyd7A1faX') : t('Sy1xxFPxQB9iXLe3kUKFo'),
+            isPrimary: record.benefits?.code === 'ZSHY' || record.period === 'year',
+            buttonDisabled: isFree,
+            pointsTitle: t('haMa5NKgtArvQU6lZ5LHR', { count: giftPoints }),
+            pointsDesc: '',
+            features,
+            originalData: record,
           }
-        }
-
-        // 2. 如果没有缓存，则从接口获取
-        if (!records) {
-          const res = await MembershipPlan()
-
-          if (res.successful && res.data?.records) {
-            records = res.data.records
-            // 写入缓存
-            sessionStorage.setItem(MEMBERSHIP_PLANS_CACHE_KEY, JSON.stringify(records))
-          } else {
-            message.error(res.message || t('U_S_1gpnDYGeN7RYQdKEo'))
-            setLoading(false)
-            return
-          }
-        }
-
-        // 3. 将后端数据渲染为前端 UI 格式
-        if (records) {
-          const formattedPlans: UIPlanType[] = records.map((record) => {
-            // 判断是否是免费体验用户 (通过价格判断，或者通过 code === 'TYYH' 判断)
-            const isFree = Number(record.price) === 0
-            // 判断是否是主推的高级套餐 (比如 钻石会员 ZSHY)
-            const isPrimary = record.code === 'ZSHY'
-
-            return {
-              id: record.id!,
-              title: record.name || t('TpztAoVIZ1BnWXeGtIvBT'),
-              icon: isFree ? null : <CrownOutlined className="mr-1" />,
-              // 处理价格：如果是 0 就显示“免费试用”，否则截掉多余的小数点 (如 799.0000 -> 799)
-              price: isFree ? t('5orx1DyQY2gLVgf5OsX0b') : Number(record.price).toString(),
-              priceUnit: isFree ? '' : t('SN0eJqECHeRaU7DfLdk1l'),
-              subtitle: record.hint || '',
-              buttonText: isFree ? t('TW3Qxm3H9mjNuyd7A1faX') : t('Sy1xxFPxQB9iXLe3kUKFo'),
-              isPrimary: isPrimary,
-              buttonDisabled: isFree, // 免费体验无需购买
-              pointsTitle: t('haMa5NKgtArvQU6lZ5LHR', { count: record.gainPointsPerMonth || 0 }),
-              // 如果有些特定的描述（如黄金会员的图生图数量），前端可以自己写死兜底，或者让后端加字段
-              pointsDesc: record.code === 'BJHY' ? t('W9l_-1p_h8Sx4CdVjp3AG') : '',
-              // 共同的权益说明，后端暂无此字段，前端先统一配置
-              features: [
-                // 保留你原本提取的第一句
-                record.consultationCount === -1
-                  ? t('vip.consult_unlimited')
-                  : t('vip.consult_limited', { count: record.consultationCount }),
-
-                // 🚀 1. 条文检索逻辑：如果是 -1 就拿不限的 Key，否则拿限制的 Key 并传变量
-                record.legalProvisionsCount === -1
-                  ? t('vip.search_unlimited')
-                  : t('vip.search_limited', { count: record.legalProvisionsCount }),
-
-                // 🚀 2. 案例检索匹配逻辑
-                record.caseCount === -1
-                  ? t('vip.case_unlimited')
-                  : t('vip.case_limited', { count: record.caseCount }),
-
-                // 🚀 3. 法律文书生成逻辑
-                record.legalDocumentTranslationCount === -1
-                  ? t('vip.doc_unlimited')
-                  : t('vip.doc_limited', { count: record.legalDocumentTranslationCount }),
-
-                // 🚀 4. 每月赠送算力逻辑（纯变量插值，如果没有值默认给 0）
-                t('vip.bonus_power', { count: record.computingPowerCount || 0 }),
-              ],
-              originalData: record, // 藏匿原始数据
-            }
-          })
-
-          // 🚀 按照价格从低到高排序，让“免费体验”排在最前面
-          formattedPlans.sort((a, b) => Number(a.originalData.price) - Number(b.originalData.price))
-
-          setPlans(formattedPlans)
-        }
+        })
+        formattedPlans.sort((a, b) => Number(a.originalData.price) - Number(b.originalData.price))
+        setPlans(formattedPlans)
       } catch (error) {
         console.error('获取会员套餐报错:', error)
-        message.error(t('94nidbWrt1CrI2gvgGPry'))
+        message.error(error instanceof Error ? error.message : t('94nidbWrt1CrI2gvgGPry'))
       } finally {
         setLoading(false)
       }
@@ -150,25 +95,47 @@ export const MembershipPage: React.FC = () => {
     fetchPlans()
   }, [message, t])
 
-
-  // 点击购买按钮逻辑
-  const handleBuyClick = (plan: UIPlanType) => {
-    setCurrentPlan(plan)
-    setIsPaymentModalOpen(true)
+  const handleBuyClick = async (plan: UIPlanType) => {
+    try {
+      setBuying(true)
+      const created = await createOrder({
+        product_type: 'plan',
+        product_id: plan.id,
+        channel: 'mock',
+      })
+      setCurrentPlan(plan)
+      setPayInfo({
+        order_id: created.order.id,
+        checkout_url: created.pay.checkout_url,
+        amount: created.pay.amount,
+        sign: created.pay.sign,
+        channel: created.pay.channel,
+      })
+      setIsPaymentModalOpen(true)
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : t('94nidbWrt1CrI2gvgGPry'))
+    } finally {
+      setBuying(false)
+    }
   }
 
-  // // 模拟扫码支付成功
-  // useEffect(() => {
-  //   let timer: NodeJS.Timeout;
-  //   if (isPaymentModalOpen) {
-  //     timer = setTimeout(() => {
-  //       setIsPaymentModalOpen(false);
-  //       setIsSuccessModalOpen(true);
-  //       message.success('模拟支付成功！');
-  //     }, 3000);
-  //   }
-  //   return () => clearTimeout(timer);
-  // }, [isPaymentModalOpen, message]);
+  const handleMockPay = async () => {
+    if (!payInfo) return
+    await confirmPayment({
+      order_id: payInfo.order_id,
+      channel: payInfo.channel,
+      amount: payInfo.amount,
+      sign: payInfo.sign,
+    })
+    try {
+      const profile = await getProfile()
+      setMemberInfo(profile)
+    } catch {
+      // profile refresh is best-effort after payment
+    }
+    setIsPaymentModalOpen(false)
+    setIsSuccessModalOpen(true)
+  }
 
   // ==========================================
   // 🚀 渲染层
@@ -238,7 +205,7 @@ export const MembershipPage: React.FC = () => {
                 {/* 操作按钮 */}
                 <Button
                   type={isPrimary ? 'default' : 'primary'}
-                  disabled={plan.buttonDisabled}
+                  disabled={plan.buttonDisabled || buying}
                   onClick={() => handleBuyClick(plan)}
                   className={`w-full h-11 rounded-lg text-[15px] font-medium border-none tracking-wider ${
                     plan.buttonDisabled
@@ -295,9 +262,9 @@ export const MembershipPage: React.FC = () => {
       <PaymentModal
         open={isPaymentModalOpen}
         onCancel={() => setIsPaymentModalOpen(false)}
-        orderId={currentPlan?.originalData.id || ''}
-        // 🚀 注意这里：拿取真实的后端价格传入支付弹窗
-        amount={Number(currentPlan?.originalData.price) || 0}
+        checkoutUrl={payInfo?.checkout_url}
+        onMockPay={payInfo?.sign ? handleMockPay : undefined}
+        amount={payInfo?.amount || Number(currentPlan?.originalData.price) || 0}
       />
 
       <PaymentSuccessModal

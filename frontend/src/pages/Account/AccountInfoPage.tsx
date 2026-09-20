@@ -35,11 +35,12 @@ export const AccountInfoPage: React.FC = () => {
   const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
   const [isPwdModalOpen, setIsPwdModalOpen] = useState(false);
 
-  const onFinish = async (values: { nickname?: string }) => {
+  const onFinish = async (values: { nickname?: string; email?: string }) => {
     try {
       setSaving(true);
       const profile = await updateProfile({
         nickname: values.nickname?.trim() || undefined,
+        email: values.email?.trim() || undefined,
       });
       setMemberInfo(profile);
       message.success(t("yxmUI6--n80gpeto9U3BY"));
@@ -221,6 +222,7 @@ export const AccountInfoPage: React.FC = () => {
             name="email"
             label={renderLabel(t("N5Vpa7pfDjS7v4kbXf285"))}
             className="mb-8"
+            rules={[{ type: "email", message: t("rR-jS3EoUSvUHPhxZV_pD") }]}
           >
             <Input
               placeholder={t("e2yVZYtiY-LjHLQelD4qD")}

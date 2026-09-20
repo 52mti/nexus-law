@@ -9,12 +9,13 @@ import {
 } from '@ant-design/icons'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { deleteConsultation, deleteDoc, deleteCompliance } from '@/api/delete'
+import { deleteDoc, deleteCompliance } from '@/api/delete'
 import { useTranslation } from 'react-i18next'
 // 引入三个接口
 import { getDocumentList, getComplianceReviewList } from '@/api/common'
-import { listConversations } from '@/api/chat'
+import { deleteConversation, listConversations } from '@/api/chat'
 import { formatEventTime } from '@/utils/formatDate'
+import { useUserStore } from '@/store/useUserStore'
 
 export const HistoryPage: React.FC = () => {
   const { t, i18n } = useTranslation()
@@ -33,6 +34,7 @@ export const HistoryPage: React.FC = () => {
   const observerLoader = React.useRef<HTMLDivElement>(null)
   const activeTabRef = React.useRef(activeTab)
   const fetchingRef = React.useRef(false)
+  const userId = useUserStore((state) => state.memberInfo?.id || state.user?.id)
 
   // 保持 ref 与 activeTab 同步
   useEffect(() => {
@@ -128,7 +130,7 @@ export const HistoryPage: React.FC = () => {
         newRecords = res?.successful ? res?.data?.records || [] : []
         hasNext = pageNum < (res?.data?.pages || 0) && newRecords.length > 0
       } else if (currentTab === 'consult') {
-        const res = await listConversations(pageParams)
+        const res = await listConversations({ ...pageParams, user_id: userId })
         newRecords = res?.data?.records || []
         hasNext = pageNum < (res?.data?.pages || 0) && newRecords.length > 0
       } else if (currentTab === 'compliance') {
@@ -176,7 +178,7 @@ export const HistoryPage: React.FC = () => {
     setHasMore(true)
     fetchData(1, true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab])
+  }, [activeTab, userId])
 
   // ==========================================
   // 🚀 4. 触底加载逻辑：使用 IntersectionObserver
@@ -219,34 +221,30 @@ export const HistoryPage: React.FC = () => {
       // 🚀 修改点：将 onOk 改为 async 函数，直接请求后端接口
       async onOk() {
         try {
-          let res: any
-
-          // 根据当前所在的 Tab 调用对应的删除接口，传入卡片 id
           if (activeTab === 'doc') {
-            res = await deleteDoc(idToDelete)
+            const res = await deleteDoc(idToDelete)
+            if (!(res?.successful || res?.code === 200)) {
+              message.error(res?.message || res?.msg || t('lo0CH49MwEZc3i9mUsNql'))
+              return Promise.reject(new Error(t('_A_kN-T1d8goEwoxu4yvj')))
+            }
           } else if (activeTab === 'consult') {
-            res = await deleteConsultation(idToDelete)
+            await deleteConversation(idToDelete)
           } else if (activeTab === 'compliance') {
-            res = await deleteCompliance(idToDelete)
+            const res = await deleteCompliance(idToDelete)
+            if (!(res?.successful || res?.code === 200)) {
+              message.error(res?.message || res?.msg || t('lo0CH49MwEZc3i9mUsNql'))
+              return Promise.reject(new Error(t('_A_kN-T1d8goEwoxu4yvj')))
+            }
           }
 
-          // 判断接口是否调用成功（这里根据你之前接口的返回结构判断）
-          if (res?.successful || res?.code === 200) {
-            // 接口删除成功后，执行乐观更新：同时更新原始记录和视图数据
-            const updatedAllRecords = allRecords.filter((item) => item.id !== idToDelete)
-            setAllRecords(updatedAllRecords)
-            setHistoryData(formatHistoryData(updatedAllRecords, activeTab))
-
-            message.success(t('MDQ6wyXpqjft7P_fmlTyw'))
-          } else {
-            // 后端返回业务错误
-            message.error(res?.message || res?.msg || t('lo0CH49MwEZc3i9mUsNql'))
-            // 返回 Promise.reject() 可以阻止弹窗自动关闭，让用户看到错误
-            return Promise.reject(new Error(t('_A_kN-T1d8goEwoxu4yvj')))
-          }
+          const updatedAllRecords = allRecords.filter((item) => item.id !== idToDelete)
+          setAllRecords(updatedAllRecords)
+          setHistoryData(formatHistoryData(updatedAllRecords, activeTab))
+          message.success(t('MDQ6wyXpqjft7P_fmlTyw'))
         } catch (error) {
           console.error('删除操作异常:', error)
-          message.error(t('AAS5LSGbbw3Ad9KJJ8wBx'))
+          const fallback = t('AAS5LSGbbw3Ad9KJJ8wBx')
+          message.error(error instanceof Error && error.message ? error.message : fallback)
           return Promise.reject(error)
         }
       },

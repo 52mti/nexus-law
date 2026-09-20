@@ -2,9 +2,12 @@ from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_principal
+from app.api.v1.users import AccountContext, require_account
+from app.core.biz import ok
 from app.core.security import Principal
 from app.db.session import get_db_session
 from app.schemas.conversation import (
+    ConversationDeleteRequest,
     ConversationListResponse,
     ConversationPage,
     ConversationRead,
@@ -14,6 +17,7 @@ from app.schemas.conversation import (
 from app.services import conversation as conversation_service
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
+action_router = APIRouter(tags=["conversation"])
 
 
 @router.get("", response_model=ConversationListResponse)
@@ -58,3 +62,16 @@ async def get_conversation_messages(
         data=[MessageRead.model_validate(m) for m in messages],
         request_id=getattr(request.state, "request_id", None),
     )
+
+
+@action_router.post("/conversation/delete")
+async def delete_conversation(
+    body: ConversationDeleteRequest,
+    ctx: AccountContext = Depends(require_account),
+) -> dict:
+    data = await conversation_service.delete_conversation(
+        ctx.session,
+        conversation_id=body.conversation_id,
+        user_id=ctx.user.id,
+    )
+    return ok(data, "会话已删除")

@@ -75,6 +75,9 @@ class Settings(BaseSettings):
     agent_tool_whitelist: str = "get_current_time,calculator,search_documents"
     prompt_guard_enabled: bool = True
 
+    # Payment callback HMAC. Empty + DEBUG allows unsigned mock callbacks.
+    payment_callback_secret: str = ""
+
     @property
     def cors_origin_list(self) -> list[str]:
         if self.cors_origins.strip() == "*":

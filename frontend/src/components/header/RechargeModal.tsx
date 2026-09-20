@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Modal, Avatar, Spin, App, Button } from "antd";
 import { UserOutlined, CloseOutlined } from "@ant-design/icons";
-import { QRCodeScanner } from "../QRCodeScanner"; // 确保路径正确
-import { pointPlan } from "@/api/common";
-import { add } from "@/api/order";
+import { QRCodeScanner } from "../QRCodeScanner";
+import { confirmPayment, createOrder, listPlans } from "@/api/commerce";
+import { getProfile } from "@/api/auth";
 import { useTranslation } from "react-i18next";
 import { useUserStore } from "@/store/useUserStore";
 
@@ -12,7 +12,6 @@ interface Props {
   onClose: () => void;
 }
 
-// 定义后端返回的套餐类型
 interface PointPackage {
   id: string;
   name: string;
@@ -24,84 +23,107 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
   const { t } = useTranslation();
   const { message } = App.useApp();
   const userInfo = useUserStore((state) => state.memberInfo);
+  const setMemberInfo = useUserStore((state) => state.setMemberInfo);
   const giftPoints = userInfo?.points ?? 0;
 
-  // 🚀 状态管理
   const [packages, setPackages] = useState<PointPackage[]>([]);
-  const [loading, setLoading] = useState(false); // 专用于套餐列表初始化的 Loading
-  const [selectedId, setSelectedId] = useState<string>(""); // 存放选中的套餐 ID
+  const [loading, setLoading] = useState(false);
+  const [selectedId, setSelectedId] = useState<string>("");
   const [checkoutUrl, setCheckoutUrl] = useState<string>("");
   const [qrLoading, setQrLoading] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [payInfo, setPayInfo] = useState<{
+    order_id: string;
+    checkout_url: string;
+    amount: string;
+    sign?: string;
+    channel: string;
+  } | null>(null);
 
-  // 获取积分套餐并做 sessionStorage 缓存
   useEffect(() => {
     if (!open) return;
 
     const fetchPackages = async () => {
-      const cachedData = sessionStorage.getItem("point_packages_cache");
-      if (cachedData) {
-        try {
-          const parsed = JSON.parse(cachedData);
-          setPackages(parsed);
-          if (parsed.length > 0) {
-            setSelectedId(parsed[0].id);
-            fetchCheckoutUrl(parsed[0].id);
-          }
-          return;
-        } catch (e) {
-          console.error("缓存解析失败，重新请求", e);
-        }
-      }
-
       setLoading(true);
+      setPayInfo(null);
+      setCheckoutUrl("");
       try {
-        const res = await pointPlan();
-        if (res.successful && res.data?.records) {
-          const sortedRecords = res.data.records.sort(
-            (a: any, b: any) => a.price - b.price,
-          );
+        const data = await listPlans({ type: "points", current: 1, size: 100 });
+        const sortedRecords: PointPackage[] = (data.records || [])
+          .map((record) => ({
+            id: record.id,
+            name: record.name,
+            price: Number(record.price),
+            pointsCount: record.benefits?.points || record.benefits?.gift_points || 0,
+          }))
+          .sort((a, b) => a.price - b.price);
 
-          setPackages(sortedRecords);
-          sessionStorage.setItem(
-            "point_packages_cache",
-            JSON.stringify(sortedRecords),
-          );
-          if (sortedRecords.length > 0) {
-            setSelectedId(sortedRecords[0].id);
-            fetchCheckoutUrl(sortedRecords[0].id);
-          }
-        } else {
-          message.error(res.message || t("BD3-_riCSerxBNW11RpVA"));
+        setPackages(sortedRecords);
+        if (sortedRecords.length > 0) {
+          setSelectedId(sortedRecords[0].id);
+          await fetchCheckoutUrl(sortedRecords[0].id);
         }
       } catch (error) {
         console.error("获取套餐异常:", error);
-        message.error(t("94nidbWrt1CrI2gvgGPry"));
+        message.error(error instanceof Error ? error.message : t("94nidbWrt1CrI2gvgGPry"));
       } finally {
         setLoading(false);
       }
     };
 
     fetchPackages();
-  }, [open, message]);
+  }, [open, message, t]);
 
-  // 获取 checkoutUrl 的核心逻辑
   const fetchCheckoutUrl = async (id: string) => {
     if (!id) return;
     setQrLoading(true);
     try {
-      const res = await add({ id });
-      if (res.successful && res.data?.checkoutUrl) {
-        setCheckoutUrl(res.data.checkoutUrl);
-      } else {
-        message.error(res.message || t("BD3-_riCSerxBNW11RpVA"));
-        setCheckoutUrl("");
-      }
+      const created = await createOrder({
+        product_type: "points",
+        product_id: id,
+        channel: "mock",
+      });
+      setPayInfo({
+        order_id: created.order.id,
+        checkout_url: created.pay.checkout_url,
+        amount: created.pay.amount,
+        sign: created.pay.sign,
+        channel: created.pay.channel,
+      });
+      setCheckoutUrl(created.pay.checkout_url);
     } catch (error) {
       console.error("获取支付链接异常:", error);
-      message.error(t("94nidbWrt1CrI2gvgGPry"));
+      message.error(error instanceof Error ? error.message : t("94nidbWrt1CrI2gvgGPry"));
+      setPayInfo(null);
       setCheckoutUrl("");
     } finally {
       setQrLoading(false);
+    }
+  };
+
+  const handleMockPay = async () => {
+    if (!payInfo) return;
+    try {
+      setPaying(true);
+      await confirmPayment({
+        order_id: payInfo.order_id,
+        channel: payInfo.channel,
+        amount: payInfo.amount,
+        sign: payInfo.sign,
+      });
+      try {
+        const profile = await getProfile();
+        setMemberInfo(profile);
+      } catch {
+        // profile refresh is best-effort after payment
+      }
+      message.success(t("dUkKpAa_rS-QrvFdWDxpo"));
+      onClose();
+    } catch (error) {
+      console.error(error);
+      message.error(error instanceof Error ? error.message : t("cFcF3RpiSV10fKSQvGa7N"));
+    } finally {
+      setPaying(false);
     }
   };
 
@@ -127,7 +149,7 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
             className="bg-white text-gray-500"
           />
           <span className="text-base font-medium">
-            {userInfo?.nickname || 'user'}
+            {userInfo?.nickname || "user"}
           </span>
         </div>
         <div className="flex items-center gap-4">
@@ -142,7 +164,6 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
       </div>
 
       <div className="bg-white p-6 flex gap-8 rounded-b-xl min-h-[350px] relative">
-        {/* 套餐列表初始化的加载状态遮罩 */}
         {loading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80">
             <Spin description={t("aJZTVvN-a_vEd_SwB7k9a")} />
@@ -155,7 +176,7 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
           </h3>
           <div className="grid grid-cols-3 gap-3">
             {packages.map((pkg) => {
-              const isSelected = selectedId === pkg.id; // 🚀 使用 ID 判断选中状态
+              const isSelected = selectedId === pkg.id;
               return (
                 <div
                   key={pkg.id}
@@ -202,8 +223,19 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
           <QRCodeScanner
             checkoutUrl={checkoutUrl}
             loading={qrLoading}
-            amount={packages.find(p => p.id === selectedId)?.price}
+            amount={packages.find((p) => p.id === selectedId)?.price}
           />
+
+          {payInfo && (
+            <Button
+              type="primary"
+              loading={paying || qrLoading}
+              onClick={handleMockPay}
+              className="mt-4 w-full h-9 rounded-lg"
+            >
+              模拟支付完成
+            </Button>
+          )}
 
           <div className="text-[12px] text-gray-400 text-center mt-3">
             {t("pXNQr6vug-33Su5C0L3ag")}

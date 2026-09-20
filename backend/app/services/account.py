@@ -470,8 +470,12 @@ async def reset_password(
 
 
 async def get_profile(session: AsyncSession, user: User) -> dict[str, Any]:
+    from app.services.commerce import get_current_subscription
+
     role_codes = await _load_roles(session, user)
-    return to_profile(user, role_codes).model_dump()
+    profile = to_profile(user, role_codes).model_dump()
+    profile["membership"] = await get_current_subscription(session, user.id)
+    return profile
 
 
 async def update_profile(

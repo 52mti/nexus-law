@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ConversationRead(BaseModel):
@@ -42,3 +42,7 @@ class MessageListResponse(BaseModel):
     data: list[MessageRead]
     error: None = None
     request_id: str | None = None
+
+
+class ConversationDeleteRequest(BaseModel):
+    conversation_id: str = Field(min_length=1, max_length=36)

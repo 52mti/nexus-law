@@ -2,21 +2,26 @@ from unittest.mock import patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from app.core.biz import BizCode
 from app.core.config import Settings, get_settings
-from app.db.models import Base, Message, MessageRole
+from app.core.jwt import create_access_token
+from app.db.models import Base, Conversation, Message, MessageRole, User
 from app.db.session import get_db_session
 from app.main import app
 from app.services import conversation as conversation_service
 from app.services.conversation import TITLE_MAX_LENGTH, preview_title
+
+CONVERSATION_JWT_SECRET = "test-jwt-secret-conversations-ok"
 
 
 @pytest.fixture
 async def client(tmp_path):
     get_settings.cache_clear()
     test_settings = Settings(
-        jwt_secret="",
+        jwt_secret=CONVERSATION_JWT_SECRET,
         api_keys="",
         auth_enabled=False,
         trust_kong_headers=False,
@@ -40,13 +45,23 @@ async def client(tmp_path):
 
     app.dependency_overrides[get_db_session] = override_get_db_session
     transport = ASGITransport(app=app)
-    with patch("app.api.deps.get_settings", return_value=test_settings):
+    patches = [
+        patch("app.api.deps.get_settings", return_value=test_settings),
+        patch("app.api.v1.users.get_settings", return_value=test_settings),
+        patch("app.core.jwt.get_settings", return_value=test_settings),
+        patch("app.services.account.get_settings", return_value=test_settings),
+    ]
+    for item in patches:
+        item.start()
+    try:
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
             yield ac, session_factory
-
-    app.dependency_overrides.clear()
-    get_settings.cache_clear()
-    await engine.dispose()
+    finally:
+        for item in patches:
+            item.stop()
+        app.dependency_overrides.clear()
+        get_settings.cache_clear()
+        await engine.dispose()
 
 
 @pytest.mark.asyncio
@@ -177,6 +192,115 @@ async def test_messages_not_found(client) -> None:
     body = response.json()
     assert body["success"] is False
     assert body["error"]["code"] == "conversation_not_found"
+
+
+def _issue_token(user_id: str) -> str:
+    return create_access_token(
+        user_id,
+        "normal",
+        settings=Settings(
+            jwt_secret=CONVERSATION_JWT_SECRET,
+            api_keys="",
+            auth_enabled=False,
+            trust_kong_headers=False,
+            rate_limit_enabled=False,
+        ),
+    )
+
+
+@pytest.mark.asyncio
+async def test_delete_conversation_logical(client) -> None:
+    http, session_factory = client
+    async with session_factory() as session:
+        user = User(nickname="owner")
+        session.add(user)
+        await session.flush()
+        conversation = Conversation(user_id=user.id, title="可删除会话")
+        session.add(conversation)
+        await session.flush()
+        session.add(
+            Message(
+                conversation_id=conversation.id,
+                role=MessageRole.USER.value,
+                content="你好",
+            )
+        )
+        user_id = user.id
+        conversation_id = conversation.id
+        await session.commit()
+
+    token = _issue_token(user_id)
+    headers = {"Authorization": f"Bearer {token}"}
+    resp = await http.post(
+        "/api/v1/conversation/delete",
+        json={"conversation_id": conversation_id},
+        headers=headers,
+    )
+    body = resp.json()
+    assert resp.status_code == 200
+    assert body["code"] == 0
+    assert body["data"]["id"] == conversation_id
+
+    list_resp = await http.get(
+        "/api/v1/conversations",
+        params={"user_id": user_id, "current": 1, "size": 10},
+    )
+    assert list_resp.json()["data"]["records"] == []
+
+    async with session_factory() as session:
+        stored = await session.get(Conversation, conversation_id)
+        assert stored is not None
+        assert stored.is_deleted is True
+        result = await session.execute(
+            select(Message).where(Message.conversation_id == conversation_id)
+        )
+        rows = list(result.scalars().all())
+        assert rows
+        assert all(item.is_deleted for item in rows)
+
+    again = await http.post(
+        "/api/v1/conversation/delete",
+        json={"conversation_id": conversation_id},
+        headers=headers,
+    )
+    assert again.json()["code"] == BizCode.CONVERSATION_NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_delete_conversation_rejects_other_user(client) -> None:
+    http, session_factory = client
+    async with session_factory() as session:
+        owner = User(nickname="owner")
+        other = User(nickname="other")
+        session.add_all([owner, other])
+        await session.flush()
+        conversation = Conversation(user_id=owner.id, title="别人的会话")
+        session.add(conversation)
+        await session.commit()
+        owner_id = owner.id
+        other_id = other.id
+        conversation_id = conversation.id
+
+    forbidden = await http.post(
+        "/api/v1/conversation/delete",
+        json={"conversation_id": conversation_id},
+        headers={"Authorization": f"Bearer {_issue_token(other_id)}"},
+    )
+    assert forbidden.json()["code"] == BizCode.FORBIDDEN
+
+    unauth = await http.post(
+        "/api/v1/conversation/delete",
+        json={"conversation_id": conversation_id},
+    )
+    assert unauth.status_code == 200
+    assert unauth.json()["code"] == BizCode.UNAUTHORIZED
+
+    missing = await http.post(
+        "/api/v1/conversation/delete",
+        json={"conversation_id": "missing-id-not-found-000000000001"},
+        headers={"Authorization": f"Bearer {_issue_token(owner_id)}"},
+    )
+    assert missing.json()["code"] == BizCode.CONVERSATION_NOT_FOUND
 
 
 def test_preview_title_truncates() -> None:

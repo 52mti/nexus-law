@@ -1,7 +1,10 @@
-from sqlalchemy import func, select
+from datetime import UTC, datetime
+
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.biz import BizCode, BizError
 from app.core.exceptions import AppError
 from app.db.models import Conversation, Message, User
 
@@ -149,3 +152,39 @@ async def get_conversation_messages(
 ) -> list[Message]:
     conversation = await get_conversation(session, conversation_id, with_messages=True)
     return list(conversation.messages)
+
+
+async def delete_conversation(
+    session: AsyncSession,
+    *,
+    conversation_id: str,
+    user_id: str,
+) -> dict[str, str]:
+    conv_id = (conversation_id or "").strip()
+    if not conv_id:
+        raise BizError(BizCode.INVALID_PARAMS, "请指定会话")
+
+    result = await session.execute(
+        select(Conversation).where(
+            Conversation.id == conv_id,
+            Conversation.is_deleted.is_(False),
+        )
+    )
+    conversation = result.scalar_one_or_none()
+    if not conversation:
+        raise BizError(BizCode.CONVERSATION_NOT_FOUND, "会话不存在或已删除")
+    if conversation.user_id != user_id:
+        raise BizError(BizCode.FORBIDDEN, "无权删除该会话")
+
+    now = datetime.now(UTC)
+    conversation.is_deleted = True
+    await session.execute(
+        update(Message)
+        .where(
+            Message.conversation_id == conversation.id,
+            Message.is_deleted.is_(False),
+        )
+        .values(is_deleted=True, updated_at=now)
+    )
+    await session.flush()
+    return {"id": conversation.id}

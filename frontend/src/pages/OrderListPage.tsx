@@ -6,7 +6,7 @@ import Copiright from "@/components/Copiright";
 import { PageContainer } from "@/components/layout/PageContainer";
 
 // 🚀 1. 引入真实 API
-import { pageList } from "@/api/order";
+import { confirmPayment, listOrders } from "@/api/commerce";
 
 // 引入刚刚写好的两个弹窗组件
 import { PaymentModal } from "@/components/PaymentModal";
@@ -22,6 +22,7 @@ interface OrderRecord {
   orderId: string;
   orderType: string;
   amount: number;
+  amountText: string;
   status: OrderStatus;
   orderTime: string;
   payTime: string;
@@ -153,66 +154,56 @@ export const OrderListPage: React.FC = () => {
   // ==========================================
   const mapOrderStatus = (backendStatus: string): OrderStatus => {
     switch (backendStatus) {
-      case "W":
-        return "pending"; // Wait - 待支付
-      case "S":
-        return "success"; // Success - 支付成功
-      case "C":
-        return "cancelled"; // Cancelled - 已取消
+      case "pending":
+        return "pending";
+      case "cancelled":
+      case "refunded":
+        return "cancelled";
+      case "paid":
+      case "fulfilled":
+        return "success";
       default:
-        return "pending"; // 兜底
+        return "pending";
     }
   };
 
-  // ==========================================
-  // 🚀 核心转换函数：后端订单类目 -> 前端 UI 文本
-  // ==========================================
-  const mapOrderCategory = (category: string): string => {
-    switch (category) {
-      case "POINTS":
+  const mapOrderCategory = (productType: string): string => {
+    switch (productType) {
+      case "points":
         return t("WY1sMdes6qqNehQ_kLAR3");
-      case "MEMBER":
+      case "plan":
         return t("Z0YK7LvZommeyRWSpdwPI");
       default:
-        return t("jRrMDig89W3rFESkgn73y"); // 兜底防抖，防止后端增加新类型前端显示空白
+        return t("jRrMDig89W3rFESkgn73y");
     }
   };
 
-  // 请求订单列表接口
   const fetchOrderList = async (current = 1, size = 10) => {
     setLoading(true);
     try {
-      // 调用你的 API，传入分页参数
-      const res = await pageList({ current, size });
+      const data = await listOrders({ current, size });
+      const formattedOrders: OrderRecord[] = (data.records || []).map((item) => ({
+        key: item.id,
+        orderId: item.id,
+        orderType: mapOrderCategory(item.product_type),
+        amount: Number(item.amount),
+        status: mapOrderStatus(item.status),
+        orderTime: item.created_at?.replace("T", " ").substring(0, 19) || "-",
+        payTime: item.paid_at?.replace("T", " ").substring(0, 19) || "-",
+        payMethod: item.channel || "-",
+        amountText: item.amount,
+      }));
 
-      if (res.successful && res.data) {
-        // 将后端的原始数据映射为表格需要的格式
-        const formattedOrders: OrderRecord[] = res.data.records.map(
-          (item: any) => ({
-            key: item.id, // antd 表格必需的 key
-            orderId: item.id,
-            // 🚀 使用新增的映射函数处理 orderCategory
-            orderType: mapOrderCategory(item.orderCategory),
-            amount: item.amount,
-            status: mapOrderStatus(item.status), // 转换状态码 "W" -> "pending"
-            orderTime: item.createTime || "-",
-            payTime: item.effectiveDate || "-", // 如果支付成功，通常 effectiveDate 就是支付生效时间
-            payMethod: item.payType || "-",
-          }),
-        );
-
-        setOrders(formattedOrders);
-        setPagination((prev) => ({
-          ...prev,
-          current: res.data.current,
-          total: res.data.total,
-        }));
-      } else {
-        message.error(res.message || t("OM-Qfm5mouehOCsYnD8aG"));
-      }
+      setOrders(formattedOrders);
+      setPagination((prev) => ({
+        ...prev,
+        current: data.current,
+        total: data.total,
+        pageSize: data.size,
+      }));
     } catch (error) {
       console.error("获取订单列表异常:", error);
-      message.error(t("nb0Sk89VO40u9AvV8pNpb"));
+      message.error(error instanceof Error ? error.message : t("nb0Sk89VO40u9AvV8pNpb"));
     } finally {
       setLoading(false);
     }
@@ -239,20 +230,17 @@ export const OrderListPage: React.FC = () => {
     setIsPaymentModalOpen(true);
   };
 
-  // 为了方便你做 UI 演示，加一个黑科技：打开扫码框 3 秒后，自动模拟支付成功！
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isPaymentModalOpen) {
-      timer = setTimeout(() => {
-        setIsPaymentModalOpen(false);
-        setIsSuccessModalOpen(true);
-        message.success(t("1gjnN3Y_sH0IQJo9Kl2n9"));
-        // 支付成功后，重新刷新一下当前页的列表状态！
-        fetchOrderList(pagination.current, pagination.pageSize);
-      }, 3000);
-    }
-    return () => clearTimeout(timer);
-  }, [isPaymentModalOpen]);
+  const handleMockPay = async () => {
+    if (!currentOrder) return;
+    await confirmPayment({
+      order_id: currentOrder.orderId,
+      channel: currentOrder.payMethod || "mock",
+      amount: currentOrder.amountText,
+    });
+    setIsPaymentModalOpen(false);
+    setIsSuccessModalOpen(true);
+    await fetchOrderList(pagination.current, pagination.pageSize);
+  };
 
   return (
     <PageContainer>
@@ -295,7 +283,8 @@ export const OrderListPage: React.FC = () => {
           open={isPaymentModalOpen}
           onCancel={() => setIsPaymentModalOpen(false)}
           amount={currentOrder?.amount || 0}
-          orderId={currentOrder?.orderId || ""}
+          checkoutUrl={currentOrder ? `nexus-law://pay/${currentOrder.orderId}` : ""}
+          onMockPay={handleMockPay}
         />
 
         {/* 2. 支付成功弹窗 */}
