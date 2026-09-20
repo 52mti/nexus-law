@@ -10,7 +10,7 @@ import { UpdatePhoneForm } from "./UpdatePhoneForm";
 import { UpdatePwdForm } from "./UpdatePwdForm";
 import { useTranslation } from "react-i18next";
 import { useUserStore } from "@/store/useUserStore";
-import { getApiErrorMessage, updateProfile, uploadAvatar } from "@/api/auth";
+import { getApiErrorMessage, membershipDisplayName, updateProfile, uploadAvatar } from "@/api/auth";
 
 export const AccountInfoPage: React.FC = () => {
   const { t } = useTranslation();
@@ -94,15 +94,8 @@ export const AccountInfoPage: React.FC = () => {
     </div>
   );
 
-  const getVipName = (planId?: string) => {
-    if (!planId) return t('5FxUpojAQ8mMolx-i8_6q')
-    const vipMap: Record<string, string> = {
-      gold_id: t('UWm7lVfb3sMZQcIfE4izs'),
-      platinum_id: t('vsBn8dP0LkjpOXJvNNLqd'),
-      diamond_id: t('qx8FKtNlraEvNd4AuBKf0'),
-    }
-    return vipMap[planId] || t('SP2NoprhtpN_WtZs5hmCi')
-  }
+  const getVipName = () =>
+    membershipDisplayName(memberInfo?.membership, t("5FxUpojAQ8mMolx-i8_6q"));
 
   return (
     <div className="p-6 bg-[#fbfbff] h-max flex justify-center">
@@ -147,7 +140,7 @@ export const AccountInfoPage: React.FC = () => {
           <div className="flex flex-col items-end gap-3">
             {/* 黄金会员描边徽章 */}
             <div className="flex items-center gap-1 text-[13px] border border-[#dcb36d] text-[#dcb36d] px-2 py-0.5 rounded">
-              <CrownFilled className="text-xs" /> {getVipName(memberInfo?.membership?.plan_id)}
+              <CrownFilled className="text-xs" /> {getVipName()}
             </div>
             {/* 积分展示 */}
             <div className="text-white text-sm flex items-center gap-1.5">

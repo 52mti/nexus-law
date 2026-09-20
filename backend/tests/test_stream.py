@@ -7,12 +7,28 @@ from httpx import ASGITransport, AsyncClient
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.core.config import Settings
-from app.db.models import Base
+from app.core.config import Settings, get_settings
+from app.core.jwt import create_access_token
+from app.db.models import Base, User
 from app.db.session import get_db_session
 from app.main import app
 from app.services.agent import AgentService, AgentStreamEvent, _stream_token_text
 from app.utils.sse import format_sse
+
+STREAM_JWT_SECRET = "test-jwt-secret-stream-ok"
+
+
+def _token(user_id: str) -> str:
+    return create_access_token(
+        user_id,
+        "normal",
+        settings=Settings(
+            jwt_secret=STREAM_JWT_SECRET,
+            api_keys="",
+            auth_enabled=True,
+            rate_limit_enabled=False,
+        ),
+    )
 
 
 def test_format_sse() -> None:
@@ -33,6 +49,14 @@ def test_format_sse() -> None:
 
 @pytest.fixture
 async def client(tmp_path):
+    get_settings.cache_clear()
+    test_settings = Settings(
+        jwt_secret=STREAM_JWT_SECRET,
+        api_keys="",
+        auth_enabled=True,
+        trust_kong_headers=False,
+        rate_limit_enabled=False,
+    )
     db_path = tmp_path / "stream.db"
     engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}", future=True)
     session_factory = async_sessionmaker(bind=engine, expire_on_commit=False, autoflush=False)
@@ -51,16 +75,34 @@ async def client(tmp_path):
 
     app.dependency_overrides[get_db_session] = override_get_db_session
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac
-
-    app.dependency_overrides.clear()
-    await engine.dispose()
+    patches = [
+        patch("app.api.v1.users.get_settings", return_value=test_settings),
+        patch("app.core.jwt.get_settings", return_value=test_settings),
+        patch("app.services.account.get_settings", return_value=test_settings),
+    ]
+    for item in patches:
+        item.start()
+    try:
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            yield ac, session_factory
+    finally:
+        for item in patches:
+            item.stop()
+        app.dependency_overrides.clear()
+        get_settings.cache_clear()
+        await engine.dispose()
 
 
 @pytest.mark.asyncio
-async def test_agents_run_stream_endpoint(client: AsyncClient) -> None:
+async def test_agents_run_stream_endpoint(client) -> None:
     from app.services.agent import get_agent_service
+
+    http, session_factory = client
+    async with session_factory() as session:
+        user = User(nickname="streamer")
+        session.add(user)
+        await session.commit()
+        user_id = user.id
 
     mock_service = MagicMock()
 
@@ -93,20 +135,17 @@ async def test_agents_run_stream_endpoint(client: AsyncClient) -> None:
     mock_service.stream = fake_stream
     app.dependency_overrides[get_agent_service] = lambda: mock_service
 
-    with patch(
-        "app.api.deps.get_settings",
-        return_value=Settings(auth_enabled=False),
-    ):
-        async with client.stream(
-            "POST",
-            "/api/v1/agents/run/stream",
-            json={"input": "hi", "debug": True},
-        ) as response:
-            assert response.status_code == 200
-            assert "text/event-stream" in response.headers["content-type"]
-            body = ""
-            async for chunk in response.aiter_text():
-                body += chunk
+    async with http.stream(
+        "POST",
+        "/api/v1/agents/run/stream",
+        json={"input": "hi", "debug": True},
+        headers={"Authorization": f"Bearer {_token(user_id)}"},
+    ) as response:
+        assert response.status_code == 200
+        assert "text/event-stream" in response.headers["content-type"]
+        body = ""
+        async for chunk in response.aiter_text():
+            body += chunk
 
     assert "event: conversation_meta" in body
     assert "event: token" in body
@@ -172,10 +211,13 @@ async def test_agent_service_stream_cancel(tmp_path) -> None:
     events: list[str] = []
 
     async with session_factory() as session:
+        user = User(nickname="stream-user")
+        session.add(user)
+        await session.flush()
         async for item in service.stream(
             session,
             user_input="stream please",
-            user_external_id="stream-user",
+            user_id=user.id,
             cancel_event=cancel_event,
         ):
             events.append(item.event)
@@ -267,10 +309,13 @@ async def test_agent_service_stream_happy_path(tmp_path) -> None:
 
     events = []
     async with session_factory() as session:
+        user = User(nickname="happy-user")
+        session.add(user)
+        await session.flush()
         async for item in service.stream(
             session,
             user_input="What time is it?",
-            user_external_id="happy-user",
+            user_id=user.id,
             debug=True,
         ):
             events.append(item)

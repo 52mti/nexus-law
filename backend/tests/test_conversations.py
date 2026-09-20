@@ -88,10 +88,13 @@ async def test_create_conversation_endpoint_removed(client) -> None:
 async def test_list_conversations_and_messages(client) -> None:
     http, session_factory = client
     async with session_factory() as session:
+        user = User(nickname="owner", external_id="user-001")
+        session.add(user)
+        await session.flush()
         conversation = await conversation_service.create_conversation(
             session,
             title="劳动纠纷咨询",
-            user_external_id="user-001",
+            user_id=user.id,
         )
         session.add(
             Message(
@@ -114,14 +117,19 @@ async def test_list_conversations_and_messages(client) -> None:
             content="建议先确认用工事实并协商补偿。",
         )
         conversation_id = conversation.id
+        user_id = user.id
         await session.commit()
 
+    headers = {"Authorization": f"Bearer {_issue_token(user_id)}"}
     list_resp = await http.get(
         "/api/v1/conversations",
-        params={"user_external_id": "user-001", "current": 1, "size": 10},
+        params={"current": 1, "size": 10},
+        headers=headers,
     )
     assert list_resp.status_code == 200
-    page = list_resp.json()["data"]
+    body = list_resp.json()
+    assert body["code"] == 0
+    page = body["data"]
     rows = page["records"]
     assert page["total"] == 1
     assert page["current"] == 1
@@ -133,7 +141,10 @@ async def test_list_conversations_and_messages(client) -> None:
     assert rows[0]["content"] == "建议先确认用工事实并协商补偿。"
     assert "user_id" not in rows[0]
 
-    msg_resp = await http.get(f"/api/v1/conversations/{conversation_id}/messages")
+    msg_resp = await http.get(
+        f"/api/v1/conversations/{conversation_id}/messages",
+        headers=headers,
+    )
     assert msg_resp.status_code == 200
     messages = msg_resp.json()["data"]
     assert len(messages) == 2
@@ -145,23 +156,30 @@ async def test_list_conversations_and_messages(client) -> None:
 async def test_list_conversations_pages_do_not_overlap(client) -> None:
     http, session_factory = client
     async with session_factory() as session:
+        user = User(nickname="pager")
+        session.add(user)
+        await session.flush()
         ids: list[str] = []
         for index in range(15):
             conversation = await conversation_service.create_conversation(
                 session,
                 title=f"会话 {index}",
-                user_external_id="user-page",
+                user_id=user.id,
             )
             ids.append(conversation.id)
+        user_id = user.id
         await session.commit()
 
+    headers = {"Authorization": f"Bearer {_issue_token(user_id)}"}
     first = await http.get(
         "/api/v1/conversations",
-        params={"user_external_id": "user-page", "current": 1, "size": 10},
+        params={"current": 1, "size": 10},
+        headers=headers,
     )
     second = await http.get(
         "/api/v1/conversations",
-        params={"user_external_id": "user-page", "current": 2, "size": 10},
+        params={"current": 2, "size": 10},
+        headers=headers,
     )
     assert first.status_code == 200
     assert second.status_code == 200
@@ -178,7 +196,8 @@ async def test_list_conversations_pages_do_not_overlap(client) -> None:
 
     empty = await http.get(
         "/api/v1/conversations",
-        params={"user_external_id": "user-page", "current": 3, "size": 10},
+        params={"current": 3, "size": 10},
+        headers=headers,
     )
     assert empty.json()["data"]["records"] == []
     assert empty.json()["data"]["pages"] == 2
@@ -186,12 +205,24 @@ async def test_list_conversations_pages_do_not_overlap(client) -> None:
 
 @pytest.mark.asyncio
 async def test_messages_not_found(client) -> None:
-    http, _ = client
-    response = await http.get("/api/v1/conversations/missing-id/messages")
-    assert response.status_code == 404
-    body = response.json()
-    assert body["success"] is False
-    assert body["error"]["code"] == "conversation_not_found"
+    http, session_factory = client
+    async with session_factory() as session:
+        user = User(nickname="viewer")
+        session.add(user)
+        await session.commit()
+        user_id = user.id
+
+    missing = await http.get(
+        "/api/v1/conversations/missing-id/messages",
+        headers={"Authorization": f"Bearer {_issue_token(user_id)}"},
+    )
+    assert missing.status_code == 200
+    body = missing.json()
+    assert body["code"] == BizCode.CONVERSATION_NOT_FOUND
+
+    unauth = await http.get("/api/v1/conversations/missing-id/messages")
+    assert unauth.status_code == 200
+    assert unauth.json()["code"] == BizCode.UNAUTHORIZED
 
 
 def _issue_token(user_id: str) -> str:
@@ -243,7 +274,8 @@ async def test_delete_conversation_logical(client) -> None:
 
     list_resp = await http.get(
         "/api/v1/conversations",
-        params={"user_id": user_id, "current": 1, "size": 10},
+        params={"current": 1, "size": 10},
+        headers=headers,
     )
     assert list_resp.json()["data"]["records"] == []
 

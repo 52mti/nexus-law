@@ -1,20 +1,46 @@
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.agents.graph import extract_tool_trace, final_assistant_text
 from app.agents.tools.basic import calculator, get_current_time
-from app.db.models import Base
+from app.core.config import Settings, get_settings
+from app.core.jwt import create_access_token
+from app.db.models import Base, Conversation, User
 from app.db.session import get_db_session
 from app.main import app
 from app.services.agent import AgentRunResult, get_agent_service
 
+AGENT_JWT_SECRET = "test-jwt-secret-agents-ok"
+
+
+def _token(user_id: str) -> str:
+    return create_access_token(
+        user_id,
+        "normal",
+        settings=Settings(
+            jwt_secret=AGENT_JWT_SECRET,
+            api_keys="",
+            auth_enabled=True,
+            rate_limit_enabled=False,
+        ),
+    )
+
 
 @pytest.fixture
 async def client(tmp_path):
+    get_settings.cache_clear()
+    test_settings = Settings(
+        jwt_secret=AGENT_JWT_SECRET,
+        api_keys="",
+        auth_enabled=True,
+        trust_kong_headers=False,
+        rate_limit_enabled=False,
+    )
     db_path = tmp_path / "agent.db"
     engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}", future=True)
     session_factory = async_sessionmaker(bind=engine, expire_on_commit=False, autoflush=False)
@@ -33,11 +59,22 @@ async def client(tmp_path):
 
     app.dependency_overrides[get_db_session] = override_get_db_session
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac
-
-    app.dependency_overrides.clear()
-    await engine.dispose()
+    patches = [
+        patch("app.api.v1.users.get_settings", return_value=test_settings),
+        patch("app.core.jwt.get_settings", return_value=test_settings),
+        patch("app.services.account.get_settings", return_value=test_settings),
+    ]
+    for item in patches:
+        item.start()
+    try:
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            yield ac, session_factory
+    finally:
+        for item in patches:
+            item.stop()
+        app.dependency_overrides.clear()
+        get_settings.cache_clear()
+        await engine.dispose()
 
 
 def test_basic_tools() -> None:
@@ -71,7 +108,14 @@ def test_extract_tool_trace_and_final_text() -> None:
 
 
 @pytest.mark.asyncio
-async def test_agents_run_persists_messages(client: AsyncClient) -> None:
+async def test_agents_run_persists_messages(client) -> None:
+    http, session_factory = client
+    async with session_factory() as session:
+        user = User(nickname="agent-user")
+        session.add(user)
+        await session.commit()
+        user_id = user.id
+
     mock_service = AsyncMock()
     mock_service.run.return_value = AgentRunResult(
         conversation_id="conv-1",
@@ -90,13 +134,13 @@ async def test_agents_run_persists_messages(client: AsyncClient) -> None:
     )
     app.dependency_overrides[get_agent_service] = lambda: mock_service
 
-    response = await client.post(
+    response = await http.post(
         "/api/v1/agents/run",
         json={
             "input": "1+1等于多少？",
-            "user_external_id": "agent-user",
             "debug": True,
         },
+        headers={"Authorization": f"Bearer {_token(user_id)}"},
     )
     assert response.status_code == 200
     body = response.json()
@@ -152,18 +196,22 @@ async def test_agent_service_with_fake_graph(tmp_path) -> None:
 
     service = AgentService(graph=graph)
     async with session_factory() as session:
+        user = User(nickname="u-time")
+        session.add(user)
+        await session.flush()
         result = await service.run(
             session,
             user_input="What time is it in UTC?",
-            user_external_id="u-time",
+            user_id=user.id,
             debug=True,
         )
         follow_up = await service.run(
             session,
             user_input="What about tomorrow?",
             conversation_id=result.conversation_id,
-            user_external_id="u-time",
+            user_id=user.id,
         )
+        user_id = user.id
         await session.commit()
 
     assert result.conversation_id
@@ -172,12 +220,15 @@ async def test_agent_service_with_fake_graph(tmp_path) -> None:
     assert result.iterations == 2
     assert follow_up.conversation_id == result.conversation_id
 
-    from app.db.models import Conversation
-
     async with session_factory() as session:
         stored = await session.get(Conversation, result.conversation_id)
         assert stored is not None
+        assert stored.user_id == user_id
         assert stored.title == "What about tomorrow?"
         assert stored.content == "Tomorrow is 2026-07-22."
+        user_count = int(
+            (await session.execute(select(func.count()).select_from(User))).scalar_one()
+        )
+        assert user_count == 1
 
     await engine.dispose()

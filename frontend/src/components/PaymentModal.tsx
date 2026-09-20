@@ -54,7 +54,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           {t("w3sCAov1HRR2xI673RFxr")}
         </div>
 
-        <QRCodeScanner checkoutUrl={checkoutUrl} loading={loading} />
+        <QRCodeScanner checkoutUrl={checkoutUrl} loading={loading} currency="CNY" />
 
         {onMockPay && (
           <Button

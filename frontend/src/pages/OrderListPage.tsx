@@ -7,6 +7,8 @@ import { PageContainer } from "@/components/layout/PageContainer";
 
 // 🚀 1. 引入真实 API
 import { confirmPayment, listOrders } from "@/api/commerce";
+import { getProfile } from "@/api/auth";
+import { useUserStore } from "@/store/useUserStore";
 
 // 引入刚刚写好的两个弹窗组件
 import { PaymentModal } from "@/components/PaymentModal";
@@ -35,6 +37,7 @@ interface OrderRecord {
 export const OrderListPage: React.FC = () => {
   const { t } = useTranslation();
   const { message } = App.useApp();
+  const setMemberInfo = useUserStore((state) => state.setMemberInfo);
 
   // 状态管理
   const [loading, setLoading] = useState(false);
@@ -234,9 +237,15 @@ export const OrderListPage: React.FC = () => {
     if (!currentOrder) return;
     await confirmPayment({
       order_id: currentOrder.orderId,
-      channel: currentOrder.payMethod || "mock",
+      channel: currentOrder.payMethod === "-" ? "mock" : currentOrder.payMethod || "mock",
       amount: currentOrder.amountText,
     });
+    try {
+      const profile = await getProfile();
+      setMemberInfo(profile);
+    } catch {
+      // profile refresh is best-effort after payment
+    }
     setIsPaymentModalOpen(false);
     setIsSuccessModalOpen(true);
     await fetchOrderList(pagination.current, pagination.pageSize);

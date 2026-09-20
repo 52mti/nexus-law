@@ -39,6 +39,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY alembic.ini ./
 COPY alembic/ alembic/
 COPY app/ app/
+COPY scripts/seed_commerce.py scripts/seed_commerce.py
 COPY scripts/docker-entrypoint.sh /docker-entrypoint.sh
 RUN sed -i 's/\r$//' /docker-entrypoint.sh \
     && chmod +x /docker-entrypoint.sh \

@@ -4,12 +4,9 @@ from collections.abc import AsyncIterator
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from loguru import logger
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import require_principal
+from app.api.v1.users import AccountContext, require_account
 from app.core.prompt_guard import assert_safe_user_text
-from app.core.security import Principal
-from app.db.session import get_db_session
 from app.schemas.agent import (
     AgentRunData,
     AgentRunRequest,
@@ -27,16 +24,15 @@ router = APIRouter(prefix="/agents", tags=["agents"])
 async def run_agent(
     payload: AgentRunRequest,
     request: Request,
-    _principal: Principal = Depends(require_principal),
-    session: AsyncSession = Depends(get_db_session),
+    ctx: AccountContext = Depends(require_account),
     agent_service: AgentService = Depends(get_agent_service),
 ) -> AgentRunResponse:
     assert_safe_user_text(payload.input)
     result = await agent_service.run(
-        session,
+        ctx.session,
         user_input=payload.input,
         conversation_id=payload.conversation_id,
-        user_external_id=payload.user_external_id,
+        user_id=ctx.user.id,
         title=payload.title,
         debug=payload.debug,
     )
@@ -62,8 +58,7 @@ async def run_agent(
 async def run_agent_stream(
     payload: AgentRunRequest,
     request: Request,
-    _principal: Principal = Depends(require_principal),
-    session: AsyncSession = Depends(get_db_session),
+    ctx: AccountContext = Depends(require_account),
     agent_service: AgentService = Depends(get_agent_service),
 ) -> StreamingResponse:
     assert_safe_user_text(payload.input)
@@ -73,10 +68,10 @@ async def run_agent_stream(
     async def event_generator() -> AsyncIterator[str]:
         try:
             async for item in agent_service.stream(
-                session,
+                ctx.session,
                 user_input=payload.input,
                 conversation_id=payload.conversation_id,
-                user_external_id=payload.user_external_id,
+                user_id=ctx.user.id,
                 title=payload.title,
                 debug=payload.debug,
                 cancel_event=cancel_event,

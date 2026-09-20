@@ -11,6 +11,21 @@ export interface ApiEnvelope<T = unknown> {
   data: T
 }
 
+export interface MembershipInfo {
+  id?: string
+  plan_id?: string
+  status?: string
+  start_at?: string | null
+  expire_at?: string | null
+  name?: string
+  plan?: {
+    id?: string
+    name?: string
+    period?: string | null
+    benefits?: { code?: string | null }
+  } | null
+}
+
 export interface UserProfile {
   id: string
   email: string | null
@@ -21,11 +36,15 @@ export interface UserProfile {
   status: string
   role_codes: string[]
   exclusiveLink?: string | null
-  membership: {
-    plan_id?: string
-    name?: string
-    expire_at?: string
-  } | null
+  membership: MembershipInfo | null
+}
+
+export function membershipDisplayName(
+  membership: MembershipInfo | null | undefined,
+  fallback: string,
+) {
+  if (!membership) return fallback
+  return membership.plan?.name || membership.name || fallback
 }
 
 export interface AuthResult {

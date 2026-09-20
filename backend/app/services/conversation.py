@@ -5,7 +5,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.biz import BizCode, BizError
-from app.core.exceptions import AppError
 from app.db.models import Conversation, Message, User
 
 TITLE_MAX_LENGTH = 255
@@ -18,52 +17,25 @@ def preview_title(text: str) -> str:
     return normalized[:TITLE_MAX_LENGTH]
 
 
-async def get_or_create_user(
-    session: AsyncSession,
-    *,
-    external_id: str | None = None,
-    email: str | None = None,
-) -> User:
-    if external_id:
-        result = await session.execute(
-            select(User).where(User.external_id == external_id, User.is_deleted.is_(False))
-        )
-        user = result.scalar_one_or_none()
-        if user:
-            if email and not user.email:
-                user.email = email
-            return user
-
-    if email:
-        result = await session.execute(
-            select(User).where(User.email == email, User.is_deleted.is_(False))
-        )
-        user = result.scalar_one_or_none()
-        if user:
-            if external_id and not user.external_id:
-                user.external_id = external_id
-            return user
-
-    user = User(external_id=external_id, email=email)
-    session.add(user)
-    await session.flush()
+async def get_active_user(session: AsyncSession, user_id: str) -> User:
+    result = await session.execute(
+        select(User).where(User.id == user_id, User.is_deleted.is_(False))
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise BizError(BizCode.USER_NOT_FOUND, "用户不存在")
     return user
 
 
 async def create_conversation(
     session: AsyncSession,
     *,
+    user_id: str,
     title: str | None = None,
-    user_external_id: str | None = None,
-    email: str | None = None,
 ) -> Conversation:
-    user = await get_or_create_user(
-        session,
-        external_id=user_external_id,
-        email=email,
-    )
+    await get_active_user(session, user_id)
     conversation = Conversation(
-        user_id=user.id,
+        user_id=user_id,
         title=preview_title(title) if title else None,
     )
     session.add(conversation)
@@ -88,34 +60,25 @@ async def sync_conversation_preview(
 async def list_conversations(
     session: AsyncSession,
     *,
-    user_external_id: str | None = None,
-    user_id: str | None = None,
+    user_id: str,
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[list[Conversation], int]:
-    filters = [Conversation.is_deleted.is_(False)]
-    if user_id:
-        filters.append(Conversation.user_id == user_id)
-    elif user_external_id:
-        user_result = await session.execute(
-            select(User).where(User.external_id == user_external_id, User.is_deleted.is_(False))
-        )
-        user = user_result.scalar_one_or_none()
-        if not user:
-            return [], 0
-        filters.append(Conversation.user_id == user.id)
-
-    count_stmt = select(func.count()).select_from(Conversation)
-    if filters:
-        count_stmt = count_stmt.where(*filters)
-    total = int((await session.execute(count_stmt)).scalar_one())
-
-    stmt = select(Conversation)
-    if filters:
-        stmt = stmt.where(*filters)
-    # Secondary id sort keeps OFFSET pages stable when created_at ties.
+    filters = [
+        Conversation.is_deleted.is_(False),
+        Conversation.user_id == user_id,
+    ]
+    total = int(
+        (
+            await session.execute(
+                select(func.count()).select_from(Conversation).where(*filters)
+            )
+        ).scalar_one()
+    )
     stmt = (
-        stmt.order_by(Conversation.created_at.desc(), Conversation.id.desc())
+        select(Conversation)
+        .where(*filters)
+        .order_by(Conversation.created_at.desc(), Conversation.id.desc())
         .offset(offset)
         .limit(limit)
     )
@@ -127,6 +90,7 @@ async def get_conversation(
     session: AsyncSession,
     conversation_id: str,
     *,
+    user_id: str | None = None,
     with_messages: bool = False,
 ) -> Conversation:
     stmt = select(Conversation).where(
@@ -137,20 +101,23 @@ async def get_conversation(
         stmt = stmt.options(selectinload(Conversation.messages))
     result = await session.execute(stmt)
     conversation = result.scalar_one_or_none()
-    if not conversation:
-        raise AppError(
-            "Conversation not found",
-            code="conversation_not_found",
-            status_code=404,
-        )
+    if not conversation or (user_id and conversation.user_id != user_id):
+        raise BizError(BizCode.CONVERSATION_NOT_FOUND, "会话不存在")
     return conversation
 
 
 async def get_conversation_messages(
     session: AsyncSession,
     conversation_id: str,
+    *,
+    user_id: str | None = None,
 ) -> list[Message]:
-    conversation = await get_conversation(session, conversation_id, with_messages=True)
+    conversation = await get_conversation(
+        session,
+        conversation_id,
+        user_id=user_id,
+        with_messages=True,
+    )
     return list(conversation.messages)
 
 

@@ -224,6 +224,7 @@ export const RechargeModal: React.FC<Props> = ({ open, onClose }) => {
             checkoutUrl={checkoutUrl}
             loading={qrLoading}
             amount={packages.find((p) => p.id === selectedId)?.price}
+            currency="CNY"
           />
 
           {payInfo && (

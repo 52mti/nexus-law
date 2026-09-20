@@ -130,9 +130,9 @@ export const HistoryPage: React.FC = () => {
         newRecords = res?.successful ? res?.data?.records || [] : []
         hasNext = pageNum < (res?.data?.pages || 0) && newRecords.length > 0
       } else if (currentTab === 'consult') {
-        const res = await listConversations({ ...pageParams, user_id: userId })
-        newRecords = res?.data?.records || []
-        hasNext = pageNum < (res?.data?.pages || 0) && newRecords.length > 0
+        const data = await listConversations(pageParams)
+        newRecords = data.records || []
+        hasNext = pageNum < (data.pages || 0) && newRecords.length > 0
       } else if (currentTab === 'compliance') {
         const res = await getComplianceReviewList(pageParams)
         newRecords = res?.successful ? res?.data?.records || [] : []

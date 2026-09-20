@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 class AgentRunRequest(BaseModel):
     input: str = Field(min_length=1)
     conversation_id: str | None = None
-    user_external_id: str | None = Field(default=None, max_length=128)
     title: str | None = Field(default=None, max_length=255)
     debug: bool = False
 

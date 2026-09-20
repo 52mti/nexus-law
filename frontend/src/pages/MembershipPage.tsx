@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Button, App, Spin } from 'antd' // 🚀 引入 Spin 用作加载动画
-import { CrownOutlined, CheckCircleOutlined } from '@ant-design/icons'
+import { CrownOutlined, CheckCircleOutlined, InboxOutlined } from '@ant-design/icons'
 
 // 🚀 引入支付弹窗组件与 API
 import { PaymentModal } from '@/components/PaymentModal'
@@ -28,6 +28,21 @@ export interface UIPlanType {
   features: string[]
   // 🚀 把后端的原始数据保留一份，将来点击“购买”生成订单时会用到
   originalData: PlanItem
+}
+
+function periodLabel(period: string | null) {
+  switch (period) {
+    case 'month':
+      return '按月订阅'
+    case 'year':
+      return '按年订阅'
+    case 'quarter':
+      return '按季订阅'
+    case 'week':
+      return '按周订阅'
+    default:
+      return period || ''
+  }
 }
 
 export const MembershipPage: React.FC = () => {
@@ -72,7 +87,7 @@ export const MembershipPage: React.FC = () => {
             icon: isFree ? null : <CrownOutlined className="mr-1" />,
             price: isFree ? t('5orx1DyQY2gLVgf5OsX0b') : String(priceNum),
             priceUnit: isFree ? '' : t('SN0eJqECHeRaU7DfLdk1l'),
-            subtitle: record.benefits?.hint || record.period || '',
+            subtitle: record.benefits?.hint || periodLabel(record.period),
             buttonText: isFree ? t('TW3Qxm3H9mjNuyd7A1faX') : t('Sy1xxFPxQB9iXLe3kUKFo'),
             isPrimary: record.benefits?.code === 'ZSHY' || record.period === 'year',
             buttonDisabled: isFree,
@@ -159,6 +174,12 @@ export const MembershipPage: React.FC = () => {
 
       {/* 定价卡片网格 */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 w-full max-w-300 animate-fade-in">
+        {!loading && plans.length === 0 && (
+          <div className="col-span-full flex flex-col items-center justify-center py-16 text-gray-400">
+            <InboxOutlined className="text-5xl mb-3 text-gray-200" />
+            <span>暂无会员套餐，请确认已登录且后端已写入套餐数据</span>
+          </div>
+        )}
         {/* 🚀 改用 plans 进行遍历 */}
         {plans.map((plan) => {
           const isPrimary = plan.isPrimary
@@ -263,7 +284,7 @@ export const MembershipPage: React.FC = () => {
         open={isPaymentModalOpen}
         onCancel={() => setIsPaymentModalOpen(false)}
         checkoutUrl={payInfo?.checkout_url}
-        onMockPay={payInfo?.sign ? handleMockPay : undefined}
+        onMockPay={payInfo ? handleMockPay : undefined}
         amount={payInfo?.amount || Number(currentPlan?.originalData.price) || 0}
       />
 

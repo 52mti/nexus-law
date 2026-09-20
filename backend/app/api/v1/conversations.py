@@ -1,17 +1,10 @@
-from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, Query
 
-from app.api.deps import require_principal
 from app.api.v1.users import AccountContext, require_account
 from app.core.biz import ok
-from app.core.security import Principal
-from app.db.session import get_db_session
 from app.schemas.conversation import (
     ConversationDeleteRequest,
-    ConversationListResponse,
-    ConversationPage,
     ConversationRead,
-    MessageListResponse,
     MessageRead,
 )
 from app.services import conversation as conversation_service
@@ -20,48 +13,44 @@ router = APIRouter(prefix="/conversations", tags=["conversations"])
 action_router = APIRouter(tags=["conversation"])
 
 
-@router.get("", response_model=ConversationListResponse)
+@router.get("")
 async def list_conversations(
-    request: Request,
-    user_external_id: str | None = Query(default=None),
-    user_id: str | None = Query(default=None),
     current: int = Query(default=1, ge=1, description="1-based page number"),
     size: int = Query(default=50, ge=1, le=200, description="page size"),
-    _principal: Principal = Depends(require_principal),
-    session: AsyncSession = Depends(get_db_session),
-) -> ConversationListResponse:
+    ctx: AccountContext = Depends(require_account),
+) -> dict:
     conversations, total = await conversation_service.list_conversations(
-        session,
-        user_external_id=user_external_id,
-        user_id=user_id,
+        ctx.session,
+        user_id=ctx.user.id,
         limit=size,
         offset=(current - 1) * size,
     )
     pages = (total + size - 1) // size if size else 0
-    return ConversationListResponse(
-        data=ConversationPage(
-            records=[ConversationRead.model_validate(item) for item in conversations],
-            total=total,
-            current=current,
-            size=size,
-            pages=pages,
-        ),
-        request_id=getattr(request.state, "request_id", None),
+    return ok(
+        {
+            "records": [
+                ConversationRead.model_validate(item).model_dump(mode="json")
+                for item in conversations
+            ],
+            "total": total,
+            "current": current,
+            "size": size,
+            "pages": pages,
+        }
     )
 
 
-@router.get("/{conversation_id}/messages", response_model=MessageListResponse)
+@router.get("/{conversation_id}/messages")
 async def get_conversation_messages(
     conversation_id: str,
-    request: Request,
-    _principal: Principal = Depends(require_principal),
-    session: AsyncSession = Depends(get_db_session),
-) -> MessageListResponse:
-    messages = await conversation_service.get_conversation_messages(session, conversation_id)
-    return MessageListResponse(
-        data=[MessageRead.model_validate(m) for m in messages],
-        request_id=getattr(request.state, "request_id", None),
+    ctx: AccountContext = Depends(require_account),
+) -> dict:
+    messages = await conversation_service.get_conversation_messages(
+        ctx.session,
+        conversation_id,
+        user_id=ctx.user.id,
     )
+    return ok([MessageRead.model_validate(item).model_dump(mode="json") for item in messages])
 
 
 @action_router.post("/conversation/delete")

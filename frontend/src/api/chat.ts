@@ -15,15 +15,15 @@ export interface ConversationMessage {
   created_at?: string
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/'
-
-function agentHeaders() {
-  const token = localStorage.getItem('token')
-  return {
-    Accept: 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  }
+export interface ConversationPage {
+  records: ConversationItem[]
+  total: number
+  current: number
+  size: number
+  pages: number
 }
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/'
 
 function unwrap<T>(envelope: { code?: number; message?: string; data?: T } | undefined): T {
   if (!envelope || typeof envelope.code !== 'number') {
@@ -35,56 +35,30 @@ function unwrap<T>(envelope: { code?: number; message?: string; data?: T } | und
   return envelope.data as T
 }
 
+function config() {
+  return { baseURL: API_BASE }
+}
+
 /**
- * 分页读取 Agent 会话列表（current/size 与现有历史页分页一致）
+ * 分页读取当前登录用户的会话列表
  */
-export const listConversations = async (pagination: {
-  current: number
-  size: number
-  user_id?: string
-}) => {
-  const params = new URLSearchParams({
-    current: String(pagination.current),
-    size: String(pagination.size),
-  })
-  if (pagination.user_id) {
-    params.set('user_id', pagination.user_id)
-  }
-  const response = await fetch(
-    `${import.meta.env.VITE_API_BASE_URL || ''}/api/v1/conversations?${params}`,
-    { headers: agentHeaders() },
+export const listConversations = async (pagination: { current: number; size: number }) => {
+  const res = await request.get<unknown, { code: number; message: string; data: ConversationPage }>(
+    '/api/v1/conversations',
+    { ...config(), params: pagination },
   )
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status} ${response.statusText}`)
-  }
-
-  return response.json() as Promise<{
-    success?: boolean
-    data?: {
-      records: ConversationItem[]
-      total: number
-      current: number
-      size: number
-      pages: number
-    }
-  }>
+  return unwrap(res)
 }
 
 /**
  * 读取 Agent 自动落库的会话消息
  */
 export const getConversationMessages = async (conversationId: string) => {
-  const response = await fetch(
-    `${import.meta.env.VITE_API_BASE_URL || ''}/api/v1/conversations/${conversationId}/messages`,
-    { headers: agentHeaders() },
+  const res = await request.get<unknown, { code: number; message: string; data: ConversationMessage[] }>(
+    `/api/v1/conversations/${conversationId}/messages`,
+    config(),
   )
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status} ${response.statusText}`)
-  }
-
-  return response.json() as Promise<{ data?: ConversationMessage[] }>
+  return unwrap(res)
 }
 
 /**

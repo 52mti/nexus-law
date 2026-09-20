@@ -12,7 +12,7 @@ import {
   LogoutOutlined,
 } from '@ant-design/icons'
 // 🚀 1. 确保引入了真实的 API 接口
-import { getProfile } from '@/api/auth'
+import { getProfile, membershipDisplayName } from '@/api/auth'
 import { useTranslation } from 'react-i18next'
 import { useUserStore } from '@/store/useUserStore'
 
@@ -100,17 +100,7 @@ export const UserProfile: React.FC = () => {
     return mobile.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
   }
 
-  // 🚀 5. 简单的会员等级映射（你可以根据后端实际的 membershipPlanId 进行拓展）
-  const getVipName = (planId: string) => {
-    if (!planId) return t('5FxUpojAQ8mMolx-i8_6q')
-    // 假设你有特定的映射关系
-    const planMap: Record<string, string> = {
-      gold_id: t('UWm7lVfb3sMZQcIfE4izs'),
-      platinum_id: t('vsBn8dP0LkjpOXJvNNLqd'),
-      diamond_id: t('qx8FKtNlraEvNd4AuBKf0'),
-    }
-    return planMap[planId] || t('SP2NoprhtpN_WtZs5hmCi')
-  }
+  const getVipName = () => membershipDisplayName(userInfo?.membership, t('5FxUpojAQ8mMolx-i8_6q'))
 
   const content = (
     <div className="w-87 bg-[#757575] rounded-lg p-4 shadow-lg">
@@ -136,7 +126,7 @@ export const UserProfile: React.FC = () => {
         <div className="flex items-center gap-1 text-[13px] border border-[#dcb36d] text-[#dcb36d] px-2 py-0.5 rounded">
           <CrownFilled className="text-xs" />
           {/* 🚀 8. 动态渲染会员名称 */}
-          {getVipName(userInfo?.membership?.plan_id || '')}
+          {getVipName()}
         </div>
       </div>
 

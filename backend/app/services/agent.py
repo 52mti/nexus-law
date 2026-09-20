@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.graph import build_agent_graph, extract_tool_trace, final_assistant_text
 from app.agents.prompts.system import SYSTEM_PROMPT
+from app.core.biz import BizError
 from app.core.config import Settings, get_settings
 from app.core.exceptions import AppError
 from app.db.models import Conversation, Message, MessageRole
@@ -115,7 +116,7 @@ class AgentService:
         *,
         user_input: str,
         conversation_id: str | None,
-        user_external_id: str | None,
+        user_id: str,
         title: str | None,
     ) -> tuple[Conversation, list]:
         if not user_input.strip():
@@ -124,10 +125,14 @@ class AgentService:
         conversation = await self._resolve_conversation(
             session,
             conversation_id=conversation_id,
-            user_external_id=user_external_id,
+            user_id=user_id,
             title=user_input,
         )
-        history = await conversation_service.get_conversation_messages(session, conversation.id)
+        history = await conversation_service.get_conversation_messages(
+            session,
+            conversation.id,
+            user_id=user_id,
+        )
         lc_messages = [SystemMessage(content=SYSTEM_PROMPT)]
         for item in history:
             if item.role == MessageRole.USER.value:
@@ -176,7 +181,7 @@ class AgentService:
         *,
         user_input: str,
         conversation_id: str | None = None,
-        user_external_id: str | None = None,
+        user_id: str,
         title: str | None = None,
         debug: bool = False,
     ) -> AgentRunResult:
@@ -184,7 +189,7 @@ class AgentService:
             session,
             user_input=user_input,
             conversation_id=conversation_id,
-            user_external_id=user_external_id,
+            user_id=user_id,
             title=title,
         )
         max_iterations = self._settings.agent_max_iterations
@@ -246,7 +251,7 @@ class AgentService:
         *,
         user_input: str,
         conversation_id: str | None = None,
-        user_external_id: str | None = None,
+        user_id: str,
         title: str | None = None,
         debug: bool = False,
         cancel_event: asyncio.Event | None = None,
@@ -257,9 +262,15 @@ class AgentService:
                 session,
                 user_input=user_input,
                 conversation_id=conversation_id,
-                user_external_id=user_external_id,
+                user_id=user_id,
                 title=title,
             )
+        except BizError as exc:
+            yield AgentStreamEvent(
+                event="error",
+                data={"code": exc.code, "message": exc.message},
+            )
+            return
         except AppError as exc:
             yield AgentStreamEvent(
                 event="error",
@@ -442,16 +453,20 @@ class AgentService:
         session: AsyncSession,
         *,
         conversation_id: str | None,
-        user_external_id: str | None,
+        user_id: str,
         title: str | None,
     ) -> Conversation:
         if conversation_id:
-            return await conversation_service.get_conversation(session, conversation_id)
+            return await conversation_service.get_conversation(
+                session,
+                conversation_id,
+                user_id=user_id,
+            )
 
         return await conversation_service.create_conversation(
             session,
             title=title,
-            user_external_id=user_external_id,
+            user_id=user_id,
         )
 
 

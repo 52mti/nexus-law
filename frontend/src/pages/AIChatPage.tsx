@@ -62,8 +62,7 @@ export const AIChatPage = () => {
     async (conversationId: string) => {
       setLoadingHistory(true)
       try {
-        const res = await getConversationMessages(conversationId)
-        const records = res?.data || []
+        const records = await getConversationMessages(conversationId)
 
         const historyMessages: ChatMessage[] = records
           .filter((item) => item.role === 'user' || item.role === 'assistant')

@@ -474,7 +474,11 @@ async def get_profile(session: AsyncSession, user: User) -> dict[str, Any]:
 
     role_codes = await _load_roles(session, user)
     profile = to_profile(user, role_codes).model_dump()
-    profile["membership"] = await get_current_subscription(session, user.id)
+    membership = await get_current_subscription(session, user.id)
+    if membership:
+        plan = membership.get("plan") if isinstance(membership.get("plan"), dict) else {}
+        membership["name"] = (plan or {}).get("name")
+    profile["membership"] = membership
     return profile
 
 
