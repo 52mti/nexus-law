@@ -76,6 +76,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        DEBIAN_MIRROR: mirrors.aliyun.com
+        PYPI_INDEX: https://mirrors.aliyun.com/pypi/simple
     container_name: nexus-law-api
     restart: unless-stopped
     env_file:
