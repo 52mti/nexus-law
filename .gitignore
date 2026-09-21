@@ -3,6 +3,11 @@
 *.zip
 *.rar
 
+# Admin frontend
+admin/node_modules/
+admin/dist/
+admin/.env
+
 # Python / FastAPI (api/)
 api/.venv/
 api/__pycache__/

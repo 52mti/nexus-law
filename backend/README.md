@@ -144,39 +144,54 @@ cd api
 docker compose up -d weaviate
 ```
 
-Human-in-the-loop ingest (upload → draft chunks → edit → publish):
+Human-in-the-loop ingest is managed by **admin** APIs (`kb:manage`). Upload → draft chunks → edit → publish:
 
 ```bash
-# 0) Optional: create dataset (upload also auto-creates by collection name)
-curl -X POST http://127.0.0.1:8000/api/v1/rag/datasets \
+# Admin JWT required: Authorization: Bearer <admin_token>
+
+# 0) Create dataset (Weaviate class name must start with A-Z)
+curl -X POST http://127.0.0.1:8000/api/v1/admin/dataset/create \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"name\":\"NexusLawDocuments\",\"title\":\"默认知识库\"}"
 
-# 1) Upload: parse/chunk + (if COS_ENABLED) archive original to Tencent COS.
-#    Form field `collection` = dataset name / Weaviate class (required).
-#    BackgroundTask → status draft; oss_url on GET /documents/{id}
-curl -X POST http://127.0.0.1:8000/api/v1/rag/documents \
+# 1) Upload: parse/chunk in background → status draft
+curl -X POST http://127.0.0.1:8000/api/v1/admin/document/upload \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
   -F "file=@./sample.md" \
-  -F "collection=NexusLawDocuments"
-# → { "data": { "document_id": "...", "dataset_id": "...", "collection": "NexusLawDocuments" } }
+  -F "dataset_name=NexusLawDocuments"
 
 # 2) Preview chunks (poll until status=draft)
-curl http://127.0.0.1:8000/api/v1/rag/documents/{id}/chunks
+curl "http://127.0.0.1:8000/api/v1/admin/document/chunks?id={id}" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
 
-# 3) Optional: save corrections (edit / add / delete; server reindexes 0..n-1)
-curl -X PUT http://127.0.0.1:8000/api/v1/rag/documents/{id}/chunks \
+# 3) Optional: save corrections
+curl -X POST http://127.0.0.1:8000/api/v1/admin/document/chunks/update \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"chunks\":[{\"content\":\"revised chunk text\"}]}"
+  -d "{\"id\":\"{id}\",\"chunks\":[{\"content\":\"revised chunk text\"}]}"
 
-# 4) Confirm: Embedding + Weaviate write
-curl -X POST http://127.0.0.1:8000/api/v1/rag/documents/{id}/publish
+# 4) Publish: embedding + Weaviate write
+curl -X POST http://127.0.0.1:8000/api/v1/admin/document/publish \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"id\":\"{id}\"}"
 
-# 5) Delete one document (COS + Weaviate vectors by document_id + PG chunks)
-curl -X DELETE http://127.0.0.1:8000/api/v1/rag/documents/{id}
+# 5) Unpublish or logical-delete
+curl -X POST http://127.0.0.1:8000/api/v1/admin/document/unpublish \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"id\":\"{id}\"}"
+curl -X POST http://127.0.0.1:8000/api/v1/admin/document/delete \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"id\":\"{id}\"}"
 
-# 6) Delete a dataset (COS originals + PG dataset/docs/chunks + Weaviate collection)
-curl -X DELETE http://127.0.0.1:8000/api/v1/rag/datasets/LaborContracts
-# (alias) curl -X DELETE http://127.0.0.1:8000/api/v1/rag/collections/LaborContracts
+# 6) Delete a dataset
+curl -X POST http://127.0.0.1:8000/api/v1/admin/dataset/delete \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"id\":\"{dataset_id}\"}"
 ```
 
 Ask the agent about the **published** content:

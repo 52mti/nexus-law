@@ -33,6 +33,12 @@ services:
           - /api/v1/auth/reset_password
         strip_path: false
 
+      # Admin login is public; other /api/v1/admin/* still require JWT (vip issuer).
+      - name: nexus-law-admin-auth-public
+        paths:
+          - /api/v1/admin/auth/login
+        strip_path: false
+
       - name: nexus-law-payment-callback
         paths:
           - /api/v1/payment/callback
