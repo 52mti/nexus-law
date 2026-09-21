@@ -60,7 +60,7 @@ async def client(tmp_path):
     app.dependency_overrides[get_db_session] = override_get_db_session
     transport = ASGITransport(app=app)
     patches = [
-        patch("app.api.v1.users.get_settings", return_value=test_settings),
+        patch("app.api.deps.get_settings", return_value=test_settings),
         patch("app.core.jwt.get_settings", return_value=test_settings),
         patch("app.services.account.get_settings", return_value=test_settings),
     ]

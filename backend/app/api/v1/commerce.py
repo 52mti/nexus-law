@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.v1.users import AccountContext, require_account
+from app.api.deps import AccountContext, require_account
 from app.core.biz import ok
 from app.core.config import get_settings
 from app.db.session import get_db_session

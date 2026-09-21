@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
-from app.api.v1.users import AccountContext, require_account
+from app.api.deps import AccountContext, require_account
 from app.core.biz import ok
 from app.schemas.conversation import (
     ConversationDeleteRequest,

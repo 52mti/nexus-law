@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
-from app.api.v1.users import AccountContext, require_account
+from app.api.deps import AccountContext, require_account
 from app.core.prompt_guard import assert_safe_user_text
 from app.schemas.agent import (
     AgentRunData,

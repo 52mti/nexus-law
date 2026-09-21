@@ -48,7 +48,7 @@ async def client(tmp_path):
     patches = [
         patch("app.services.account.get_settings", return_value=settings),
         patch("app.services.commerce.get_settings", return_value=settings),
-        patch("app.api.v1.users.get_settings", return_value=settings),
+        patch("app.api.deps.get_settings", return_value=settings),
         patch("app.api.v1.commerce.get_settings", return_value=settings),
         patch("app.core.jwt.get_settings", return_value=settings),
     ]

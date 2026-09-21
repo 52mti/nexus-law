@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1 import agents, auth, commerce, conversations, health, rag, users
+from app.api.v1.admin import router as admin_router
 
 api_router = APIRouter()
 api_router.include_router(health.router)
@@ -11,3 +12,4 @@ api_router.include_router(conversations.action_router)
 api_router.include_router(agents.router)
 api_router.include_router(rag.router)
 api_router.include_router(commerce.router)
+api_router.include_router(admin_router)

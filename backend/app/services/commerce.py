@@ -191,6 +191,7 @@ async def add_points(
         )
     )
     await session.flush()
+    await session.refresh(user)
     return next_balance
 
 

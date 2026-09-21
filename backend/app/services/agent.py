@@ -133,7 +133,14 @@ class AgentService:
             conversation.id,
             user_id=user_id,
         )
-        lc_messages = [SystemMessage(content=SYSTEM_PROMPT)]
+        from app.services.admin.prompt import get_active_system_prompt
+
+        system_prompt = await get_active_system_prompt(
+            session,
+            agent_id=conversation.agent_id,
+            fallback=SYSTEM_PROMPT,
+        )
+        lc_messages = [SystemMessage(content=system_prompt)]
         for item in history:
             if item.role == MessageRole.USER.value:
                 lc_messages.append(HumanMessage(content=item.content))

@@ -78,6 +78,12 @@ class Settings(BaseSettings):
     # Payment callback HMAC. Empty + DEBUG allows unsigned mock callbacks.
     payment_callback_secret: str = ""
 
+    # First super_admin seed (scripts/seed_admin.py)
+    admin_seed_phone: str = "13800000000"
+    admin_seed_email: str = ""
+    admin_seed_password: str = "Admin123!"
+    admin_seed_nickname: str = "超级管理员"
+
     @property
     def cors_origin_list(self) -> list[str]:
         if self.cors_origins.strip() == "*":
