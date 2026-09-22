@@ -13,6 +13,8 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedAgentsIndexRouteImport } from './routes/_authenticated/agents/index'
+import { Route as AuthenticatedAgentsRunsRouteImport } from './routes/_authenticated/agents/runs'
+import { Route as AuthenticatedAgentsStatsRouteImport } from './routes/_authenticated/agents/stats'
 import { Route as AuthenticatedAuditIndexRouteImport } from './routes/_authenticated/audit/index'
 import { Route as AuthenticatedBillingIndexRouteImport } from './routes/_authenticated/billing/index'
 import { Route as AuthenticatedKnowledgeIndexRouteImport } from './routes/_authenticated/knowledge/index'
@@ -41,6 +43,17 @@ const AuthenticatedAgentsIndexRoute =
   AuthenticatedAgentsIndexRouteImport.update({
     id: '/agents/',
     path: '/agents/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAgentsRunsRoute = AuthenticatedAgentsRunsRouteImport.update({
+  id: '/agents/runs',
+  path: '/agents/runs',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAgentsStatsRoute =
+  AuthenticatedAgentsStatsRouteImport.update({
+    id: '/agents/stats',
+    path: '/agents/stats',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedAuditIndexRoute = AuthenticatedAuditIndexRouteImport.update({
@@ -97,6 +110,8 @@ const AuthenticatedKnowledgeDocumentsIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/sign-in': typeof SignInRoute
+  '/agents/runs': typeof AuthenticatedAgentsRunsRoute
+  '/agents/stats': typeof AuthenticatedAgentsStatsRoute
   '/agents/': typeof AuthenticatedAgentsIndexRoute
   '/audit/': typeof AuthenticatedAuditIndexRoute
   '/billing/': typeof AuthenticatedBillingIndexRoute
@@ -111,6 +126,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
   '/': typeof AuthenticatedIndexRoute
+  '/agents/runs': typeof AuthenticatedAgentsRunsRoute
+  '/agents/stats': typeof AuthenticatedAgentsStatsRoute
   '/agents': typeof AuthenticatedAgentsIndexRoute
   '/audit': typeof AuthenticatedAuditIndexRoute
   '/billing': typeof AuthenticatedBillingIndexRoute
@@ -127,6 +144,8 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/agents/runs': typeof AuthenticatedAgentsRunsRoute
+  '/_authenticated/agents/stats': typeof AuthenticatedAgentsStatsRoute
   '/_authenticated/agents/': typeof AuthenticatedAgentsIndexRoute
   '/_authenticated/audit/': typeof AuthenticatedAuditIndexRoute
   '/_authenticated/billing/': typeof AuthenticatedBillingIndexRoute
@@ -143,6 +162,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/sign-in'
+    | '/agents/runs'
+    | '/agents/stats'
     | '/agents/'
     | '/audit/'
     | '/billing/'
@@ -157,6 +178,8 @@ export interface FileRouteTypes {
   to:
     | '/sign-in'
     | '/'
+    | '/agents/runs'
+    | '/agents/stats'
     | '/agents'
     | '/audit'
     | '/billing'
@@ -172,6 +195,8 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/sign-in'
     | '/_authenticated/'
+    | '/_authenticated/agents/runs'
+    | '/_authenticated/agents/stats'
     | '/_authenticated/agents/'
     | '/_authenticated/audit/'
     | '/_authenticated/billing/'
@@ -217,6 +242,20 @@ declare module '@tanstack/react-router' {
       path: '/agents'
       fullPath: '/agents/'
       preLoaderRoute: typeof AuthenticatedAgentsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/agents/runs': {
+      id: '/_authenticated/agents/runs'
+      path: '/agents/runs'
+      fullPath: '/agents/runs'
+      preLoaderRoute: typeof AuthenticatedAgentsRunsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/agents/stats': {
+      id: '/_authenticated/agents/stats'
+      path: '/agents/stats'
+      fullPath: '/agents/stats'
+      preLoaderRoute: typeof AuthenticatedAgentsStatsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/audit/': {
@@ -287,6 +326,8 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedAgentsRunsRoute: typeof AuthenticatedAgentsRunsRoute
+  AuthenticatedAgentsStatsRoute: typeof AuthenticatedAgentsStatsRoute
   AuthenticatedAgentsIndexRoute: typeof AuthenticatedAgentsIndexRoute
   AuthenticatedAuditIndexRoute: typeof AuthenticatedAuditIndexRoute
   AuthenticatedBillingIndexRoute: typeof AuthenticatedBillingIndexRoute
@@ -301,6 +342,8 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedAgentsRunsRoute: AuthenticatedAgentsRunsRoute,
+  AuthenticatedAgentsStatsRoute: AuthenticatedAgentsStatsRoute,
   AuthenticatedAgentsIndexRoute: AuthenticatedAgentsIndexRoute,
   AuthenticatedAuditIndexRoute: AuthenticatedAuditIndexRoute,
   AuthenticatedBillingIndexRoute: AuthenticatedBillingIndexRoute,

@@ -27,6 +27,8 @@ async def test_agent_crud_and_role_bind(admin_env) -> None:
     )
     assert created.json()["code"] == 0
     agent_id = created.json()["data"]["id"]
+    assert created.json()["data"]["graph_code"] == "legal_qa_react"
+    assert created.json()["data"]["is_system"] is False
 
     bound = await client.post(
         "/api/v1/admin/agent/roles/bind",
@@ -38,6 +40,36 @@ async def test_agent_crud_and_role_bind(admin_env) -> None:
 
     listed = await client.get("/api/v1/admin/agent/list", headers=headers)
     assert listed.json()["data"]["total"] >= 2
+
+    templates = await client.get("/api/v1/admin/agent/templates", headers=headers)
+    assert templates.json()["code"] == 0
+    assert any(item["code"] == "legal_qa_react" for item in templates.json()["data"])
+
+    bad_template = await client.post(
+        "/api/v1/admin/agent/create",
+        headers=headers,
+        json={
+            "name": "伪造图",
+            "code": "fake_graph",
+            "graph_code": "not_a_template",
+        },
+    )
+    assert bad_template.json()["code"] == 4027
+
+    legal = next(item for item in listed.json()["data"]["records"] if item["code"] == "legal_qa")
+    assert legal["is_system"] is True
+    deleted = await client.post(
+        "/api/v1/admin/agent/delete",
+        headers=headers,
+        json={"id": legal["id"]},
+    )
+    assert deleted.json()["code"] == 4028
+
+    runs = await client.get("/api/v1/admin/agent/run/list", headers=headers)
+    assert runs.json()["code"] == 0
+    stats = await client.get("/api/v1/admin/agent/run/stats", headers=headers)
+    assert stats.json()["code"] == 0
+    assert "empty_retrieval_rate" in stats.json()["data"]
 
 
 @pytest.mark.asyncio

@@ -71,16 +71,24 @@ class LangChainLLMClient:
                 status_code=503,
             )
 
-    def build_chat_model(self, *, streaming: bool = False) -> ChatOpenAI:
+    def build_chat_model(
+        self,
+        *,
+        streaming: bool = False,
+        temperature: float | None = None,
+    ) -> ChatOpenAI:
         self._ensure_configured()
-        return ChatOpenAI(
-            api_key=self._settings.llm_api_key,
-            base_url=self._settings.llm_base_url,
-            model=self._settings.llm_model,
-            timeout=self._settings.llm_timeout_seconds,
-            max_retries=self._settings.llm_max_retries,
-            streaming=streaming,
-        )
+        kwargs: dict = {
+            "api_key": self._settings.llm_api_key,
+            "base_url": self._settings.llm_base_url,
+            "model": self._settings.llm_model,
+            "timeout": self._settings.llm_timeout_seconds,
+            "max_retries": self._settings.llm_max_retries,
+            "streaming": streaming,
+        }
+        if temperature is not None:
+            kwargs["temperature"] = temperature
+        return ChatOpenAI(**kwargs)
 
 
 _llm_client: LangChainLLMClient | None = None

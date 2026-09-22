@@ -245,12 +245,11 @@ async def delete_prompt(
     return {"id": item.id}
 
 
-async def get_active_system_prompt(
+async def get_active_system_prompt_record(
     session: AsyncSession,
     *,
     agent_id: str | None,
-    fallback: str,
-) -> str:
+) -> Prompt | None:
     filters = [
         Prompt.scene == "system",
         Prompt.is_active.is_(True),
@@ -261,13 +260,19 @@ async def get_active_system_prompt(
         result = await session.execute(
             select(Prompt).where(*filters).order_by(Prompt.version.desc()).limit(1)
         )
-        item = result.scalar_one_or_none()
-        if item:
-            return item.content
-        return fallback
+        return result.scalar_one_or_none()
 
     result = await session.execute(
         select(Prompt).where(*filters).order_by(Prompt.updated_at.desc()).limit(1)
     )
-    item = result.scalar_one_or_none()
+    return result.scalar_one_or_none()
+
+
+async def get_active_system_prompt(
+    session: AsyncSession,
+    *,
+    agent_id: str | None,
+    fallback: str,
+) -> str:
+    item = await get_active_system_prompt_record(session, agent_id=agent_id)
     return item.content if item else fallback

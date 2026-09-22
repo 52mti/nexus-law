@@ -32,11 +32,13 @@ async def create_conversation(
     *,
     user_id: str,
     title: str | None = None,
+    agent_id: str | None = None,
 ) -> Conversation:
     await get_active_user(session, user_id)
     conversation = Conversation(
         user_id=user_id,
         title=preview_title(title) if title else None,
+        agent_id=agent_id,
     )
     session.add(conversation)
     await session.flush()

@@ -131,6 +131,46 @@ def test_search_documents_tool_uses_retriever() -> None:
     assert payload["matches"][0]["source"] == "hr.md"
 
 
+def test_retrieve_documents_merges_collections() -> None:
+    from app.rag.retriever import retrieve_documents
+
+    class Doc:
+        def __init__(self, source: str) -> None:
+            self.page_content = f"{source} text"
+            self.metadata = {"source": source, "document_id": source, "chunk_index": 0}
+
+    class Store:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+        def similarity_search_with_score(self, query: str, k: int = 4):
+            return [(Doc(self.name), 0.1)]
+
+    def fake_store(_client, *, collection=None, settings=None):
+        return Store(collection)
+
+    with (
+        patch("app.rag.retriever.weaviate_client") as ctx,
+        patch("app.rag.retriever.get_vector_store", side_effect=fake_store),
+    ):
+        ctx.return_value.__enter__.return_value = object()
+        ctx.return_value.__exit__.return_value = None
+        results = retrieve_documents("q", collections=["LawsA", "LawsB"], top_k=2)
+    assert {item["source"] for item in results} == {"LawsA", "LawsB"}
+
+
+def test_get_agent_tools_respects_instance_whitelist() -> None:
+    from app.agents.tools import get_agent_tools
+    from app.core.config import Settings
+
+    tools = get_agent_tools(
+        Settings(agent_tool_whitelist="calculator,search_documents"),
+        whitelist=["search_documents"],
+        collections=["LaborLaw"],
+    )
+    assert [tool.name for tool in tools] == ["search_documents"]
+
+
 def test_cos_public_url_and_upload_mocked() -> None:
     from app.core.config import Settings
     from app.services.cos_storage import public_object_url, upload_bytes

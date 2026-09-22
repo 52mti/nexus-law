@@ -83,11 +83,76 @@ export interface AgentItem {
   description: string | null
   tool_whitelist: string[]
   dataset_ids: string[]
+  graph_code: string
+  is_system: boolean
   temperature: number
   is_active: boolean
   role_codes: string[]
   created_at?: string | null
   updated_at?: string | null
+}
+
+export interface AgentTemplate {
+  code: string
+  name: string
+  description: string
+}
+
+export interface AgentRunItem {
+  id: string
+  conversation_id: string | null
+  agent_id: string | null
+  agent_code: string | null
+  agent_name: string | null
+  prompt_id: string | null
+  user_id: string | null
+  model: string | null
+  latency_ms: number | null
+  iterations: number
+  error_code: string | null
+  token_input: number | null
+  token_output: number | null
+  retrieval_hit: boolean
+  used_search: boolean
+  used_tools: boolean
+  hit_max_iterations: boolean
+  created_at?: string | null
+  tool_trace?: Array<{
+    name?: string
+    args?: unknown
+    empty_retrieval?: boolean
+    result_preview?: unknown
+  }>
+  timeline?: Array<{
+    type: string
+    name?: string | null
+    args?: unknown
+    empty_retrieval?: boolean
+  }>
+  sources?: Array<{
+    source?: string | null
+    document_id?: string | null
+    chunk_index?: number | null
+    snippet?: string | null
+  }>
+}
+
+export interface AgentRunStats {
+  total: number
+  empty_retrieval_rate: number
+  tool_call_rate: number
+  avg_latency_ms: number | null
+  hit_max_iterations_rate: number
+  by_agent: Array<{
+    agent_id: string | null
+    agent_code: string | null
+    agent_name: string | null
+    total: number
+    empty_retrieval_rate: number
+    tool_call_rate: number
+    avg_latency_ms: number | null
+    hit_max_iterations_rate: number
+  }>
 }
 
 export interface DatasetItem {

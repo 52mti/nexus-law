@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { listDatasets } from '@/api/knowledge'
@@ -8,6 +8,7 @@ import {
   bindAgentRoles,
   createAgent,
   deleteAgent,
+  listAgentTemplates,
   listAgents,
   updateAgent,
 } from '@/api/runtime'
@@ -23,6 +24,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
@@ -39,6 +47,7 @@ function AgentsPage() {
   const [editing, setEditing] = useState<AgentItem | null>(null)
   const [name, setName] = useState('')
   const [code, setCode] = useState('')
+  const [graphCode, setGraphCode] = useState('legal_qa_react')
   const [description, setDescription] = useState('')
   const [temperature, setTemperature] = useState('0.2')
   const [isActive, setIsActive] = useState(true)
@@ -56,9 +65,14 @@ function AgentsPage() {
     queryFn: () => listDatasets({ current: 1, size: 100 }),
   })
   const rolesQuery = useQuery({ queryKey: ['admin-roles'], queryFn: listRoles })
+  const templatesQuery = useQuery({
+    queryKey: ['admin-agent-templates'],
+    queryFn: listAgentTemplates,
+  })
   const records = agentsQuery.data?.records || []
   const datasets = datasetsQuery.data?.records || []
   const roles = rolesQuery.data?.records || []
+  const templates = templatesQuery.data || []
 
   const saveMutation = useMutation({
     mutationFn: () => {
@@ -72,10 +86,10 @@ function AgentsPage() {
       }
       return editing
         ? updateAgent({ id: editing.id, ...payload })
-        : createAgent({ code, ...payload })
+        : createAgent({ code, graph_code: graphCode, ...payload })
     },
     onSuccess: () => {
-      toast.success(editing ? 'Agent 已更新' : 'Agent 已创建')
+      toast.success(editing ? 'Agent 实例已更新' : '已从模板创建实例')
       setOpen(false)
       void queryClient.invalidateQueries({ queryKey: ['admin-agents'] })
     },
@@ -100,6 +114,7 @@ function AgentsPage() {
     setEditing(null)
     setName('')
     setCode('')
+    setGraphCode(templates[0]?.code || 'legal_qa_react')
     setDescription('')
     setTemperature('0.2')
     setIsActive(true)
@@ -112,6 +127,7 @@ function AgentsPage() {
     setEditing(item)
     setName(item.name)
     setCode(item.code)
+    setGraphCode(item.graph_code || 'legal_qa_react')
     setDescription(item.description || '')
     setTemperature(String(item.temperature ?? 0.2))
     setIsActive(item.is_active)
@@ -126,8 +142,14 @@ function AgentsPage() {
 
   return (
     <div>
-      <PageHeader title="Agent" description="工具白名单、知识库与角色绑定">
-        <Button onClick={openCreate}>新建 Agent</Button>
+      <PageHeader title="Agent" description="从代码模板创建实例，配置白名单、知识库与角色">
+        <Button variant="outline" asChild>
+          <Link to="/agents/runs">运行记录</Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <Link to="/agents/stats">统计</Link>
+        </Button>
+        <Button onClick={openCreate}>从模板新建</Button>
       </PageHeader>
       <Input
         className="mb-4 w-56"
@@ -140,6 +162,7 @@ function AgentsPage() {
           <TableRow>
             <TableHead>名称</TableHead>
             <TableHead>编码</TableHead>
+            <TableHead>模板</TableHead>
             <TableHead>温度</TableHead>
             <TableHead>工具</TableHead>
             <TableHead>角色</TableHead>
@@ -149,12 +172,18 @@ function AgentsPage() {
         </TableHeader>
         <TableBody>
           {records.length === 0 ? (
-            <EmptyRow colSpan={7} />
+            <EmptyRow colSpan={8} />
           ) : (
             records.map((item) => (
               <TableRow key={item.id}>
-                <TableCell>{item.name}</TableCell>
+                <TableCell>
+                  {item.name}
+                  {item.is_system ? (
+                    <Badge className="ml-2" variant="secondary">系统</Badge>
+                  ) : null}
+                </TableCell>
                 <TableCell>{item.code}</TableCell>
+                <TableCell className="text-xs">{item.graph_code || 'legal_qa_react'}</TableCell>
                 <TableCell>{item.temperature}</TableCell>
                 <TableCell className="max-w-48 text-xs">{(item.tool_whitelist || []).join(', ') || '—'}</TableCell>
                 <TableCell className="max-w-40 text-xs">{(item.role_codes || []).join(', ') || '—'}</TableCell>
@@ -175,7 +204,12 @@ function AgentsPage() {
                   >
                     角色
                   </Button>
-                  <Button size="sm" variant="destructive" onClick={() => deleteMutation.mutate(item.id)}>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={item.is_system}
+                    onClick={() => deleteMutation.mutate(item.id)}
+                  >
                     删除
                   </Button>
                 </TableCell>
@@ -194,16 +228,40 @@ function AgentsPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑 Agent' : '新建 Agent'}</DialogTitle>
+            <DialogTitle>{editing ? '编辑 Agent 实例' : '从模板新建实例'}</DialogTitle>
           </DialogHeader>
+          {editing ? (
+            <Field label="图模板（只读）">
+              <Input value={editing.graph_code || 'legal_qa_react'} disabled />
+            </Field>
+          ) : (
+            <Field label="图模板">
+              <Select value={graphCode} onValueChange={setGraphCode}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择代码模板" />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((item) => (
+                    <SelectItem key={item.code} value={item.code}>
+                      {item.name} ({item.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
           <Field label="名称">
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
           {!editing ? (
-            <Field label="编码">
+            <Field label="实例编码">
               <Input value={code} onChange={(e) => setCode(e.target.value)} />
             </Field>
-          ) : null}
+          ) : (
+            <Field label="实例编码（只读）">
+              <Input value={code} disabled />
+            </Field>
+          )}
           <Field label="描述">
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} />
           </Field>

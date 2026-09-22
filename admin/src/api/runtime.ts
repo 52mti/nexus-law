@@ -1,5 +1,12 @@
 import { apiGet, apiPost } from '@/lib/request'
-import type { AgentItem, PageResult, PromptItem } from '@/lib/types'
+import type {
+  AgentItem,
+  AgentRunItem,
+  AgentRunStats,
+  AgentTemplate,
+  PageResult,
+  PromptItem,
+} from '@/lib/types
 
 export function listPrompts(params: {
   agent_id?: string
@@ -57,6 +64,7 @@ export function createAgent(body: {
   dataset_ids?: string[]
   temperature?: number
   is_active?: boolean
+  graph_code: string
 }) {
   return apiPost<AgentItem>('/admin/agent/create', body)
 }
@@ -79,4 +87,33 @@ export function deleteAgent(id: string) {
 
 export function bindAgentRoles(id: string, role_codes: string[]) {
   return apiPost<AgentItem>('/admin/agent/roles/bind', { id, role_codes })
+}
+
+export function listAgentTemplates() {
+  return apiGet<AgentTemplate[]>('/admin/agent/templates')
+}
+
+export function listAgentRuns(params: {
+  agent_id?: string
+  user_id?: string
+  retrieval_hit?: boolean
+  error?: boolean
+  start_at?: string
+  end_at?: string
+  current?: number
+  size?: number
+}) {
+  return apiGet<PageResult<AgentRunItem>>('/admin/agent/run/list', params)
+}
+
+export function getAgentRunDetail(id: string) {
+  return apiGet<AgentRunItem>('/admin/agent/run/detail', { id })
+}
+
+export function getAgentRunStats(params: {
+  agent_id?: string
+  start_at?: string
+  end_at?: string
+}) {
+  return apiGet<AgentRunStats>('/admin/agent/run/stats', params)
 }

@@ -4,6 +4,8 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
+const SERVER_URL = 'http://101.200.206.159:8000/'
+
 export default defineConfig({
   plugins: [
     tanstackRouter({
@@ -23,7 +25,7 @@ export default defineConfig({
     port: 5174,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        target: SERVER_URL,
         changeOrigin: true,
       },
     },

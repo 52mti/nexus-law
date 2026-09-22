@@ -87,6 +87,7 @@ class AgentCreateRequest(BaseModel):
     dataset_ids: list[str] | None = None
     temperature: float | None = 0.2
     is_active: bool = True
+    graph_code: str = Field(default="legal_qa_react", min_length=1, max_length=64)
 
 
 class AgentUpdateRequest(BaseModel):

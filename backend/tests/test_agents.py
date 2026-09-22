@@ -196,8 +196,21 @@ async def test_agent_service_with_fake_graph(tmp_path) -> None:
 
     service = AgentService(graph=graph)
     async with session_factory() as session:
+        from app.db.models import Agent
+
         user = User(nickname="u-time")
         session.add(user)
+        session.add(
+            Agent(
+                name="法律问答",
+                code="legal_qa",
+                graph_code="legal_qa_react",
+                is_system=True,
+                is_active=True,
+                tool_whitelist=["get_current_time"],
+                dataset_ids=[],
+            )
+        )
         await session.flush()
         result = await service.run(
             session,
@@ -224,11 +237,28 @@ async def test_agent_service_with_fake_graph(tmp_path) -> None:
         stored = await session.get(Conversation, result.conversation_id)
         assert stored is not None
         assert stored.user_id == user_id
+        assert stored.agent_id is not None
         assert stored.title == "What about tomorrow?"
         assert stored.content == "Tomorrow is 2026-07-22."
         user_count = int(
             (await session.execute(select(func.count()).select_from(User))).scalar_one()
         )
         assert user_count == 1
+        from app.db.models import AgentRun, Message
+
+        runs = list((await session.execute(select(AgentRun))).scalars().all())
+        assert len(runs) == 2
+        assert runs[0].used_tools is True
+        assistant = list(
+            (
+                await session.execute(
+                    select(Message).where(Message.role == "assistant")
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert assistant
+        assert assistant[-1].content == "Tomorrow is 2026-07-22."
 
     await engine.dispose()

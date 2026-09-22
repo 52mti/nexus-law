@@ -246,6 +246,20 @@ class Agent(PersistentModel):
     description: Mapped[str | None] = mapped_column(Text)
     tool_whitelist: Mapped[list | None] = mapped_column(JSON)
     dataset_ids: Mapped[list | None] = mapped_column(JSON)
+    graph_code: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        default="legal_qa_react",
+        server_default=text("'legal_qa_react'"),
+        index=True,
+    )
+    is_system: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_false(),
+        index=True,
+    )
     temperature: Mapped[Decimal] = mapped_column(
         Numeric(3, 2),
         nullable=False,
@@ -286,6 +300,56 @@ class AgentRoleBind(PersistentModel):
 
     agent: Mapped[Agent] = relationship(back_populates="role_binds")
     role: Mapped[Role] = relationship(back_populates="agent_binds")
+
+
+class AgentRun(PersistentModel):
+    __tablename__ = "agent_runs"
+    __table_args__ = (
+        Index("ix_agent_runs_agent_created", "agent_id", "created_at"),
+        Index("ix_agent_runs_user_created", "user_id", "created_at"),
+    )
+
+    conversation_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    agent_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    prompt_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    user_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    model: Mapped[str | None] = mapped_column(String(128))
+    latency_ms: Mapped[float | None] = mapped_column(Numeric(12, 2))
+    iterations: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=text("0"),
+    )
+    error_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    token_input: Mapped[int | None] = mapped_column(Integer)
+    token_output: Mapped[int | None] = mapped_column(Integer)
+    tool_trace_json: Mapped[list | dict | None] = mapped_column(JSON)
+    retrieval_hit: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_false(),
+    )
+    used_search: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_false(),
+    )
+    used_tools: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_false(),
+    )
+    hit_max_iterations: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_false(),
+    )
+    sources_json: Mapped[list | dict | None] = mapped_column(JSON)
 
 
 class Prompt(PersistentModel):

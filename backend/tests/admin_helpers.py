@@ -87,6 +87,8 @@ async def seed_default_agent(session) -> Agent:
         description="默认法律问答 Agent",
         tool_whitelist=["search_documents"],
         dataset_ids=[],
+        graph_code="legal_qa_react",
+        is_system=True,
         is_active=True,
     )
     session.add(agent)

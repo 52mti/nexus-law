@@ -1,15 +1,29 @@
 from app.agents.tools.basic import calculator, get_current_time
-from app.agents.tools.rag import search_documents
+from app.agents.tools.rag import build_search_tool, search_documents
 from app.core.config import Settings, get_settings
 
 # Keep legacy alias for older imports/tests
 AGENT_TOOLS = [get_current_time, calculator]
-_ALL_TOOLS = [get_current_time, calculator, search_documents]
 
 
-def get_agent_tools(settings: Settings | None = None):
+def get_agent_tools(
+    settings: Settings | None = None,
+    *,
+    whitelist: list[str] | None = None,
+    collections: list[str] | None = None,
+):
     settings = settings or get_settings()
-    whitelist = settings.agent_tool_whitelist_set
-    if not whitelist:
-        return list(_ALL_TOOLS)
-    return [tool for tool in _ALL_TOOLS if tool.name in whitelist]
+    search_tool = (
+        build_search_tool(collections)
+        if collections
+        else search_documents
+    )
+    all_tools = [get_current_time, calculator, search_tool]
+    names = (
+        set(whitelist)
+        if whitelist is not None
+        else settings.agent_tool_whitelist_set
+    )
+    if not names:
+        return list(all_tools) if whitelist is None else []
+    return [tool for tool in all_tools if tool.name in names]
