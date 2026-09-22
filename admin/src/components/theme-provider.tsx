@@ -19,17 +19,19 @@ function resolveTheme(theme: Theme): 'light' | 'dark' {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(
-    () => (localStorage.getItem('admin_theme') as Theme) || 'system',
+    () => (localStorage.getItem('admin_theme') as Theme) || 'light',
   )
   const [resolved, setResolved] = useState<'light' | 'dark'>(() =>
-    typeof window === 'undefined' ? 'light' : resolveTheme((localStorage.getItem('admin_theme') as Theme) || 'system'),
+    typeof window === 'undefined'
+      ? 'light'
+      : resolveTheme((localStorage.getItem('admin_theme') as Theme) || 'light'),
   )
 
   useEffect(() => {
     const next = resolveTheme(theme)
     setResolved(next)
-    document.documentElement.classList.toggle('dark', next === 'dark')
-    localStorage.setItem('admin_theme', theme)
+    document.documentElement.classList.remove('dark')
+    localStorage.setItem('admin_theme', 'light')
   }, [theme])
 
   return (
