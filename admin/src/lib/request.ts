@@ -1,5 +1,5 @@
+import { message } from 'antd'
 import axios, { type AxiosRequestConfig } from 'axios'
-import { toast } from 'sonner'
 
 export const TOKEN_KEY = 'admin_token'
 
@@ -44,32 +44,32 @@ http.interceptors.response.use(
     if (payload && typeof payload.code === 'number') {
       if (payload.code === 0) return payload.data
       if (UNAUTH_CODES.has(payload.code)) {
-        toast.error(payload.message || '登录已过期')
+        message.error(payload.message || '登录已过期')
         redirectToSignIn()
         throw new ApiError(payload.code, payload.message || '未登录')
       }
       if (payload.code === 3000) {
-        toast.error(payload.message || '无权限')
+        message.error(payload.message || '无权限')
         throw new ApiError(payload.code, payload.message || '无权限')
       }
-      toast.error(payload.message || '请求失败')
+      message.error(payload.message || '请求失败')
       throw new ApiError(payload.code, payload.message || '请求失败')
     }
     return response.data
   },
   (error) => {
     const status = error.response?.status as number | undefined
-    const message =
+    const text =
       error.response?.data?.message ||
       (status ? `网络错误 (${status})` : error.message) ||
       '网络错误'
     if (status === 401) {
-      toast.error('登录已过期')
+      message.error('登录已过期')
       redirectToSignIn()
     } else {
-      toast.error(message)
+      message.error(text)
     }
-    throw new ApiError(status ?? 5000, message)
+    throw new ApiError(status ?? 5000, text)
   },
 )
 

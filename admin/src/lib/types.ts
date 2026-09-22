@@ -190,12 +190,13 @@ export interface DocumentItem {
   error_message?: string | null
   storage_status?: string | null
   oss_url?: string | null
+  extracted_text_chars?: number | null
   created_at?: string | null
   updated_at?: string | null
 }
 
 export interface ChunkItem {
-  id: string
+  id?: string
   chunk_index: number
   content: string
   char_count?: number

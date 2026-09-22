@@ -69,6 +69,39 @@ export function updateDocumentChunks(id: string, chunks: { id?: string; content:
   return apiPost<DocumentItem>('/admin/document/chunks/update', { id, chunks })
 }
 
+export function previewDocumentChunks(body: {
+  id: string
+  chunk_size: number
+  chunk_overlap: number
+  separators?: string[]
+}) {
+  return apiPost<{
+    document_id: string
+    status: string
+    chunk_size: number
+    chunk_overlap: number
+    separators: string[]
+    source_chars: number
+    records: ChunkItem[]
+    total: number
+  }>('/admin/document/chunks/preview', body)
+}
+
+export function importDocumentChunks(body: {
+  id: string
+  chunks: { content: string }[]
+  title?: string
+  law_level?: string
+  region?: string
+  effective_at?: string
+  expired_at?: string
+}) {
+  return apiPost<{ document_id: string; status: string; records: ChunkItem[]; total: number }>(
+    '/admin/document/chunks/import',
+    body,
+  )
+}
+
 export function publishDocument(id: string) {
   return apiPost<DocumentItem>('/admin/document/publish', { id })
 }

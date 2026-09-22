@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
+import { Button, Checkbox, Input, Modal, Space, Table, Tag, message } from 'antd'
+import type { TableColumnsType } from 'antd'
 import { useState } from 'react'
-import { toast } from 'sonner'
 import {
   bindRolePermissions,
   createRole,
@@ -10,20 +11,7 @@ import {
   listRoles,
   updateRole,
 } from '@/api/rbac'
-import { EmptyRow, Field, PageHeader } from '@/components/page'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Textarea } from '@/components/ui/textarea'
+import { Field, PageHeader } from '@/components/page'
 import type { AdminRole } from '@/lib/types'
 
 function RolesPage() {
@@ -47,7 +35,7 @@ function RolesPage() {
         ? updateRole({ id: editing.id, name, description })
         : createRole({ code, name, description }),
     onSuccess: () => {
-      toast.success(editing ? '角色已更新' : '角色已创建')
+      message.success(editing ? '角色已更新' : '角色已创建')
       setFormOpen(false)
       void queryClient.invalidateQueries({ queryKey: ['admin-roles'] })
     },
@@ -55,14 +43,14 @@ function RolesPage() {
   const deleteMutation = useMutation({
     mutationFn: deleteRole,
     onSuccess: () => {
-      toast.success('角色已删除')
+      message.success('角色已删除')
       void queryClient.invalidateQueries({ queryKey: ['admin-roles'] })
     },
   })
   const bindMutation = useMutation({
     mutationFn: () => bindRolePermissions(permRole!.id, permCodes),
     onSuccess: () => {
-      toast.success('权限已绑定')
+      message.success('权限已绑定')
       setPermRole(null)
       void queryClient.invalidateQueries({ queryKey: ['admin-roles'] })
     },
@@ -84,124 +72,104 @@ function RolesPage() {
     setFormOpen(true)
   }
 
+  const columns: TableColumnsType<AdminRole> = [
+    {
+      title: '编码',
+      dataIndex: 'code',
+      render: (value) => (
+        <span>
+          {value}
+          {value === 'super_admin' ? (
+            <Tag className="ml-2">保护</Tag>
+          ) : null}
+        </span>
+      ),
+    },
+    { title: '名称', dataIndex: 'name' },
+    {
+      title: '权限点',
+      dataIndex: 'permission_codes',
+      ellipsis: true,
+      render: (codes: string[]) => (codes || []).join(', ') || '—',
+    },
+    {
+      title: '操作',
+      width: 220,
+      render: (_, role) => (
+        <Space wrap>
+          <Button size="small" onClick={() => openEdit(role)}>
+            编辑
+          </Button>
+          <Button
+            size="small"
+            onClick={() => {
+              setPermRole(role)
+              setPermCodes(role.permission_codes || [])
+            }}
+          >
+            权限
+          </Button>
+          <Button
+            size="small"
+            danger
+            disabled={role.code === 'super_admin'}
+            onClick={() => deleteMutation.mutate(role.id)}
+          >
+            删除
+          </Button>
+        </Space>
+      ),
+    },
+  ]
+
   return (
     <div>
       <PageHeader title="角色权限" description="预置 super_admin 不可删除">
-        <Button onClick={openCreate}>新建角色</Button>
+        <Button type="primary" onClick={openCreate}>
+          新建角色
+        </Button>
       </PageHeader>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>编码</TableHead>
-            <TableHead>名称</TableHead>
-            <TableHead>权限点</TableHead>
-            <TableHead>操作</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {roles.length === 0 ? (
-            <EmptyRow colSpan={4} />
-          ) : (
-            roles.map((role) => (
-              <TableRow key={role.id}>
-                <TableCell>
-                  {role.code}
-                  {role.code === 'super_admin' ? (
-                    <Badge className="ml-2" variant="secondary">
-                      保护
-                    </Badge>
-                  ) : null}
-                </TableCell>
-                <TableCell>{role.name}</TableCell>
-                <TableCell className="max-w-md text-xs">
-                  {(role.permission_codes || []).join(', ') || '—'}
-                </TableCell>
-                <TableCell className="space-x-2 whitespace-nowrap">
-                  <Button size="sm" variant="outline" onClick={() => openEdit(role)}>
-                    编辑
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setPermRole(role)
-                      setPermCodes(role.permission_codes || [])
-                    }}
-                  >
-                    权限
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    disabled={role.code === 'super_admin'}
-                    onClick={() => deleteMutation.mutate(role.id)}
-                  >
-                    删除
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+      <Table rowKey="id" loading={rolesQuery.isLoading} columns={columns} dataSource={roles} pagination={false} />
 
-      <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editing ? '编辑角色' : '新建角色'}</DialogTitle>
-          </DialogHeader>
-          {!editing ? (
-            <Field label="编码">
-              <Input value={code} onChange={(e) => setCode(e.target.value)} />
-            </Field>
-          ) : null}
-          <Field label="名称">
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
+      <Modal
+        title={editing ? '编辑角色' : '新建角色'}
+        open={formOpen}
+        onCancel={() => setFormOpen(false)}
+        onOk={() => saveMutation.mutate()}
+        confirmLoading={saveMutation.isPending}
+      >
+        {!editing ? (
+          <Field label="编码">
+            <Input value={code} onChange={(e) => setCode(e.target.value)} />
           </Field>
-          <Field label="描述">
-            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} />
-          </Field>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setFormOpen(false)}>
-              取消
-            </Button>
-            <Button disabled={saveMutation.isPending} onClick={() => saveMutation.mutate()}>
-              保存
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        ) : null}
+        <Field label="名称">
+          <Input value={name} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field label="描述">
+          <Input.TextArea value={description} onChange={(e) => setDescription(e.target.value)} />
+        </Field>
+      </Modal>
 
-      <Dialog open={!!permRole} onOpenChange={(open) => !open && setPermRole(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>绑定权限点</DialogTitle>
-          </DialogHeader>
-          <div className="max-h-80 space-y-2 overflow-auto">
-            {permissions.map((item) => (
-              <label key={item.id} className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={permCodes.includes(item.code)}
-                  onCheckedChange={(checked) => {
-                    setPermCodes((prev) =>
-                      checked ? [...prev, item.code] : prev.filter((code) => code !== item.code),
-                    )
-                  }}
-                />
-                {item.name} ({item.code})
-              </label>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPermRole(null)}>
-              取消
-            </Button>
-            <Button disabled={bindMutation.isPending} onClick={() => bindMutation.mutate()}>
-              保存
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <Modal
+        title="绑定权限点"
+        open={!!permRole}
+        onCancel={() => setPermRole(null)}
+        onOk={() => bindMutation.mutate()}
+        confirmLoading={bindMutation.isPending}
+      >
+        <div className="max-h-80 overflow-auto">
+          <Checkbox.Group
+            className="flex flex-col gap-2"
+            value={permCodes}
+            onChange={(values) => setPermCodes(values as string[])}
+            options={permissions.map((item) => ({
+              value: item.code,
+              label: `${item.name} (${item.code})`,
+            }))}
+          />
+        </div>
+      </Modal>
     </div>
   )
 }

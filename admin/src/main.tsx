@@ -2,9 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { AntdApp } from '@/components/antd-app'
 import { ThemeProvider } from '@/components/theme-provider'
-import { Toaster } from '@/components/ui/sonner'
-import { TooltipProvider } from '@/components/ui/tooltip'
 import { routeTree } from '@/routeTree.gen'
 import '@/styles/index.css'
 
@@ -34,10 +33,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <TooltipProvider>
+        <AntdApp>
           <RouterProvider router={router} />
-          <Toaster />
-        </TooltipProvider>
+        </AntdApp>
       </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>,

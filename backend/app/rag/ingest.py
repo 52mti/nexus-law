@@ -50,11 +50,46 @@ def extract_text(filename: str, content: bytes) -> str:
     return text
 
 
-def chunk_text(text: str, *, settings: Settings | None = None) -> list[str]:
+DEFAULT_SEPARATORS = ["\n\n", "\n", "。", "；", " ", ""]
+
+
+def normalize_separators(separators: list[str] | None) -> list[str]:
+    if separators is None:
+        return list(DEFAULT_SEPARATORS)
+    cleaned = [item for item in separators if item is not None]
+    if not cleaned:
+        return list(DEFAULT_SEPARATORS)
+    if cleaned[-1] != "":
+        cleaned.append("")
+    return cleaned
+
+
+def chunk_text(
+    text: str,
+    *,
+    settings: Settings | None = None,
+    chunk_size: int | None = None,
+    chunk_overlap: int | None = None,
+    separators: list[str] | None = None,
+) -> list[str]:
     settings = settings or get_settings()
+    size = int(chunk_size if chunk_size is not None else settings.rag_chunk_size)
+    overlap = int(chunk_overlap if chunk_overlap is not None else settings.rag_chunk_overlap)
+    if size < 50:
+        raise AppError("chunk_size must be at least 50", code="invalid_chunk_size", status_code=422)
+    if overlap < 0:
+        raise AppError("chunk_overlap must be >= 0", code="invalid_chunk_overlap", status_code=422)
+    if overlap >= size:
+        raise AppError(
+            "chunk_overlap must be smaller than chunk_size",
+            code="invalid_chunk_overlap",
+            status_code=422,
+        )
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=settings.rag_chunk_size,
-        chunk_overlap=settings.rag_chunk_overlap,
+        chunk_size=size,
+        chunk_overlap=overlap,
+        separators=normalize_separators(separators),
+        keep_separator=True,
     )
     return splitter.split_text(text)
 

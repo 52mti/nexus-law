@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
+import { Button, Checkbox, Input, Modal, Select, Space, Switch, Table, Tag, message } from 'antd'
+import type { TableColumnsType } from 'antd'
 import { useState } from 'react'
-import { toast } from 'sonner'
 import { listDatasets } from '@/api/knowledge'
 import { listRoles } from '@/api/rbac'
 import {
@@ -12,28 +13,7 @@ import {
   listAgents,
   updateAgent,
 } from '@/api/runtime'
-import { EmptyRow, Field, PageHeader, PaginationBar } from '@/components/page'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Textarea } from '@/components/ui/textarea'
+import { Field, PageHeader, tablePagination } from '@/components/page'
 import type { AgentItem } from '@/lib/types'
 import { compactParams } from '@/lib/utils'
 
@@ -89,7 +69,7 @@ function AgentsPage() {
         : createAgent({ code, graph_code: graphCode, ...payload })
     },
     onSuccess: () => {
-      toast.success(editing ? 'Agent 实例已更新' : '已从模板创建实例')
+      message.success(editing ? 'Agent 实例已更新' : '已从模板创建实例')
       setOpen(false)
       void queryClient.invalidateQueries({ queryKey: ['admin-agents'] })
     },
@@ -97,14 +77,14 @@ function AgentsPage() {
   const deleteMutation = useMutation({
     mutationFn: deleteAgent,
     onSuccess: () => {
-      toast.success('已删除')
+      message.success('已删除')
       void queryClient.invalidateQueries({ queryKey: ['admin-agents'] })
     },
   })
   const bindMutation = useMutation({
     mutationFn: () => bindAgentRoles(roleAgent!.id, roleCodes),
     onSuccess: () => {
-      toast.success('角色已绑定')
+      message.success('角色已绑定')
       setRoleAgent(null)
       void queryClient.invalidateQueries({ queryKey: ['admin-agents'] })
     },
@@ -136,203 +116,174 @@ function AgentsPage() {
     setOpen(true)
   }
 
-  function toggle(list: string[], value: string, checked: boolean) {
-    return checked ? [...list, value] : list.filter((item) => item !== value)
-  }
+  const columns: TableColumnsType<AgentItem> = [
+    {
+      title: '名称',
+      dataIndex: 'name',
+      render: (value, item) => (
+        <span>
+          {value}
+          {item.is_system ? <Tag className="ml-2">系统</Tag> : null}
+        </span>
+      ),
+    },
+    { title: '编码', dataIndex: 'code' },
+    { title: '模板', dataIndex: 'graph_code', render: (value) => value || 'legal_qa_react' },
+    { title: '温度', dataIndex: 'temperature' },
+    {
+      title: '工具',
+      dataIndex: 'tool_whitelist',
+      ellipsis: true,
+      render: (value: string[]) => (value || []).join(', ') || '—',
+    },
+    {
+      title: '角色',
+      dataIndex: 'role_codes',
+      ellipsis: true,
+      render: (value: string[]) => (value || []).join(', ') || '—',
+    },
+    {
+      title: '状态',
+      dataIndex: 'is_active',
+      render: (value) => <Tag color={value ? 'success' : 'default'}>{value ? '启用' : '停用'}</Tag>,
+    },
+    {
+      title: '操作',
+      width: 220,
+      render: (_, item) => (
+        <Space wrap>
+          <Button size="small" onClick={() => openEdit(item)}>
+            编辑
+          </Button>
+          <Button
+            size="small"
+            onClick={() => {
+              setRoleAgent(item)
+              setRoleCodes(item.role_codes || [])
+            }}
+          >
+            角色
+          </Button>
+          <Button size="small" danger disabled={item.is_system} onClick={() => deleteMutation.mutate(item.id)}>
+            删除
+          </Button>
+        </Space>
+      ),
+    },
+  ]
 
   return (
     <div>
       <PageHeader title="Agent" description="从代码模板创建实例，配置白名单、知识库与角色">
-        <Button variant="outline" asChild>
-          <Link to="/agents/runs">运行记录</Link>
+        <Link to="/agents/runs">
+          <Button>运行记录</Button>
+        </Link>
+        <Link to="/agents/stats">
+          <Button>统计</Button>
+        </Link>
+        <Button type="primary" onClick={openCreate}>
+          从模板新建
         </Button>
-        <Button variant="outline" asChild>
-          <Link to="/agents/stats">统计</Link>
-        </Button>
-        <Button onClick={openCreate}>从模板新建</Button>
       </PageHeader>
       <Input
-        className="mb-4 w-56"
+        className="mb-4"
+        style={{ width: 224 }}
         placeholder="搜索名称/编码"
         value={keyword}
-        onChange={(e) => { setKeyword(e.target.value); setCurrent(1) }}
+        onChange={(e) => {
+          setKeyword(e.target.value)
+          setCurrent(1)
+        }}
       />
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>名称</TableHead>
-            <TableHead>编码</TableHead>
-            <TableHead>模板</TableHead>
-            <TableHead>温度</TableHead>
-            <TableHead>工具</TableHead>
-            <TableHead>角色</TableHead>
-            <TableHead>状态</TableHead>
-            <TableHead>操作</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {records.length === 0 ? (
-            <EmptyRow colSpan={8} />
-          ) : (
-            records.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell>
-                  {item.name}
-                  {item.is_system ? (
-                    <Badge className="ml-2" variant="secondary">系统</Badge>
-                  ) : null}
-                </TableCell>
-                <TableCell>{item.code}</TableCell>
-                <TableCell className="text-xs">{item.graph_code || 'legal_qa_react'}</TableCell>
-                <TableCell>{item.temperature}</TableCell>
-                <TableCell className="max-w-48 text-xs">{(item.tool_whitelist || []).join(', ') || '—'}</TableCell>
-                <TableCell className="max-w-40 text-xs">{(item.role_codes || []).join(', ') || '—'}</TableCell>
-                <TableCell>
-                  <Badge variant={item.is_active ? 'success' : 'secondary'}>
-                    {item.is_active ? '启用' : '停用'}
-                  </Badge>
-                </TableCell>
-                <TableCell className="space-x-2 whitespace-nowrap">
-                  <Button size="sm" variant="outline" onClick={() => openEdit(item)}>编辑</Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setRoleAgent(item)
-                      setRoleCodes(item.role_codes || [])
-                    }}
-                  >
-                    角色
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    disabled={item.is_system}
-                    onClick={() => deleteMutation.mutate(item.id)}
-                  >
-                    删除
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-      <PaginationBar
-        current={agentsQuery.data?.current || current}
-        pages={agentsQuery.data?.pages || 1}
-        total={agentsQuery.data?.total || 0}
-        onChange={setCurrent}
+      <Table
+        rowKey="id"
+        loading={agentsQuery.isLoading}
+        columns={columns}
+        dataSource={records}
+        pagination={tablePagination(agentsQuery.data, current, setCurrent)}
       />
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>{editing ? '编辑 Agent 实例' : '从模板新建实例'}</DialogTitle>
-          </DialogHeader>
-          {editing ? (
-            <Field label="图模板（只读）">
-              <Input value={editing.graph_code || 'legal_qa_react'} disabled />
-            </Field>
-          ) : (
-            <Field label="图模板">
-              <Select value={graphCode} onValueChange={setGraphCode}>
-                <SelectTrigger>
-                  <SelectValue placeholder="选择代码模板" />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((item) => (
-                    <SelectItem key={item.code} value={item.code}>
-                      {item.name} ({item.code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          )}
-          <Field label="名称">
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
+      <Modal
+        title={editing ? '编辑 Agent 实例' : '从模板新建实例'}
+        open={open}
+        onCancel={() => setOpen(false)}
+        onOk={() => saveMutation.mutate()}
+        confirmLoading={saveMutation.isPending}
+        width={640}
+      >
+        {editing ? (
+          <Field label="图模板（只读）">
+            <Input value={editing.graph_code || 'legal_qa_react'} disabled />
           </Field>
-          {!editing ? (
-            <Field label="实例编码">
-              <Input value={code} onChange={(e) => setCode(e.target.value)} />
-            </Field>
-          ) : (
-            <Field label="实例编码（只读）">
-              <Input value={code} disabled />
-            </Field>
-          )}
-          <Field label="描述">
-            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} />
+        ) : (
+          <Field label="图模板">
+            <Select
+              className="w-full"
+              value={graphCode}
+              onChange={setGraphCode}
+              options={templates.map((item) => ({
+                value: item.code,
+                label: `${item.name} (${item.code})`,
+              }))}
+            />
           </Field>
-          <Field label="温度 (0-2)">
-            <Input value={temperature} onChange={(e) => setTemperature(e.target.value)} />
-          </Field>
-          <div className="flex items-center gap-2 text-sm">
-            <Switch checked={isActive} onCheckedChange={setIsActive} />
-            启用
+        )}
+        <Field label="名称">
+          <Input value={name} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field label={editing ? '实例编码（只读）' : '实例编码'}>
+          <Input value={code} disabled={!!editing} onChange={(e) => setCode(e.target.value)} />
+        </Field>
+        <Field label="描述">
+          <Input.TextArea value={description} onChange={(e) => setDescription(e.target.value)} />
+        </Field>
+        <Field label="温度 (0-2)">
+          <Input value={temperature} onChange={(e) => setTemperature(e.target.value)} />
+        </Field>
+        <div className="mb-3 flex items-center gap-2 text-sm">
+          <Switch checked={isActive} onChange={setIsActive} />
+          启用
+        </div>
+        <Field label="工具白名单">
+          <Checkbox.Group
+            className="flex flex-col gap-2"
+            value={tools}
+            onChange={(values) => setTools(values as string[])}
+            options={TOOLS.map((tool) => ({ value: tool, label: tool }))}
+          />
+        </Field>
+        <Field label="关联知识库">
+          <div className="max-h-40 overflow-auto">
+            <Checkbox.Group
+              className="flex flex-col gap-2"
+              value={datasetIds}
+              onChange={(values) => setDatasetIds(values as string[])}
+              options={datasets.map((dataset) => ({
+                value: dataset.id,
+                label: dataset.title || dataset.name,
+              }))}
+            />
           </div>
-          <div>
-            <div className="mb-2 text-sm font-medium">工具白名单</div>
-            <div className="space-y-2">
-              {TOOLS.map((tool) => (
-                <label key={tool} className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={tools.includes(tool)}
-                    onCheckedChange={(checked) => setTools((prev) => toggle(prev, tool, !!checked))}
-                  />
-                  {tool}
-                </label>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="mb-2 text-sm font-medium">关联知识库</div>
-            <div className="max-h-40 space-y-2 overflow-auto">
-              {datasets.map((dataset) => (
-                <label key={dataset.id} className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={datasetIds.includes(dataset.id)}
-                    onCheckedChange={(checked) =>
-                      setDatasetIds((prev) => toggle(prev, dataset.id, !!checked))
-                    }
-                  />
-                  {dataset.title || dataset.name}
-                </label>
-              ))}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>取消</Button>
-            <Button disabled={saveMutation.isPending} onClick={() => saveMutation.mutate()}>保存</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </Field>
+      </Modal>
 
-      <Dialog open={!!roleAgent} onOpenChange={(open) => !open && setRoleAgent(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>绑定可用角色</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            {roles.map((role) => (
-              <label key={role.id} className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={roleCodes.includes(role.code)}
-                  onCheckedChange={(checked) =>
-                    setRoleCodes((prev) => toggle(prev, role.code, !!checked))
-                  }
-                />
-                {role.name} ({role.code})
-              </label>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRoleAgent(null)}>取消</Button>
-            <Button disabled={bindMutation.isPending} onClick={() => bindMutation.mutate()}>保存</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <Modal
+        title="绑定可用角色"
+        open={!!roleAgent}
+        onCancel={() => setRoleAgent(null)}
+        onOk={() => bindMutation.mutate()}
+        confirmLoading={bindMutation.isPending}
+      >
+        <Checkbox.Group
+          className="flex flex-col gap-2"
+          value={roleCodes}
+          onChange={(values) => setRoleCodes(values as string[])}
+          options={roles.map((role) => ({
+            value: role.code,
+            label: `${role.name} (${role.code})`,
+          }))}
+        />
+      </Modal>
     </div>
   )
 }

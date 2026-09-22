@@ -129,3 +129,20 @@ class ChunkItem(BaseModel):
 class DocumentChunksUpdateRequest(BaseModel):
     id: str = Field(min_length=1, max_length=36)
     chunks: list[ChunkItem]
+
+
+class DocumentChunksPreviewRequest(BaseModel):
+    id: str = Field(min_length=1, max_length=36)
+    chunk_size: int = Field(default=800, ge=50, le=8000)
+    chunk_overlap: int = Field(default=120, ge=0, le=4000)
+    separators: list[str] | None = None
+
+
+class DocumentChunksImportRequest(BaseModel):
+    id: str = Field(min_length=1, max_length=36)
+    chunks: list[ChunkItem]
+    title: str | None = Field(default=None, max_length=512)
+    law_level: str | None = Field(default=None, max_length=64)
+    region: str | None = Field(default=None, max_length=64)
+    effective_at: str | None = None
+    expired_at: str | None = None

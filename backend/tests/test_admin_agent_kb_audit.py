@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from httpx import AsyncClient
 
-from app.db.models import DocumentStatus
+from app.db.models import Document, DocumentStatus
 from tests.admin_helpers import auth_header, make_admin
 
 
@@ -169,3 +169,76 @@ async def test_dataset_document_audit_flow(admin_env) -> None:
     audits = await client.get("/api/v1/admin/audit/list", headers=headers)
     assert audits.json()["code"] == 0
     assert audits.json()["data"]["total"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_document_chunk_preview_and_import(admin_env) -> None:
+    client: AsyncClient = admin_env["client"]
+    admin = await make_admin(admin_env)
+    headers = auth_header(admin["access_token"])
+
+    dataset = await client.post(
+        "/api/v1/admin/dataset/create",
+        headers=headers,
+        json={"name": "SplitLaws", "title": "切片法规"},
+    )
+    assert dataset.json()["code"] == 0
+    dataset_id = dataset.json()["data"]["id"]
+
+    law_text = (
+        "第一条 劳动合同的订立应当遵循合法公平原则。"
+        "第二条 试用期约定不得超过六个月。"
+        "第三条 用人单位解除劳动合同应当提前通知。"
+        "第四条 经济补偿按照工作年限支付。"
+        "第五条 竞业限制期限不得超过二年。"
+    )
+    with patch("app.api.v1.admin.knowledge.document_service.run_parse_task", new=AsyncMock()):
+        uploaded = await client.post(
+            "/api/v1/admin/document/upload",
+            headers=headers,
+            files={"file": ("law.txt", law_text.encode(), "text/plain")},
+            data={"dataset_id": dataset_id, "title": "切片预览"},
+        )
+    document_id = uploaded.json()["data"]["id"]
+
+    async with admin_env["session_factory"]() as session:
+        doc = await session.get(Document, document_id)
+        assert doc is not None
+        doc.status = DocumentStatus.DRAFT.value
+        doc.extracted_text = law_text
+        await session.commit()
+
+    preview = await client.post(
+        "/api/v1/admin/document/chunks/preview",
+        headers=headers,
+        json={
+            "id": document_id,
+            "chunk_size": 50,
+            "chunk_overlap": 8,
+            "separators": ["。", ""],
+        },
+    )
+    assert preview.json()["code"] == 0, preview.json()
+    records = preview.json()["data"]["records"]
+    assert len(records) >= 2
+
+    imported = await client.post(
+        "/api/v1/admin/document/chunks/import",
+        headers=headers,
+        json={
+            "id": document_id,
+            "chunks": [{"content": item["content"]} for item in records],
+            "law_level": "法律",
+            "region": "全国",
+        },
+    )
+    assert imported.json()["code"] == 0, imported.json()
+    assert imported.json()["data"]["total"] == len(records)
+
+    detail = await client.get(
+        "/api/v1/admin/document/detail",
+        headers=headers,
+        params={"id": document_id},
+    )
+    assert detail.json()["data"]["law_level"] == "法律"
+    assert detail.json()["data"]["region"] == "全国"

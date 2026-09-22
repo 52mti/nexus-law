@@ -26,6 +26,24 @@ def test_chunk_text() -> None:
     assert len(chunks) >= 2
 
 
+def test_chunk_text_custom_separators() -> None:
+    text = (
+        "第一条 劳动合同的订立应当遵循合法公平原则。"
+        "第二条 试用期约定不得超过六个月。"
+        "第三条 用人单位解除劳动合同应当提前通知。"
+        "第四条 经济补偿按照工作年限支付。"
+        "第五条 竞业限制期限不得超过二年。"
+    )
+    chunks = chunk_text(
+        text,
+        chunk_size=50,
+        chunk_overlap=8,
+        separators=["。", ""],
+    )
+    assert len(chunks) >= 3
+    assert all(item for item in chunks)
+
+
 def test_normalize_collection_name() -> None:
     from app.core.exceptions import AppError
     from app.services.document import normalize_collection_name

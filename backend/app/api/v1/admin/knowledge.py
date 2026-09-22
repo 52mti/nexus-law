@@ -5,6 +5,8 @@ from app.core.biz import ok
 from app.schemas.admin import (
     DatasetCreateRequest,
     DatasetUpdateRequest,
+    DocumentChunksImportRequest,
+    DocumentChunksPreviewRequest,
     DocumentChunksUpdateRequest,
     IdRequest,
 )
@@ -178,6 +180,40 @@ async def document_chunks_update(
         chunks=[item.model_dump() for item in body.chunks],
     )
     return ok(data)
+
+
+@router.post("/document/chunks/preview")
+async def document_chunks_preview(
+    body: DocumentChunksPreviewRequest,
+    ctx: AdminContext = Depends(require_permission("kb:manage")),
+) -> dict:
+    data = await knowledge_service.preview_chunks(
+        ctx.session,
+        document_id=body.id,
+        chunk_size=body.chunk_size,
+        chunk_overlap=body.chunk_overlap,
+        separators=body.separators,
+    )
+    return ok(data)
+
+
+@router.post("/document/chunks/import")
+async def document_chunks_import(
+    body: DocumentChunksImportRequest,
+    ctx: AdminContext = Depends(require_permission("kb:manage")),
+) -> dict:
+    data = await knowledge_service.import_chunks(
+        ctx.session,
+        admin_id=ctx.user.id,
+        document_id=body.id,
+        chunks=[item.model_dump() for item in body.chunks],
+        title=body.title,
+        law_level=body.law_level,
+        region=body.region,
+        effective_at=parse_dt(body.effective_at),
+        expired_at=parse_dt(body.expired_at),
+    )
+    return ok(data, "切片已导入")
 
 
 @router.post("/document/publish")

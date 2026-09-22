@@ -16,6 +16,7 @@ from app.db.models import (
     DocumentChunk,
     DocumentStatus,
 )
+from app.rag.ingest import chunk_text, normalize_separators
 from app.rag.store import delete_weaviate_by_document_id, delete_weaviate_collection
 from app.services import document as document_service
 from app.services.admin.common import iso, page_meta
@@ -31,6 +32,9 @@ def _wrap_app_error(exc: AppError) -> BizError:
         "empty_chunks": BizCode.DOCUMENT_STATUS_INVALID,
         "empty_upload": BizCode.INVALID_PARAMS,
         "collection_required": BizCode.INVALID_PARAMS,
+        "invalid_chunk_size": BizCode.INVALID_PARAMS,
+        "invalid_chunk_overlap": BizCode.INVALID_PARAMS,
+        "empty_document": BizCode.INVALID_PARAMS,
     }
     code = mapping.get(exc.code, BizCode.INVALID_PARAMS)
     if exc.status_code >= 500:
@@ -69,6 +73,7 @@ def dump_document(item: Document) -> dict[str, Any]:
         "error_message": item.error_message,
         "storage_status": item.storage_status,
         "oss_url": item.oss_url,
+        "extracted_text_chars": len(item.extracted_text or ""),
         "created_at": iso(item.created_at),
         "updated_at": iso(item.updated_at),
     }
@@ -430,6 +435,97 @@ async def update_chunks(
         session,
         admin_id=admin_id,
         action="document.chunks.update",
+        target_type="document",
+        target_id=document_id,
+        detail={"chunk_count": len(saved)},
+    )
+    return await list_document_chunks(session, document_id)
+
+
+def _document_source_text(document: Document) -> str:
+    text = (document.extracted_text or "").strip()
+    if text:
+        return text
+    raise BizError(BizCode.INVALID_PARAMS, "文档尚无提取文本，无法重新切片")
+
+
+async def preview_chunks(
+    session: AsyncSession,
+    *,
+    document_id: str,
+    chunk_size: int,
+    chunk_overlap: int,
+    separators: list[str] | None,
+) -> dict[str, Any]:
+    try:
+        document = await document_service.get_document(session, document_id)
+        text = _document_source_text(document)
+        seps = normalize_separators(separators)
+        chunks = chunk_text(
+            text,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            separators=seps,
+        )
+    except BizError:
+        raise
+    except AppError as exc:
+        raise _wrap_app_error(exc) from exc
+    records = [
+        {
+            "chunk_index": index,
+            "content": content,
+            "char_count": len(content),
+        }
+        for index, content in enumerate(chunks)
+    ]
+    return {
+        "document_id": document.id,
+        "status": document.status,
+        "chunk_size": chunk_size,
+        "chunk_overlap": chunk_overlap,
+        "separators": seps,
+        "source_chars": len(text),
+        "records": records,
+        "total": len(records),
+    }
+
+
+async def import_chunks(
+    session: AsyncSession,
+    *,
+    admin_id: str,
+    document_id: str,
+    chunks: list[dict[str, Any]],
+    title: str | None = None,
+    law_level: str | None = None,
+    region: str | None = None,
+    effective_at: datetime | None = None,
+    expired_at: datetime | None = None,
+) -> dict[str, Any]:
+    try:
+        document = await document_service.get_document(session, document_id)
+        if document.status == DocumentStatus.PUBLISHED.value:
+            raise BizError(BizCode.DOCUMENT_STATUS_INVALID, "已发布文档请先下架再导入切片")
+        if title is not None:
+            document.title = title.strip() or document.title
+        if law_level is not None:
+            document.law_level = law_level.strip() or None
+        if region is not None:
+            document.region = region.strip() or None
+        if effective_at is not None:
+            document.effective_at = effective_at
+        if expired_at is not None:
+            document.expired_at = expired_at
+        saved = await document_service.replace_chunks(session, document_id, items=chunks)
+    except BizError:
+        raise
+    except AppError as exc:
+        raise _wrap_app_error(exc) from exc
+    await write_audit(
+        session,
+        admin_id=admin_id,
+        action="document.chunks.import",
         target_type="document",
         target_id=document_id,
         detail={"chunk_count": len(saved)},

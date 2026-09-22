@@ -1,20 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
+import { Button, Input, Select, Space, Table, Tag, message } from 'antd'
+import type { TableColumnsType } from 'antd'
 import { useState } from 'react'
-import { toast } from 'sonner'
 import { fulfillOrder, listOrders } from '@/api/commerce'
-import { EmptyRow, PageHeader, PaginationBar } from '@/components/page'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { PageHeader, tablePagination } from '@/components/page'
+import type { OrderItem } from '@/lib/types'
 import { compactParams, formatDate } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -50,85 +41,102 @@ function OrdersPage() {
   const fulfillMut = useMutation({
     mutationFn: fulfillOrder,
     onSuccess: () => {
-      toast.success('补单已处理')
+      message.success('补单已处理')
       void queryClient.invalidateQueries({ queryKey: ['admin-orders'] })
     },
   })
 
+  const columns: TableColumnsType<OrderItem> = [
+    { title: '订单号', dataIndex: 'id', render: (value) => <span className="font-mono text-xs">{value}</span> },
+    {
+      title: '用户',
+      render: (_, item) => item.user?.nickname || item.user?.phone || item.user_id,
+    },
+    { title: '类型', dataIndex: 'product_type' },
+    { title: '金额', dataIndex: 'amount' },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      render: (value) => (
+        <Tag color={value === 'fulfilled' || value === 'paid' ? 'success' : 'default'}>{value}</Tag>
+      ),
+    },
+    { title: '渠道', dataIndex: 'channel', render: (value) => value || '—' },
+    { title: '时间', dataIndex: 'created_at', render: (value) => formatDate(value) },
+    {
+      title: '操作',
+      render: (_, item) =>
+        isSuper && item.status !== 'fulfilled' && item.status !== 'cancelled' && item.status !== 'refunded' ? (
+          <Button size="small" type="primary" onClick={() => fulfillMut.mutate(item.id)}>
+            补单
+          </Button>
+        ) : (
+          '—'
+        ),
+    },
+  ]
+
   return (
     <div>
       <PageHeader title="订单" description="全站订单查询；补单仅超级管理员" />
-      <div className="mb-4 flex flex-wrap gap-2">
-        <Input className="w-56" placeholder="用户 ID" value={userId} onChange={(e) => { setUserId(e.target.value); setCurrent(1) }} />
-        <Select value={status} onValueChange={(value) => { setStatus(value); setCurrent(1) }}>
-          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部状态</SelectItem>
-            {STATUSES.map((item) => (
-              <SelectItem key={item} value={item}>{item}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={productType} onValueChange={(value) => { setProductType(value); setCurrent(1) }}>
-          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部商品</SelectItem>
-            <SelectItem value="plan">会员</SelectItem>
-            <SelectItem value="points">积分</SelectItem>
-          </SelectContent>
-        </Select>
-        <Input type="datetime-local" value={startAt} onChange={(e) => { setStartAt(e.target.value); setCurrent(1) }} />
-        <Input type="datetime-local" value={endAt} onChange={(e) => { setEndAt(e.target.value); setCurrent(1) }} />
-      </div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>订单号</TableHead>
-            <TableHead>用户</TableHead>
-            <TableHead>类型</TableHead>
-            <TableHead>金额</TableHead>
-            <TableHead>状态</TableHead>
-            <TableHead>渠道</TableHead>
-            <TableHead>时间</TableHead>
-            <TableHead>操作</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {records.length === 0 ? (
-            <EmptyRow colSpan={8} />
-          ) : (
-            records.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell className="font-mono text-xs">{item.id}</TableCell>
-                <TableCell>
-                  {item.user?.nickname || item.user?.phone || item.user_id}
-                </TableCell>
-                <TableCell>{item.product_type}</TableCell>
-                <TableCell>{item.amount}</TableCell>
-                <TableCell>
-                  <Badge variant={item.status === 'fulfilled' || item.status === 'paid' ? 'success' : 'secondary'}>
-                    {item.status}
-                  </Badge>
-                </TableCell>
-                <TableCell>{item.channel || '—'}</TableCell>
-                <TableCell>{formatDate(item.created_at)}</TableCell>
-                <TableCell>
-                  {isSuper && item.status !== 'fulfilled' && item.status !== 'cancelled' && item.status !== 'refunded' ? (
-                    <Button size="sm" onClick={() => fulfillMut.mutate(item.id)}>补单</Button>
-                  ) : (
-                    '—'
-                  )}
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-      <PaginationBar
-        current={query.data?.current || current}
-        pages={query.data?.pages || 1}
-        total={query.data?.total || 0}
-        onChange={setCurrent}
+      <Space wrap className="mb-4">
+        <Input
+          style={{ width: 224 }}
+          placeholder="用户 ID"
+          value={userId}
+          onChange={(e) => {
+            setUserId(e.target.value)
+            setCurrent(1)
+          }}
+        />
+        <Select
+          style={{ width: 144 }}
+          value={status}
+          onChange={(value) => {
+            setStatus(value)
+            setCurrent(1)
+          }}
+          options={[
+            { value: 'all', label: '全部状态' },
+            ...STATUSES.map((item) => ({ value: item, label: item })),
+          ]}
+        />
+        <Select
+          style={{ width: 144 }}
+          value={productType}
+          onChange={(value) => {
+            setProductType(value)
+            setCurrent(1)
+          }}
+          options={[
+            { value: 'all', label: '全部商品' },
+            { value: 'plan', label: '会员' },
+            { value: 'points', label: '积分' },
+          ]}
+        />
+        <Input
+          type="datetime-local"
+          value={startAt}
+          onChange={(e) => {
+            setStartAt(e.target.value)
+            setCurrent(1)
+          }}
+        />
+        <Input
+          type="datetime-local"
+          value={endAt}
+          onChange={(e) => {
+            setEndAt(e.target.value)
+            setCurrent(1)
+          }}
+        />
+      </Space>
+      <Table
+        rowKey="id"
+        loading={query.isLoading}
+        columns={columns}
+        dataSource={records}
+        pagination={tablePagination(query.data, current, setCurrent)}
       />
     </div>
   )

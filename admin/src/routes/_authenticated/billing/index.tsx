@@ -1,18 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
+import { Input, Select, Space, Table, Tabs } from 'antd'
+import type { TableColumnsType } from 'antd'
 import { useState } from 'react'
 import { listConsume, listLedgers } from '@/api/commerce'
-import { EmptyRow, PageHeader, PaginationBar } from '@/components/page'
-import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { PageHeader, tablePagination } from '@/components/page'
+import type { LedgerItem } from '@/lib/types'
 import { compactParams, formatDate } from '@/lib/utils'
 
 const TYPES = ['recharge', 'subscribe_gift', 'consume_chat', 'refund', 'admin_adjust']
@@ -58,81 +51,99 @@ function BillingPage() {
   const active = tab === 'ledger' ? ledgerQuery.data : consumeQuery.data
   const records = active?.records || []
 
+  const columns: TableColumnsType<LedgerItem> = [
+    { title: '时间', dataIndex: 'created_at', render: (value) => formatDate(value) },
+    { title: '用户', render: (_, item) => item.user?.nickname || item.user?.phone || item.user_id },
+    { title: '类型', render: (_, item) => item.title || item.type },
+    {
+      title: '变动',
+      dataIndex: 'change',
+      render: (value) => <span className={value < 0 ? 'text-red-500' : ''}>{value}</span>,
+    },
+    { title: '余额', dataIndex: 'balance' },
+    { title: '备注', dataIndex: 'remark', ellipsis: true, render: (value) => value || '—' },
+  ]
+
   return (
     <div>
       <PageHeader title="消费记录" description="全站积分流水与对话消耗" />
-      <div className="mb-4 flex flex-wrap gap-2">
-        <Input className="w-56" placeholder="用户 ID" value={userId} onChange={(e) => { setUserId(e.target.value); setCurrent(1) }} />
+      <Space wrap className="mb-4">
+        <Input
+          style={{ width: 224 }}
+          placeholder="用户 ID"
+          value={userId}
+          onChange={(e) => {
+            setUserId(e.target.value)
+            setCurrent(1)
+          }}
+        />
         {tab === 'ledger' ? (
-          <Select value={type} onValueChange={(value) => { setType(value); setCurrent(1) }}>
-            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部类型</SelectItem>
-              {TYPES.map((item) => (
-                <SelectItem key={item} value={item}>{item}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Select
+            style={{ width: 176 }}
+            value={type}
+            onChange={(value) => {
+              setType(value)
+              setCurrent(1)
+            }}
+            options={[
+              { value: 'all', label: '全部类型' },
+              ...TYPES.map((item) => ({ value: item, label: item })),
+            ]}
+          />
         ) : null}
-        <Input type="datetime-local" value={startAt} onChange={(e) => { setStartAt(e.target.value); setCurrent(1) }} />
-        <Input type="datetime-local" value={endAt} onChange={(e) => { setEndAt(e.target.value); setCurrent(1) }} />
-      </div>
-      <Tabs value={tab} onValueChange={(value) => { setTab(value); setCurrent(1) }}>
-        <TabsList>
-          <TabsTrigger value="ledger">积分流水</TabsTrigger>
-          <TabsTrigger value="consume">对话消耗</TabsTrigger>
-        </TabsList>
-        <TabsContent value="ledger">
-          <LedgerTable records={records} />
-        </TabsContent>
-        <TabsContent value="consume">
-          <LedgerTable records={records} />
-        </TabsContent>
-      </Tabs>
-      <PaginationBar
-        current={active?.current || current}
-        pages={active?.pages || 1}
-        total={active?.total || 0}
-        onChange={setCurrent}
+        <Input
+          type="datetime-local"
+          value={startAt}
+          onChange={(e) => {
+            setStartAt(e.target.value)
+            setCurrent(1)
+          }}
+        />
+        <Input
+          type="datetime-local"
+          value={endAt}
+          onChange={(e) => {
+            setEndAt(e.target.value)
+            setCurrent(1)
+          }}
+        />
+      </Space>
+      <Tabs
+        activeKey={tab}
+        onChange={(value) => {
+          setTab(value)
+          setCurrent(1)
+        }}
+        items={[
+          {
+            key: 'ledger',
+            label: '积分流水',
+            children: (
+              <Table
+                rowKey="id"
+                loading={ledgerQuery.isLoading}
+                columns={columns}
+                dataSource={records}
+                pagination={tablePagination(active, current, setCurrent)}
+              />
+            ),
+          },
+          {
+            key: 'consume',
+            label: '对话消耗',
+            children: (
+              <Table
+                rowKey="id"
+                loading={consumeQuery.isLoading}
+                columns={columns}
+                dataSource={records}
+                pagination={tablePagination(active, current, setCurrent)}
+              />
+            ),
+          },
+        ]}
       />
     </div>
-  )
-}
-
-function LedgerTable({
-  records,
-}: {
-  records: Awaited<ReturnType<typeof listLedgers>>['records']
-}) {
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>时间</TableHead>
-          <TableHead>用户</TableHead>
-          <TableHead>类型</TableHead>
-          <TableHead>变动</TableHead>
-          <TableHead>余额</TableHead>
-          <TableHead>备注</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {records.length === 0 ? (
-          <EmptyRow colSpan={6} />
-        ) : (
-          records.map((item) => (
-            <TableRow key={item.id}>
-              <TableCell>{formatDate(item.created_at)}</TableCell>
-              <TableCell>{item.user?.nickname || item.user?.phone || item.user_id}</TableCell>
-              <TableCell>{item.title || item.type}</TableCell>
-              <TableCell className={item.change < 0 ? 'text-destructive' : ''}>{item.change}</TableCell>
-              <TableCell>{item.balance}</TableCell>
-              <TableCell className="max-w-xs truncate">{item.remark || '—'}</TableCell>
-            </TableRow>
-          ))
-        )}
-      </TableBody>
-    </Table>
   )
 }
 

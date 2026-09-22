@@ -1,17 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
+import { Button, Input, Modal, Space, Table } from 'antd'
+import type { TableColumnsType } from 'antd'
 import { useState } from 'react'
 import { getAuditDetail, listAudits } from '@/api/audit'
-import { EmptyRow, PageHeader, PaginationBar } from '@/components/page'
-import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { PageHeader, tablePagination } from '@/components/page'
+import type { AuditItem } from '@/lib/types'
 import { compactParams, formatDate } from '@/lib/utils'
 
 function AuditPage() {
@@ -47,66 +41,96 @@ function AuditPage() {
   })
   const records = query.data?.records || []
 
+  const columns: TableColumnsType<AuditItem> = [
+    { title: '时间', dataIndex: 'created_at', render: (value) => formatDate(value) },
+    {
+      title: '操作人',
+      render: (_, item) => item.admin?.nickname || item.admin?.phone || item.admin_id || '—',
+    },
+    { title: '动作', dataIndex: 'action' },
+    {
+      title: '对象',
+      render: (_, item) => `${item.target_type || '—'} ${item.target_id || ''}`,
+    },
+    {
+      title: '操作',
+      render: (_, item) => (
+        <Button size="small" onClick={() => setDetailId(item.id)}>
+          详情
+        </Button>
+      ),
+    },
+  ]
+
   return (
     <div>
       <PageHeader title="操作日志" description="管理员关键操作留痕" />
-      <div className="mb-4 flex flex-wrap gap-2">
-        <Input className="w-44" placeholder="操作人 ID" value={adminId} onChange={(e) => { setAdminId(e.target.value); setCurrent(1) }} />
-        <Input className="w-40" placeholder="action" value={action} onChange={(e) => { setAction(e.target.value); setCurrent(1) }} />
-        <Input className="w-36" placeholder="target_type" value={targetType} onChange={(e) => { setTargetType(e.target.value); setCurrent(1) }} />
-        <Input className="w-44" placeholder="target_id" value={targetId} onChange={(e) => { setTargetId(e.target.value); setCurrent(1) }} />
-        <Input type="datetime-local" value={startAt} onChange={(e) => { setStartAt(e.target.value); setCurrent(1) }} />
-        <Input type="datetime-local" value={endAt} onChange={(e) => { setEndAt(e.target.value); setCurrent(1) }} />
-      </div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>时间</TableHead>
-            <TableHead>操作人</TableHead>
-            <TableHead>动作</TableHead>
-            <TableHead>对象</TableHead>
-            <TableHead>操作</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {records.length === 0 ? (
-            <EmptyRow colSpan={5} />
-          ) : (
-            records.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell>{formatDate(item.created_at)}</TableCell>
-                <TableCell>{item.admin?.nickname || item.admin?.phone || item.admin_id || '—'}</TableCell>
-                <TableCell>{item.action}</TableCell>
-                <TableCell>
-                  {item.target_type || '—'} {item.target_id || ''}
-                </TableCell>
-                <TableCell>
-                  <Button size="sm" variant="outline" onClick={() => setDetailId(item.id)}>
-                    详情
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-      <PaginationBar
-        current={query.data?.current || current}
-        pages={query.data?.pages || 1}
-        total={query.data?.total || 0}
-        onChange={setCurrent}
+      <Space wrap className="mb-4">
+        <Input
+          style={{ width: 176 }}
+          placeholder="操作人 ID"
+          value={adminId}
+          onChange={(e) => {
+            setAdminId(e.target.value)
+            setCurrent(1)
+          }}
+        />
+        <Input
+          style={{ width: 160 }}
+          placeholder="action"
+          value={action}
+          onChange={(e) => {
+            setAction(e.target.value)
+            setCurrent(1)
+          }}
+        />
+        <Input
+          style={{ width: 144 }}
+          placeholder="target_type"
+          value={targetType}
+          onChange={(e) => {
+            setTargetType(e.target.value)
+            setCurrent(1)
+          }}
+        />
+        <Input
+          style={{ width: 176 }}
+          placeholder="target_id"
+          value={targetId}
+          onChange={(e) => {
+            setTargetId(e.target.value)
+            setCurrent(1)
+          }}
+        />
+        <Input
+          type="datetime-local"
+          value={startAt}
+          onChange={(e) => {
+            setStartAt(e.target.value)
+            setCurrent(1)
+          }}
+        />
+        <Input
+          type="datetime-local"
+          value={endAt}
+          onChange={(e) => {
+            setEndAt(e.target.value)
+            setCurrent(1)
+          }}
+        />
+      </Space>
+      <Table
+        rowKey="id"
+        loading={query.isLoading}
+        columns={columns}
+        dataSource={records}
+        pagination={tablePagination(query.data, current, setCurrent)}
       />
-
-      <Dialog open={!!detailId} onOpenChange={(open) => !open && setDetailId(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>日志详情</DialogTitle>
-          </DialogHeader>
-          <pre className="max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs">
-            {JSON.stringify(detailQuery.data ?? {}, null, 2)}
-          </pre>
-        </DialogContent>
-      </Dialog>
+      <Modal title="日志详情" open={!!detailId} onCancel={() => setDetailId(null)} footer={null} width={720}>
+        <pre className="max-h-96 overflow-auto rounded-md bg-black/5 p-3 text-xs dark:bg-white/10">
+          {JSON.stringify(detailQuery.data ?? {}, null, 2)}
+        </pre>
+      </Modal>
     </div>
   )
 }

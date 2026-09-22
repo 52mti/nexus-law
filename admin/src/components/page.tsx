@@ -1,12 +1,11 @@
 import type { ReactNode } from 'react'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { Space, Typography } from 'antd'
+import type { TablePaginationConfig } from 'antd'
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="space-y-1">
-      <Label>{label}</Label>
+    <div className="mb-3">
+      <div className="mb-1 text-sm">{label}</div>
       {children}
     </div>
   )
@@ -24,62 +23,28 @@ export function PageHeader({
   return (
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+        <Typography.Title level={3} style={{ margin: 0 }}>
+          {title}
+        </Typography.Title>
+        {description ? <Typography.Text type="secondary">{description}</Typography.Text> : null}
       </div>
-      {children ? <div className="flex flex-wrap items-center gap-2">{children}</div> : null}
+      {children ? <Space wrap>{children}</Space> : null}
     </div>
   )
 }
 
-export function PaginationBar({
-  current,
-  pages,
-  total,
-  onChange,
-}: {
-  current: number
-  pages: number
-  total: number
-  onChange: (page: number) => void
-}) {
-  const safePages = Math.max(pages, 1)
-  return (
-    <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-      <span>共 {total} 条</span>
-      <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={current <= 1}
-          onClick={() => onChange(current - 1)}
-        >
-          <ChevronLeft />
-          上一页
-        </Button>
-        <span>
-          {current} / {safePages}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={current >= safePages}
-          onClick={() => onChange(current + 1)}
-        >
-          下一页
-          <ChevronRight />
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-export function EmptyRow({ colSpan, text = '暂无数据' }: { colSpan: number; text?: string }) {
-  return (
-    <tr>
-      <td colSpan={colSpan} className="p-8 text-center text-muted-foreground">
-        {text}
-      </td>
-    </tr>
-  )
+export function tablePagination(
+  data: { current?: number; total?: number } | undefined,
+  current: number,
+  onChange: (page: number) => void,
+  pageSize = 20,
+): TablePaginationConfig {
+  return {
+    current: data?.current || current,
+    pageSize,
+    total: data?.total || 0,
+    showSizeChanger: false,
+    showTotal: (total) => `共 ${total} 条`,
+    onChange,
+  }
 }

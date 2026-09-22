@@ -1,29 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
+import { Button, Checkbox, Input, Modal, Select, Space, Table, Tag, message } from 'antd'
+import type { TableColumnsType } from 'antd'
 import { useState } from 'react'
-import { toast } from 'sonner'
 import { assignUserRoles, adjustUserPoints, listRoles, listUsers, updateUserStatus } from '@/api/rbac'
-import { EmptyRow, Field, PageHeader, PaginationBar } from '@/components/page'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Textarea } from '@/components/ui/textarea'
+import { Field, PageHeader, tablePagination } from '@/components/page'
 import type { AdminUser } from '@/lib/types'
 import { compactParams, formatDate } from '@/lib/utils'
 
@@ -54,19 +35,20 @@ function UsersPage() {
   })
   const rolesQuery = useQuery({ queryKey: ['admin-roles'], queryFn: listRoles })
   const roles = rolesQuery.data?.records || []
+  const records = usersQuery.data?.records || []
 
   const statusMutation = useMutation({
     mutationFn: ({ id, next }: { id: string; next: 'active' | 'disabled' }) =>
       updateUserStatus(id, next),
     onSuccess: () => {
-      toast.success('状态已更新')
+      message.success('状态已更新')
       void queryClient.invalidateQueries({ queryKey: ['admin-users'] })
     },
   })
   const rolesMutation = useMutation({
     mutationFn: () => assignUserRoles(roleUser!.id, selectedRoles),
     onSuccess: () => {
-      toast.success('角色已更新')
+      message.success('角色已更新')
       setRoleUser(null)
       void queryClient.invalidateQueries({ queryKey: ['admin-users'] })
     },
@@ -75,7 +57,7 @@ function UsersPage() {
     mutationFn: () =>
       adjustUserPoints(pointsUser!.id, Number(pointsChange), pointsRemark || undefined),
     onSuccess: () => {
-      toast.success('积分已调整')
+      message.success('积分已调整')
       setPointsUser(null)
       setPointsChange('0')
       setPointsRemark('')
@@ -83,14 +65,78 @@ function UsersPage() {
     },
   })
 
-  const records = usersQuery.data?.records || []
+  const columns: TableColumnsType<AdminUser> = [
+    { title: '用户', dataIndex: 'nickname', render: (value) => value || '—' },
+    {
+      title: '联系方式',
+      render: (_, user) => (
+        <div>
+          <div>{user.phone || '—'}</div>
+          <div className="text-xs opacity-60">{user.email || '—'}</div>
+        </div>
+      ),
+    },
+    { title: '积分', dataIndex: 'points' },
+    {
+      title: '角色',
+      dataIndex: 'role_codes',
+      ellipsis: true,
+      render: (codes: string[]) => (codes || []).join(', ') || '—',
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      render: (value) => (
+        <Tag color={value === 'active' ? 'success' : 'default'}>{value === 'active' ? '启用' : '禁用'}</Tag>
+      ),
+    },
+    { title: '创建时间', dataIndex: 'created_at', render: (value) => formatDate(value) },
+    {
+      title: '操作',
+      width: 220,
+      render: (_, user) => (
+        <Space wrap>
+          <Button
+            size="small"
+            onClick={() =>
+              statusMutation.mutate({
+                id: user.id,
+                next: user.status === 'active' ? 'disabled' : 'active',
+              })
+            }
+          >
+            {user.status === 'active' ? '禁用' : '启用'}
+          </Button>
+          <Button
+            size="small"
+            onClick={() => {
+              setRoleUser(user)
+              setSelectedRoles(user.role_codes || [])
+            }}
+          >
+            角色
+          </Button>
+          <Button
+            size="small"
+            onClick={() => {
+              setPointsUser(user)
+              setPointsChange('0')
+              setPointsRemark('')
+            }}
+          >
+            积分
+          </Button>
+        </Space>
+      ),
+    },
+  ]
 
   return (
     <div>
       <PageHeader title="用户" description="启用/禁用、分配角色、调整积分" />
-      <div className="mb-4 flex flex-wrap gap-2">
+      <Space wrap className="mb-4">
         <Input
-          className="w-56"
+          style={{ width: 224 }}
           placeholder="手机 / 邮箱 / 昵称"
           value={keyword}
           onChange={(e) => {
@@ -99,173 +145,72 @@ function UsersPage() {
           }}
         />
         <Select
+          style={{ width: 144 }}
           value={status}
-          onValueChange={(value) => {
+          onChange={(value) => {
             setStatus(value)
             setCurrent(1)
           }}
-        >
-          <SelectTrigger className="w-36">
-            <SelectValue placeholder="状态" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部状态</SelectItem>
-            <SelectItem value="active">启用</SelectItem>
-            <SelectItem value="disabled">禁用</SelectItem>
-          </SelectContent>
-        </Select>
+          options={[
+            { value: 'all', label: '全部状态' },
+            { value: 'active', label: '启用' },
+            { value: 'disabled', label: '禁用' },
+          ]}
+        />
         <Select
+          style={{ width: 160 }}
           value={roleCode}
-          onValueChange={(value) => {
+          onChange={(value) => {
             setRoleCode(value)
             setCurrent(1)
           }}
-        >
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="角色" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部角色</SelectItem>
-            {roles.map((role) => (
-              <SelectItem key={role.id} value={role.code}>
-                {role.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>用户</TableHead>
-            <TableHead>联系方式</TableHead>
-            <TableHead>积分</TableHead>
-            <TableHead>角色</TableHead>
-            <TableHead>状态</TableHead>
-            <TableHead>创建时间</TableHead>
-            <TableHead>操作</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {records.length === 0 ? (
-            <EmptyRow colSpan={7} />
-          ) : (
-            records.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell>{user.nickname || '—'}</TableCell>
-                <TableCell>
-                  <div>{user.phone || '—'}</div>
-                  <div className="text-xs text-muted-foreground">{user.email || '—'}</div>
-                </TableCell>
-                <TableCell>{user.points}</TableCell>
-                <TableCell className="max-w-48">
-                  {(user.role_codes || []).join(', ') || '—'}
-                </TableCell>
-                <TableCell>
-                  <Badge variant={user.status === 'active' ? 'success' : 'secondary'}>
-                    {user.status === 'active' ? '启用' : '禁用'}
-                  </Badge>
-                </TableCell>
-                <TableCell>{formatDate(user.created_at)}</TableCell>
-                <TableCell className="space-x-2 whitespace-nowrap">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      statusMutation.mutate({
-                        id: user.id,
-                        next: user.status === 'active' ? 'disabled' : 'active',
-                      })
-                    }
-                  >
-                    {user.status === 'active' ? '禁用' : '启用'}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setRoleUser(user)
-                      setSelectedRoles(user.role_codes || [])
-                    }}
-                  >
-                    角色
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setPointsUser(user)
-                      setPointsChange('0')
-                      setPointsRemark('')
-                    }}
-                  >
-                    积分
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-      <PaginationBar
-        current={usersQuery.data?.current || current}
-        pages={usersQuery.data?.pages || 1}
-        total={usersQuery.data?.total || 0}
-        onChange={setCurrent}
+          options={[
+            { value: 'all', label: '全部角色' },
+            ...roles.map((role) => ({ value: role.code, label: role.name })),
+          ]}
+        />
+      </Space>
+      <Table
+        rowKey="id"
+        loading={usersQuery.isLoading}
+        columns={columns}
+        dataSource={records}
+        pagination={tablePagination(usersQuery.data, current, setCurrent)}
       />
 
-      <Dialog open={!!roleUser} onOpenChange={(open) => !open && setRoleUser(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>分配角色</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            {roles.map((role) => (
-              <label key={role.id} className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={selectedRoles.includes(role.code)}
-                  onCheckedChange={(checked) => {
-                    setSelectedRoles((prev) =>
-                      checked ? [...prev, role.code] : prev.filter((code) => code !== role.code),
-                    )
-                  }}
-                />
-                {role.name} ({role.code})
-              </label>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRoleUser(null)}>
-              取消
-            </Button>
-            <Button disabled={!selectedRoles.length || rolesMutation.isPending} onClick={() => rolesMutation.mutate()}>
-              保存
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <Modal
+        title="分配角色"
+        open={!!roleUser}
+        onCancel={() => setRoleUser(null)}
+        onOk={() => rolesMutation.mutate()}
+        confirmLoading={rolesMutation.isPending}
+        okButtonProps={{ disabled: !selectedRoles.length }}
+      >
+        <Checkbox.Group
+          className="flex flex-col gap-2"
+          value={selectedRoles}
+          onChange={(values) => setSelectedRoles(values as string[])}
+          options={roles.map((role) => ({
+            value: role.code,
+            label: `${role.name} (${role.code})`,
+          }))}
+        />
+      </Modal>
 
-      <Dialog open={!!pointsUser} onOpenChange={(open) => !open && setPointsUser(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>调整积分</DialogTitle>
-          </DialogHeader>
-          <Field label="变动（正数增加，负数扣减）">
-            <Input value={pointsChange} onChange={(e) => setPointsChange(e.target.value)} />
-          </Field>
-          <Field label="备注">
-            <Textarea value={pointsRemark} onChange={(e) => setPointsRemark(e.target.value)} />
-          </Field>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPointsUser(null)}>
-              取消
-            </Button>
-            <Button disabled={pointsMutation.isPending} onClick={() => pointsMutation.mutate()}>
-              确认
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <Modal
+        title="调整积分"
+        open={!!pointsUser}
+        onCancel={() => setPointsUser(null)}
+        onOk={() => pointsMutation.mutate()}
+        confirmLoading={pointsMutation.isPending}
+      >
+        <Field label="变动（正数增加，负数扣减）">
+          <Input value={pointsChange} onChange={(e) => setPointsChange(e.target.value)} />
+        </Field>
+        <Field label="备注">
+          <Input.TextArea value={pointsRemark} onChange={(e) => setPointsRemark(e.target.value)} />
+        </Field>
+      </Modal>
     </div>
   )
 }
