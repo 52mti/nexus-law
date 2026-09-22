@@ -26,6 +26,27 @@ function pct(value: boolean) {
   return value ? '是' : '否'
 }
 
+function formatNodeValue(value: unknown) {
+  if (value == null || value === '') return '—'
+  if (typeof value === 'string') return value
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
+}
+
+function NodeIO({ label, value }: { label: string; value: unknown }) {
+  return (
+    <div>
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
+      <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-muted/60 p-2 text-xs leading-5">
+        {formatNodeValue(value)}
+      </pre>
+    </div>
+  )
+}
+
 function AgentRunsPage() {
   const [agentId, setAgentId] = useState('all')
   const [retrieval, setRetrieval] = useState('all')
@@ -157,7 +178,7 @@ function AgentRunsPage() {
       />
 
       <Dialog open={!!detailId} onOpenChange={(open) => !open && setDetailId(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>运行时间线</DialogTitle>
           </DialogHeader>
@@ -166,19 +187,22 @@ function AgentRunsPage() {
               <div className="text-muted-foreground">
                 {detail.agent_name || detail.agent_code || '未绑定 Agent'} · {detail.model || '—'} · {detail.latency_ms != null ? `${Math.round(detail.latency_ms)} ms` : '—'}
               </div>
-              <ol className="space-y-2">
+              <ol className="space-y-3">
                 {(detail.timeline || []).map((event, index) => (
-                  <li key={`${event.type}-${index}`} className="rounded-md border px-3 py-2">
-                    {event.type === 'agent' ? (
-                      <span>agent</span>
-                    ) : (
-                      <span>
-                        tool({event.name || 'unknown'})
-                        {event.empty_retrieval ? (
-                          <Badge className="ml-2" variant="secondary">空检索</Badge>
-                        ) : null}
+                  <li key={`${event.type}-${index}`} className="space-y-2 rounded-md border px-3 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">
+                        {event.type === 'agent' ? 'agent' : `tool(${event.name || 'unknown'})`}
                       </span>
-                    )}
+                      <span className="text-muted-foreground">
+                        {event.latency_ms != null ? `${Math.round(event.latency_ms)} ms` : '耗时 —'}
+                      </span>
+                      {event.empty_retrieval ? (
+                        <Badge variant="secondary">空检索</Badge>
+                      ) : null}
+                    </div>
+                    <NodeIO label="输入状态" value={event.input ?? event.args} />
+                    <NodeIO label="输出状态" value={event.output} />
                   </li>
                 ))}
               </ol>

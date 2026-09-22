@@ -430,7 +430,24 @@ async def resolve_dataset_collections(
 
 def _run_timeline(trace: list | dict | None) -> list[dict[str, Any]]:
     items = trace if isinstance(trace, list) else []
-    events: list[dict[str, Any]] = [{"type": "agent", "name": "agent"}]
+    if any(isinstance(item, dict) and item.get("type") in {"agent", "tool"} for item in items):
+        events: list[dict[str, Any]] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            events.append(
+                {
+                    "type": item.get("type") or "tool",
+                    "name": item.get("name"),
+                    "input": item.get("input"),
+                    "output": item.get("output"),
+                    "latency_ms": item.get("latency_ms"),
+                    "empty_retrieval": bool(item.get("empty_retrieval")),
+                }
+            )
+        return events
+
+    events = [{"type": "agent", "name": "agent"}]
     for item in items:
         if not isinstance(item, dict):
             continue
@@ -438,7 +455,11 @@ def _run_timeline(trace: list | dict | None) -> list[dict[str, Any]]:
             {
                 "type": "tool",
                 "name": item.get("name"),
-                "args": item.get("args"),
+                "input": item.get("input") if item.get("input") is not None else item.get("args"),
+                "output": item.get("output")
+                if item.get("output") is not None
+                else item.get("result_preview"),
+                "latency_ms": item.get("latency_ms"),
                 "empty_retrieval": bool(item.get("empty_retrieval")),
             }
         )

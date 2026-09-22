@@ -107,6 +107,73 @@ def test_extract_tool_trace_and_final_text() -> None:
     assert "2026-07-21" in final_assistant_text(messages)
 
 
+def test_node_trace_records_input_output_latency() -> None:
+    from uuid import uuid4
+
+    from app.agents.trace import NodeTraceHandler, compact_node_trace
+
+    handler = NodeTraceHandler()
+    run_id = uuid4()
+    handler.on_chat_model_start(
+        {},
+        [[HumanMessage(content="劳动争议怎么处理？")]],
+        run_id=run_id,
+    )
+
+    class _Gen:
+        message = AIMessage(content="请先检索相关法规。")
+
+    class _Resp:
+        generations = [[_Gen()]]
+
+    handler.on_chat_model_end(_Resp(), run_id=run_id)
+    tool_id = uuid4()
+    handler.on_tool_start(
+        {"name": "search_documents"},
+        '{"query": "labor"}',
+        run_id=tool_id,
+        inputs={"query": "labor"},
+    )
+    handler.on_tool_end('{"matches": []}', run_id=tool_id)
+
+    compacted = compact_node_trace(handler.nodes)
+    assert compacted[0]["type"] == "agent"
+    assert compacted[0]["input"][0]["content"] == "劳动争议怎么处理？"
+    assert compacted[0]["output"]["content"] == "请先检索相关法规。"
+    assert compacted[0]["latency_ms"] is not None
+    assert compacted[1]["type"] == "tool"
+    assert compacted[1]["input"] == {"query": "labor"}
+    assert compacted[1]["empty_retrieval"] is True
+    assert compacted[1]["latency_ms"] is not None
+
+
+def test_run_timeline_keeps_node_io() -> None:
+    from app.services.admin.agent import _run_timeline
+
+    events = _run_timeline(
+        [
+            {
+                "type": "agent",
+                "name": "agent",
+                "input": [{"role": "human", "content": "hi"}],
+                "output": {"role": "ai", "content": "ok"},
+                "latency_ms": 11.2,
+            },
+            {
+                "type": "tool",
+                "name": "calculator",
+                "input": {"expression": "1+1"},
+                "output": "2",
+                "latency_ms": 3.4,
+            },
+        ]
+    )
+    assert [item["type"] for item in events] == ["agent", "tool"]
+    assert events[0]["input"][0]["content"] == "hi"
+    assert events[1]["output"] == "2"
+    assert events[1]["latency_ms"] == 3.4
+
+
 @pytest.mark.asyncio
 async def test_agents_run_persists_messages(client) -> None:
     http, session_factory = client

@@ -118,16 +118,23 @@ export interface AgentRunItem {
   hit_max_iterations: boolean
   created_at?: string | null
   tool_trace?: Array<{
+    type?: string
     name?: string
+    input?: unknown
+    output?: unknown
     args?: unknown
     empty_retrieval?: boolean
     result_preview?: unknown
+    latency_ms?: number | null
   }>
   timeline?: Array<{
     type: string
     name?: string | null
+    input?: unknown
+    output?: unknown
     args?: unknown
     empty_retrieval?: boolean
+    latency_ms?: number | null
   }>
   sources?: Array<{
     source?: string | null

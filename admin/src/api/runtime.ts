@@ -6,7 +6,7 @@ import type {
   AgentTemplate,
   PageResult,
   PromptItem,
-} from '@/lib/types
+} from '@/lib/types'
 
 export function listPrompts(params: {
   agent_id?: string

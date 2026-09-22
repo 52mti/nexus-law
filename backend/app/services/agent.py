@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
@@ -16,6 +15,14 @@ from app.agents.graph import extract_tool_trace, final_assistant_text
 from app.agents.prompts.system import SYSTEM_PROMPT
 from app.agents.templates import LEGAL_QA_REACT, compile_template
 from app.agents.tools import get_agent_tools
+from app.agents.trace import (
+    NodeTraceHandler,
+    compact_node_trace,
+    serialize_chain_input,
+    serialize_chain_output,
+    used_search_from_trace,
+    used_tools_from_trace,
+)
 from app.core.biz import BizError
 from app.core.config import Settings, get_settings
 from app.core.exceptions import AppError
@@ -27,9 +34,6 @@ from app.services.admin import agent as agent_admin
 from app.services.admin.prompt import get_active_system_prompt_record
 from app.services.llm import LangChainLLMClient, _map_llm_error, get_llm_client
 
-_TRACE_ITEMS = 20
-_TRACE_ARG_CHARS = 240
-_TRACE_RESULT_CHARS = 400
 _SOURCE_ITEMS = 12
 
 
@@ -98,39 +102,6 @@ def collect_token_usage(messages: list | None) -> tuple[int | None, int | None, 
     return (inp or None, out or None, total or None)
 
 
-def _truncate_value(value: Any, limit: int) -> Any:
-    if value is None:
-        return None
-    if isinstance(value, str):
-        return value if len(value) <= limit else value[:limit] + "…"
-    try:
-        text = json.dumps(value, ensure_ascii=False)
-    except (TypeError, ValueError):
-        text = str(value)
-    if len(text) <= limit:
-        return value
-    return text[:limit] + "…"
-
-
-def compact_tool_trace(trace: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    compacted: list[dict[str, Any]] = []
-    for item in trace[:_TRACE_ITEMS]:
-        name = item.get("name")
-        result = item.get("result")
-        empty_retrieval = False
-        if name == "search_documents":
-            empty_retrieval = not extract_sources_from_tool_result(result)
-        compacted.append(
-            {
-                "name": name,
-                "args": _truncate_value(item.get("args") or {}, _TRACE_ARG_CHARS),
-                "empty_retrieval": empty_retrieval,
-                "result_preview": _truncate_value(result, _TRACE_RESULT_CHARS),
-            }
-        )
-    return compacted
-
-
 def compact_sources(sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for item in sources[:_SOURCE_ITEMS]:
@@ -180,6 +151,18 @@ class AgentService:
         self._settings = settings or get_settings()
         self._llm_client = llm_client or get_llm_client()
         self._graph = graph
+
+    def _run_config(
+        self,
+        max_iterations: int,
+        handler: NodeTraceHandler | None = None,
+    ) -> dict[str, Any]:
+        config: dict[str, Any] = {
+            "recursion_limit": max(10, max_iterations * 2 + 2),
+        }
+        if handler is not None:
+            config["callbacks"] = [handler]
+        return config
 
     def _get_graph(
         self,
@@ -327,8 +310,8 @@ class AgentService:
         tool_trace: list[dict[str, Any]],
         sources: list[dict[str, Any]],
     ) -> None:
-        compacted = compact_tool_trace(tool_trace)
-        used_search = any(item.get("name") == "search_documents" for item in compacted)
+        compacted = compact_node_trace(tool_trace)
+        used_search = used_search_from_trace(compacted)
         retrieval_hit = bool(sources)
         max_iterations = self._settings.agent_max_iterations
         session.add(
@@ -346,7 +329,7 @@ class AgentService:
                 tool_trace_json=compacted,
                 retrieval_hit=retrieval_hit,
                 used_search=used_search,
-                used_tools=bool(compacted),
+                used_tools=used_tools_from_trace(compacted),
                 hit_max_iterations=iterations >= max_iterations,
                 sources_json=compact_sources(sources) or None,
             )
@@ -376,9 +359,11 @@ class AgentService:
         messages: list = []
         iterations = 0
         full_trace: list[dict[str, Any]] = []
+        tool_pairs: list[dict[str, Any]] = []
         sources: list[dict[str, Any]] = []
         token_input = token_output = token_total = None
         answer = ""
+        handler = NodeTraceHandler()
 
         try:
             result = await self._get_graph(
@@ -391,13 +376,14 @@ class AgentService:
                     "iteration": 0,
                     "context": {"max_iterations": max_iterations},
                 },
-                config={"recursion_limit": max(10, max_iterations * 2 + 2)},
+                config=self._run_config(max_iterations, handler),
             )
             messages = list(result.get("messages") or [])
             answer = final_assistant_text(messages)
             iterations = int(result.get("iteration") or 0)
-            full_trace = extract_tool_trace(messages)
-            sources = collect_rag_sources(messages=messages, tool_trace=full_trace)
+            tool_pairs = extract_tool_trace(messages)
+            full_trace = handler.nodes or tool_pairs
+            sources = collect_rag_sources(messages=messages, tool_trace=tool_pairs)
             token_input, token_output, token_total = collect_token_usage(messages)
         except Exception as exc:
             logger.warning("agent_error type={}", type(exc).__name__)
@@ -422,7 +408,7 @@ class AgentService:
             raise mapped from exc
 
         latency_ms = (time.perf_counter() - started) * 1000
-        tool_trace = full_trace if debug else []
+        tool_trace = tool_pairs if debug else []
 
         await self._persist_turn(
             session,
@@ -517,9 +503,13 @@ class AgentService:
         started = time.perf_counter()
         answer_parts: list[str] = []
         tool_trace: list[dict[str, Any]] = []
+        node_spans: list[dict[str, Any]] = []
+        pending_agent: dict[str, dict[str, Any]] = {}
+        pending_tools: dict[str, dict[str, Any]] = {}
         iterations = 0
         latest_messages: list = []
         error_code: str | None = None
+        handler = NodeTraceHandler()
 
         graph = self._get_graph(streaming=True, agent=agent, collections=collections)
         event_stream = graph.astream_events(
@@ -528,7 +518,7 @@ class AgentService:
                 "iteration": 0,
                 "context": {"max_iterations": max_iterations},
             },
-            config={"recursion_limit": max(10, max_iterations * 2 + 2)},
+            config=self._run_config(max_iterations, handler),
             version="v2",
         )
 
@@ -545,6 +535,7 @@ class AgentService:
                 data = event.get("data") or {}
                 meta = event.get("metadata") or {}
                 node = meta.get("langgraph_node")
+                run_id = str(event.get("run_id") or "")
 
                 if kind == "on_chat_model_stream" and node != "tools":
                     chunk = data.get("chunk")
@@ -552,6 +543,26 @@ class AgentService:
                     if content:
                         answer_parts.append(content)
                         yield AgentStreamEvent(event="token", data=content)
+                elif kind == "on_chain_start" and node == "agent":
+                    pending_agent[run_id or "agent"] = {
+                        "type": "agent",
+                        "name": "agent",
+                        "_t0": time.perf_counter(),
+                        "input": serialize_chain_input(data.get("input")),
+                    }
+                elif kind == "on_chain_end" and node == "agent":
+                    item = pending_agent.pop(run_id, None)
+                    if item is None and pending_agent:
+                        item = pending_agent.pop(next(iter(pending_agent)))
+                    if item is not None:
+                        started_at = item.pop("_t0", None)
+                        item["latency_ms"] = (
+                            round((time.perf_counter() - started_at) * 1000, 2)
+                            if started_at
+                            else None
+                        )
+                        item["output"] = serialize_chain_output(data.get("output"))
+                        node_spans.append(item)
                 elif kind == "on_tool_start":
                     name = event.get("name")
                     tool_input = data.get("input")
@@ -562,6 +573,12 @@ class AgentService:
                         "result": None,
                     }
                     tool_trace.append(item)
+                    pending_tools[run_id or name or "tool"] = {
+                        "type": "tool",
+                        "name": name,
+                        "_t0": time.perf_counter(),
+                        "input": args,
+                    }
                     yield AgentStreamEvent(
                         event="tool_start",
                         data={
@@ -580,6 +597,21 @@ class AgentService:
                         if item.get("name") == name and item.get("result") is None:
                             item["result"] = result_text
                             break
+                    span = pending_tools.pop(run_id, None)
+                    if span is None:
+                        for key, pending in list(pending_tools.items()):
+                            if pending.get("name") == name:
+                                span = pending_tools.pop(key)
+                                break
+                    if span is not None:
+                        started_at = span.pop("_t0", None)
+                        span["output"] = result_text
+                        span["latency_ms"] = (
+                            round((time.perf_counter() - started_at) * 1000, 2)
+                            if started_at
+                            else None
+                        )
+                        node_spans.append(span)
                     yield AgentStreamEvent(
                         event="tool_end",
                         data={
@@ -613,7 +645,7 @@ class AgentService:
                 error_code=error_code,
                 token_input=None,
                 token_output=None,
-                tool_trace=tool_trace,
+                tool_trace=handler.nodes or node_spans or tool_trace,
                 sources=[],
             )
             yield AgentStreamEvent(
@@ -635,6 +667,7 @@ class AgentService:
         latency_ms = (time.perf_counter() - started) * 1000
         sources: list[dict[str, Any]] = []
         token_input = token_output = token_total = None
+        persist_trace: list[dict[str, Any]] = handler.nodes or node_spans or tool_trace
         try:
             if latest_messages:
                 answer = final_assistant_text(latest_messages)
@@ -642,6 +675,7 @@ class AgentService:
                 tool_trace = full_trace if debug else tool_trace
                 sources = collect_rag_sources(messages=latest_messages, tool_trace=full_trace)
                 token_input, token_output, token_total = collect_token_usage(latest_messages)
+                persist_trace = handler.nodes or node_spans or full_trace
             else:
                 answer = "".join(answer_parts).strip()
                 if not answer:
@@ -651,7 +685,7 @@ class AgentService:
                         status_code=502,
                     )
                 sources = collect_rag_sources(tool_trace=tool_trace)
-                full_trace = tool_trace
+                persist_trace = handler.nodes or node_spans or tool_trace
 
             await self._persist_turn(
                 session,
@@ -673,7 +707,7 @@ class AgentService:
                 error_code=None,
                 token_input=token_input,
                 token_output=token_output,
-                tool_trace=full_trace if latest_messages else tool_trace,
+                tool_trace=persist_trace,
                 sources=sources,
             )
         except AppError as exc:
@@ -689,7 +723,7 @@ class AgentService:
                 error_code=exc.code,
                 token_input=token_input,
                 token_output=token_output,
-                tool_trace=tool_trace,
+                tool_trace=persist_trace,
                 sources=sources,
             )
             yield AgentStreamEvent(

@@ -5,11 +5,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.config import Settings, get_settings
 from app.core.jwt import create_access_token
-from app.db.models import Base, User
+from app.db.models import AgentRun, Base, User
 from app.db.session import get_db_session
 from app.main import app
 from app.services.agent import AgentService, AgentStreamEvent, _stream_token_text
@@ -242,14 +243,51 @@ async def test_agent_service_stream_happy_path(tmp_path) -> None:
 
     async def fake_astream_events(*_args, **_kwargs):
         yield {
+            "event": "on_chain_start",
+            "name": "agent",
+            "run_id": "agent-1",
+            "data": {
+                "input": {
+                    "messages": [HumanMessage(content="What time is it?")],
+                    "iteration": 0,
+                }
+            },
+            "metadata": {"langgraph_node": "agent"},
+        }
+        yield {
+            "event": "on_chain_end",
+            "name": "agent",
+            "run_id": "agent-1",
+            "data": {
+                "output": {
+                    "messages": [
+                        AIMessage(
+                            content="",
+                            tool_calls=[
+                                {
+                                    "name": "get_current_time",
+                                    "args": {},
+                                    "id": "t1",
+                                    "type": "tool_call",
+                                }
+                            ],
+                        )
+                    ]
+                }
+            },
+            "metadata": {"langgraph_node": "agent"},
+        }
+        yield {
             "event": "on_tool_start",
             "name": "get_current_time",
+            "run_id": "tool-1",
             "data": {"input": {}},
             "metadata": {"langgraph_node": "tools"},
         }
         yield {
             "event": "on_tool_end",
             "name": "get_current_time",
+            "run_id": "tool-1",
             "data": {"output": ToolMessage(content="2026-07-21T00:00:00+00:00", tool_call_id="t1")},
             "metadata": {"langgraph_node": "tools"},
         }
@@ -327,6 +365,18 @@ async def test_agent_service_stream_happy_path(tmp_path) -> None:
     assert events[-3].data == "Now "
     assert events[-2].data == "UTC."
     assert events[-1].data["answer"] == "Now UTC."
+
+    async with session_factory() as session:
+        run = (await session.execute(select(AgentRun))).scalar_one()
+        timeline = run.tool_trace_json
+        assert timeline[0]["type"] == "agent"
+        assert timeline[0]["latency_ms"] is not None
+        assert timeline[0]["output"]["tool_calls"][0]["name"] == "get_current_time"
+        assert timeline[1]["type"] == "tool"
+        assert timeline[1]["name"] == "get_current_time"
+        assert timeline[1]["latency_ms"] is not None
+        assert "2026-07-21" in str(timeline[1]["output"])
+
     await engine.dispose()
 
 

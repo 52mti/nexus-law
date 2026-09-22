@@ -86,7 +86,7 @@ export const UserProfile: React.FC = () => {
         cancelText: t('_GHogb_X8_F5-Yq_WFMNL'),
         onOk: () => {
           logout()
-          navigate('nexus-law/login')
+          navigate('/login')
         },
       })
       return
