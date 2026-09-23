@@ -5,6 +5,7 @@ from app.core.biz import ok
 from app.schemas.conversation import (
     ConversationDeleteRequest,
     ConversationRead,
+    ConversationTitleUpdateRequest,
     MessageRead,
 )
 from app.services import conversation as conversation_service
@@ -64,3 +65,18 @@ async def delete_conversation(
         user_id=ctx.user.id,
     )
     return ok(data, "会话已删除")
+
+
+@action_router.post("/conversation/title/update")
+async def update_conversation_title(
+    body: ConversationTitleUpdateRequest,
+    ctx: AccountContext = Depends(require_account),
+) -> dict:
+    conversation = await conversation_service.update_conversation_title(
+        ctx.session,
+        conversation_id=body.conversation_id,
+        user_id=ctx.user.id,
+        title=body.title,
+    )
+    payload = ConversationRead.model_validate(conversation).model_dump(mode="json")
+    return ok(payload, "会话标题已更新")

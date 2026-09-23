@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     # Stage 2+
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/nexus_law"
     redis_url: str = "redis://localhost:6379/0"
+    celery_broker_url: str = "redis://localhost:6379/1"
+    celery_result_backend: str = "redis://localhost:6379/1"
 
     # Stage 3+
     llm_api_key: str = ""
@@ -32,6 +34,7 @@ class Settings(BaseSettings):
 
     # Stage 4+
     agent_max_iterations: int = 6
+    agent_memory_max_tokens: int = 3000
 
     # Stage 6 — Weaviate
     weaviate_host: str = "localhost"

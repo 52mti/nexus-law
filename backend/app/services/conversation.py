@@ -157,3 +157,36 @@ async def delete_conversation(
     )
     await session.flush()
     return {"id": conversation.id}
+
+
+async def update_conversation_title(
+    session: AsyncSession,
+    *,
+    conversation_id: str,
+    user_id: str,
+    title: str,
+) -> Conversation:
+    normalized = preview_title(title)
+    if not normalized:
+        raise BizError(BizCode.INVALID_PARAMS, "请填写会话标题")
+
+    conv_id = (conversation_id or "").strip()
+    if not conv_id:
+        raise BizError(BizCode.INVALID_PARAMS, "请指定会话")
+
+    result = await session.execute(
+        select(Conversation).where(
+            Conversation.id == conv_id,
+            Conversation.is_deleted.is_(False),
+        )
+    )
+    conversation = result.scalar_one_or_none()
+    if not conversation:
+        raise BizError(BizCode.CONVERSATION_NOT_FOUND, "会话不存在或已删除")
+    if conversation.user_id != user_id:
+        raise BizError(BizCode.FORBIDDEN, "无权修改该会话")
+
+    conversation.title = normalized
+    conversation.title_locked = True
+    await session.flush()
+    return conversation

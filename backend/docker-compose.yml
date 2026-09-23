@@ -110,6 +110,41 @@ services:
       retries: 10
       start_period: 90s
 
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        DEBIAN_MIRROR: mirrors.aliyun.com
+        PYPI_INDEX: https://mirrors.aliyun.com/pypi/simple
+    container_name: nexus-law-api-celery
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nexus_law
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      WEAVIATE_HOST: weaviate
+      WEAVIATE_HTTP_PORT: 8080
+      WEAVIATE_GRPC_PORT: 50051
+    command:
+      - run
+      - celery
+      - -A
+      - app.workers.celery_app
+      - worker
+      - --loglevel=info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+
   kong:
     image: kong:3.9
     container_name: nexus-law-api-kong

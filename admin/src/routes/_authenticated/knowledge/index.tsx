@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { Button, Input, Modal, Select, Space, Table, Tabs, Tag, message } from 'antd'
-import type { TableColumnsType } from 'antd'
+import { UploadOutlined } from '@ant-design/icons'
+import { Button, Input, Modal, Select, Space, Table, Tabs, Tag, Upload, message } from 'antd'
+import type { TableColumnsType, UploadFile } from 'antd'
 import { useState } from 'react'
 import {
   createDataset,
@@ -38,6 +39,7 @@ function KnowledgePage() {
   const [docCurrent, setDocCurrent] = useState(1)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
+  const [fileList, setFileList] = useState<UploadFile[]>([])
   const [uploadDataset, setUploadDataset] = useState('')
   const [uploadTitle, setUploadTitle] = useState('')
   const [lawLevel, setLawLevel] = useState('')
@@ -101,6 +103,7 @@ function KnowledgePage() {
       message.success('已上传，正在解析')
       setUploadOpen(false)
       setFile(null)
+      setFileList([])
       void queryClient.invalidateQueries({ queryKey: ['admin-documents'] })
     },
   })
@@ -272,6 +275,8 @@ function KnowledgePage() {
                     type="primary"
                     onClick={() => {
                       setUploadDataset(allDatasets[0]?.id || '')
+                      setFile(null)
+                      setFileList([])
                       setUploadOpen(true)
                     }}
                   >
@@ -329,7 +334,11 @@ function KnowledgePage() {
       <Modal
         title="上传文档"
         open={uploadOpen}
-        onCancel={() => setUploadOpen(false)}
+        onCancel={() => {
+          setUploadOpen(false)
+          setFile(null)
+          setFileList([])
+        }}
         onOk={() => uploadMut.mutate()}
         confirmLoading={uploadMut.isPending}
         okButtonProps={{ disabled: !file || !uploadDataset }}
@@ -343,7 +352,24 @@ function KnowledgePage() {
           />
         </Field>
         <Field label="文件">
-          <input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+          <Upload
+            accept=".txt,.md,.pdf"
+            maxCount={1}
+            fileList={fileList}
+            beforeUpload={() => false}
+            onChange={({ fileList: next }) => {
+              const latest = next.slice(-1).map((item) => ({ ...item, status: 'done' as const }))
+              setFileList(latest)
+              const raw = latest[0]?.originFileObj
+              setFile(raw instanceof File ? raw : null)
+            }}
+            onRemove={() => {
+              setFile(null)
+              setFileList([])
+            }}
+          >
+            <Button icon={<UploadOutlined />}>选择文件</Button>
+          </Upload>
         </Field>
         <Field label="标题">
           <Input value={uploadTitle} onChange={(e) => setUploadTitle(e.target.value)} />

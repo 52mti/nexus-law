@@ -404,7 +404,15 @@ class Conversation(PersistentModel):
         nullable=True,
     )
     title: Mapped[str | None] = mapped_column(String(255))
+    title_locked: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_false(),
+    )
     content: Mapped[str | None] = mapped_column(Text)
+    memory_summary: Mapped[str | None] = mapped_column(Text)
+    summary_until_message_id: Mapped[str | None] = mapped_column(String(36))
     last_message_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         index=True,

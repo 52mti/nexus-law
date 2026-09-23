@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react'
-import { Input, App, Spin } from 'antd' // 🚀 引入 Spin 用于加载动画
+import { Input, App, Modal, Spin } from 'antd' // 🚀 引入 Spin 用于加载动画
 import {
   SearchOutlined,
   FileTextOutlined,
   ClockCircleOutlined,
   DeleteOutlined,
+  EditOutlined,
   ExclamationCircleFilled,
 } from '@ant-design/icons'
 import { PageContainer } from '@/components/layout/PageContainer'
@@ -13,7 +14,7 @@ import { deleteDoc, deleteCompliance } from '@/api/delete'
 import { useTranslation } from 'react-i18next'
 // 引入三个接口
 import { getDocumentList, getComplianceReviewList } from '@/api/common'
-import { deleteConversation, listConversations } from '@/api/chat'
+import { deleteConversation, listConversations, updateConversationTitle } from '@/api/chat'
 import { formatEventTime } from '@/utils/formatDate'
 import { useUserStore } from '@/store/useUserStore'
 
@@ -35,6 +36,8 @@ export const HistoryPage: React.FC = () => {
   const activeTabRef = React.useRef(activeTab)
   const fetchingRef = React.useRef(false)
   const userId = useUserStore((state) => state.memberInfo?.id || state.user?.id)
+  const [editingTitle, setEditingTitle] = useState<{ id: string; title: string } | null>(null)
+  const [savingTitle, setSavingTitle] = useState(false)
 
   // 保持 ref 与 activeTab 同步
   useEffect(() => {
@@ -209,6 +212,31 @@ export const HistoryPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasMore, loading, loadingMore, page, activeTab])
 
+  const saveConversationTitle = async () => {
+    if (!editingTitle || savingTitle) return
+    const title = editingTitle.title.trim()
+    if (!title) {
+      message.warning(t('history.titleRequired'))
+      return
+    }
+    setSavingTitle(true)
+    try {
+      const updated = await updateConversationTitle(editingTitle.id, title)
+      const nextRecords = allRecords.map((item) =>
+        item.id === editingTitle.id ? { ...item, title: updated.title || title } : item,
+      )
+      setAllRecords(nextRecords)
+      setHistoryData(formatHistoryData(nextRecords, activeTab))
+      setEditingTitle(null)
+      message.success(t('0Ar0qTDnCmjgSc2BM1RU1'))
+    } catch (error) {
+      const fallback = t('AAS5LSGbbw3Ad9KJJ8wBx')
+      message.error(error instanceof Error && error.message ? error.message : fallback)
+    } finally {
+      setSavingTitle(false)
+    }
+  }
+
   // 核心：删除确认弹窗逻辑
   const showDeleteConfirm = (idToDelete: string) => {
     modal.confirm({
@@ -346,13 +374,27 @@ export const HistoryPage: React.FC = () => {
                           <div className="flex items-center gap-1.5 text-[12px]">
                             <ClockCircleOutlined /> {item.time}
                           </div>
-                          <DeleteOutlined
-                            className="text-gray-300 hover:text-red-500 transition-colors text-base"
-                            onClick={(e) => {
-                              e.stopPropagation() // 阻止冒泡，避免触发卡片跳转
-                              showDeleteConfirm(item.id)
-                            }}
-                          />
+                          <div className="flex items-center gap-3">
+                            {activeTab === 'consult' ? (
+                              <EditOutlined
+                                className="text-gray-300 hover:text-primary transition-colors text-base"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setEditingTitle({
+                                    id: item.id,
+                                    title: item.raw?.title || '',
+                                  })
+                                }}
+                              />
+                            ) : null}
+                            <DeleteOutlined
+                              className="text-gray-300 hover:text-red-500 transition-colors text-base"
+                              onClick={(e) => {
+                                e.stopPropagation() // 阻止冒泡，避免触发卡片跳转
+                                showDeleteConfirm(item.id)
+                              }}
+                            />
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -376,6 +418,33 @@ export const HistoryPage: React.FC = () => {
           </div>
         </div>
       </div>
+      <Modal
+        title={t('history.editConversationTitle')}
+        open={editingTitle !== null}
+        confirmLoading={savingTitle}
+        okText={t('VyRCMyezcXKEj2kLYHRVd')}
+        cancelText={t('_GHogb_X8_F5-Yq_WFMNL')}
+        onCancel={() => {
+          if (!savingTitle) setEditingTitle(null)
+        }}
+        onOk={() => {
+          void saveConversationTitle()
+        }}
+      >
+        <Input
+          value={editingTitle?.title || ''}
+          placeholder={t('history.editConversationPlaceholder')}
+          maxLength={255}
+          onChange={(event) =>
+            setEditingTitle((current) =>
+              current ? { ...current, title: event.target.value } : current,
+            )
+          }
+          onPressEnter={() => {
+            void saveConversationTitle()
+          }}
+        />
+      </Modal>
     </PageContainer>
   )
 }

@@ -405,5 +405,8 @@
   "rebate_amount": "Rebate",
   "withdrawable_amount": "Withdrawable Amount",
   "no_rebate_records": "No rebate records yet",
-  "download_word": "Download as Word"
+  "download_word": "Download as Word",
+  "history.editConversationTitle": "Edit conversation title",
+  "history.editConversationPlaceholder": "Enter a conversation title",
+  "history.titleRequired": "Title is required"
 }

@@ -405,5 +405,8 @@
   "rebate_amount": "Rebate",
   "withdrawable_amount": "Withdrawable Amount",
   "no_rebate_records": "No rebate records yet",
-  "download_word": "እንደ Word አውርድ"
+  "download_word": "እንደ Word አውርድ",
+  "history.editConversationTitle": "የውይይት ርዕስ አርትዕ",
+  "history.editConversationPlaceholder": "የውይይት ርዕስ ያስገቡ",
+  "history.titleRequired": "ርዕስ ያስፈልጋል"
 }

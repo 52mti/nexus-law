@@ -64,6 +64,18 @@ export const getConversationMessages = async (conversationId: string) => {
 /**
  * 逻辑删除会话 POST /api/v1/conversation/delete
  */
+export const updateConversationTitle = async (conversationId: string, title: string) => {
+  const res = await request.post<
+    unknown,
+    { code: number; message: string; data: ConversationItem }
+  >(
+    '/api/v1/conversation/title/update',
+    { conversation_id: conversationId, title },
+    { baseURL: API_BASE },
+  )
+  return unwrap(res)
+}
+
 export const deleteConversation = async (conversationId: string) => {
   const res = await request.post<
     unknown,

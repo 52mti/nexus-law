@@ -46,3 +46,8 @@ class MessageListResponse(BaseModel):
 
 class ConversationDeleteRequest(BaseModel):
     conversation_id: str = Field(min_length=1, max_length=36)
+
+
+class ConversationTitleUpdateRequest(BaseModel):
+    conversation_id: str = Field(min_length=1, max_length=36)
+    title: str = Field(min_length=1, max_length=255)

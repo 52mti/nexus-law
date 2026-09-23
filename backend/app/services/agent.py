@@ -7,11 +7,13 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from loguru import logger
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.graph import extract_tool_trace, final_assistant_text
+from app.agents.memory import history_to_messages, trim_history, with_memory_summary
 from app.agents.prompts.system import SYSTEM_PROMPT
 from app.agents.templates import LEGAL_QA_REACT, compile_template
 from app.agents.tools import get_agent_tools
@@ -241,19 +243,24 @@ class AgentService:
             session,
             agent_id=conversation.agent_id,
         )
-        system_prompt = prompt.content if prompt else SYSTEM_PROMPT
+        system_prompt = with_memory_summary(
+            prompt.content if prompt else SYSTEM_PROMPT,
+            conversation.memory_summary,
+        )
         prompt_id = prompt.id if prompt else None
         collections = await agent_admin.resolve_dataset_collections(
             session,
             agent.dataset_ids if agent else None,
         )
-        lc_messages = [SystemMessage(content=system_prompt)]
-        for item in history:
-            if item.role == MessageRole.USER.value:
-                lc_messages.append(HumanMessage(content=item.content))
-            elif item.role == MessageRole.ASSISTANT.value:
-                lc_messages.append(AIMessage(content=item.content))
-        lc_messages.append(HumanMessage(content=user_input))
+        trimmed = trim_history(
+            history_to_messages(history),
+            max_tokens=self._settings.agent_memory_max_tokens,
+        )
+        lc_messages = [
+            SystemMessage(content=system_prompt),
+            *trimmed,
+            HumanMessage(content=user_input),
+        ]
         return conversation, lc_messages, agent, prompt_id, collections
 
     async def _persist_turn(
@@ -267,12 +274,20 @@ class AgentService:
         sources: list[dict[str, Any]] | None = None,
     ) -> None:
         conversation = await conversation_service.get_conversation(session, conversation_id)
+        existing = await session.scalar(
+            select(func.count())
+            .select_from(Message)
+            .where(
+                Message.conversation_id == conversation_id,
+                Message.is_deleted.is_(False),
+            )
+        )
+        is_first_turn = int(existing or 0) == 0
         now = datetime.now(UTC)
         conversation.last_message_at = now
         await conversation_service.sync_conversation_preview(
             session,
             conversation,
-            title=user_input,
             content=answer,
         )
         session.add(
@@ -292,6 +307,13 @@ class AgentService:
             )
         )
         await session.flush()
+        from app.workers.tasks import schedule_conversation_jobs
+
+        schedule_conversation_jobs(
+            session,
+            conversation_id,
+            generate_title=is_first_turn,
+        )
 
     async def _persist_run(
         self,

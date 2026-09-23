@@ -334,6 +334,54 @@ async def test_delete_conversation_rejects_other_user(client) -> None:
     assert missing.json()["code"] == BizCode.CONVERSATION_NOT_FOUND
 
 
+@pytest.mark.asyncio
+async def test_update_conversation_title(client) -> None:
+    http, session_factory = client
+    async with session_factory() as session:
+        owner = User(nickname="title-owner")
+        other = User(nickname="title-other")
+        session.add_all([owner, other])
+        await session.flush()
+        conversation = await conversation_service.create_conversation(
+            session,
+            title="临时标题",
+            user_id=owner.id,
+        )
+        conversation_id = conversation.id
+        owner_id = owner.id
+        other_id = other.id
+        await session.commit()
+
+    updated = await http.post(
+        "/api/v1/conversation/title/update",
+        json={"conversation_id": conversation_id, "title": "  劳动争议补偿  "},
+        headers={"Authorization": f"Bearer {_issue_token(owner_id)}"},
+    )
+    assert updated.status_code == 200
+    body = updated.json()
+    assert body["code"] == 0
+    assert body["data"]["title"] == "劳动争议补偿"
+
+    async with session_factory() as session:
+        stored = await session.get(Conversation, conversation_id)
+        assert stored is not None
+        assert stored.title_locked is True
+
+    forbidden = await http.post(
+        "/api/v1/conversation/title/update",
+        json={"conversation_id": conversation_id, "title": "别人改的"},
+        headers={"Authorization": f"Bearer {_issue_token(other_id)}"},
+    )
+    assert forbidden.json()["code"] == BizCode.FORBIDDEN
+
+    blank = await http.post(
+        "/api/v1/conversation/title/update",
+        json={"conversation_id": conversation_id, "title": "   "},
+        headers={"Authorization": f"Bearer {_issue_token(owner_id)}"},
+    )
+    assert blank.json()["code"] == BizCode.INVALID_PARAMS
+
+
 def test_preview_title_truncates() -> None:
     assert preview_title("  劳动纠纷  ") == "劳动纠纷"
     long_title = "问" * (TITLE_MAX_LENGTH + 10)

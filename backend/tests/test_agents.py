@@ -305,7 +305,7 @@ async def test_agent_service_with_fake_graph(tmp_path) -> None:
         assert stored is not None
         assert stored.user_id == user_id
         assert stored.agent_id is not None
-        assert stored.title == "What about tomorrow?"
+        assert stored.title == "What time is it in UTC?"
         assert stored.content == "Tomorrow is 2026-07-22."
         user_count = int(
             (await session.execute(select(func.count()).select_from(User))).scalar_one()
