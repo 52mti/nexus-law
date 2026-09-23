@@ -22,7 +22,7 @@ export const HistoryPage: React.FC = () => {
   const { t, i18n } = useTranslation()
   const { message, modal } = App.useApp()
   const [searchParams, setSearchParams] = useSearchParams()
-  const initialTab = searchParams.get('tab') || 'doc'
+  const initialTab = searchParams.get('tab') || 'consult'
   const [activeTab, setActiveTab] = useState(initialTab)
 
   // 🚀 1. 新增：加载状态与动态数据

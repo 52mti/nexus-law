@@ -135,20 +135,22 @@ function PlansPage() {
           新建套餐
         </Button>
       </PageHeader>
-      <Select
-        className="mb-4"
-        style={{ width: 160 }}
-        value={type}
-        onChange={(value) => {
-          setType(value)
-          setCurrent(1)
-        }}
-        options={[
-          { value: 'all', label: '全部类型' },
-          { value: 'plan', label: '会员' },
-          { value: 'points', label: '积分' },
-        ]}
-      />
+      <div className="mb-4">
+        <Select
+          className="mb-4"
+          style={{ width: 160 }}
+          value={type}
+          onChange={(value) => {
+            setType(value)
+            setCurrent(1)
+          }}
+          options={[
+            { value: 'all', label: '全部类型' },
+            { value: 'plan', label: '会员' },
+            { value: 'points', label: '积分' },
+          ]}
+        />
+      </div>
       <Table
         rowKey="id"
         loading={query.isLoading}

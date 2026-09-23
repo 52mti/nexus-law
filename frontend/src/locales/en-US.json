@@ -408,5 +408,13 @@
   "download_word": "Download as Word",
   "history.editConversationTitle": "Edit conversation title",
   "history.editConversationPlaceholder": "Enter a conversation title",
-  "history.titleRequired": "Title is required"
+  "history.titleRequired": "Title is required",
+  "notify.feature_launch": "New feature launched",
+  "notify.payment_success": "Payment successful",
+  "notify.payment_success_body": "{{plan}} paid successfully, amount {{amount}}",
+  "notify.rebate_success": "Referral points received",
+  "notify.rebate_success_body": "Referral reward credited: {{points}} points",
+  "notify.refund_success": "Refund successful",
+  "notify.refund_success_body": "Refund credited, amount {{amount}}",
+  "notify.order": "Order"
 }

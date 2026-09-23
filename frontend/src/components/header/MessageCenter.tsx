@@ -1,16 +1,54 @@
 import React, { useState } from 'react'
 import { Drawer, Modal, Button, App, Spin, Empty } from 'antd'
 import { BellOutlined, ClockCircleOutlined } from '@ant-design/icons'
-import { markReaded } from '@/api/common' // 注意：这里不再需要引入 getMessageNotification
+import { markNotificationsRead, type NotificationExtra } from '@/api/notification'
 import { useTranslation } from 'react-i18next'
 
-// 🚀 1. 扩充 Props 类型，接收来自 AppHeader 的数据
+export interface AppNotification {
+  id: string
+  type: string
+  title: string
+  content: string
+  extra: NotificationExtra
+  time: string
+  isRead: boolean
+}
+
 interface Props {
   open: boolean
   onClose: () => void
-  notifications: any[]
-  setNotifications: React.Dispatch<React.SetStateAction<any[]>>
+  notifications: AppNotification[]
+  setNotifications: React.Dispatch<React.SetStateAction<AppNotification[]>>
+  unreadCount: number
+  setUnreadCount: React.Dispatch<React.SetStateAction<number>>
   loading: boolean
+}
+
+function displayTitle(notice: AppNotification, t: (key: string) => string) {
+  if (notice.type === 'feature_launch') {
+    return notice.title || t('notify.feature_launch')
+  }
+  if (notice.type === 'payment_success') return t('notify.payment_success')
+  if (notice.type === 'rebate_success') return t('notify.rebate_success')
+  if (notice.type === 'refund_success') return t('notify.refund_success')
+  return notice.title || t('1rPK7Kh2jWTApuNa8oLbv')
+}
+
+function displayContent(notice: AppNotification, t: (key: string, options?: Record<string, unknown>) => string) {
+  const extra = notice.extra || {}
+  if (notice.type === 'payment_success') {
+    return t('notify.payment_success_body', {
+      plan: extra.plan_name || t('notify.order'),
+      amount: extra.amount || '',
+    })
+  }
+  if (notice.type === 'rebate_success') {
+    return t('notify.rebate_success_body', { points: extra.points ?? '' })
+  }
+  if (notice.type === 'refund_success') {
+    return t('notify.refund_success_body', { amount: extra.amount || '' })
+  }
+  return notice.content
 }
 
 export const MessageCenter: React.FC<Props> = ({
@@ -18,40 +56,43 @@ export const MessageCenter: React.FC<Props> = ({
   onClose,
   notifications,
   setNotifications,
+  unreadCount,
+  setUnreadCount,
   loading,
 }) => {
   const { t } = useTranslation()
   const { message } = App.useApp()
 
   const [isMessageDetailOpen, setIsMessageDetailOpen] = useState(false)
-  const [currentMessage, setCurrentMessage] = useState<any>(null)
+  const [currentMessage, setCurrentMessage] = useState<AppNotification | null>(null)
 
-  // ==========================================
-  // 🚀 2. 交互操作（不用改，只要记得用 props 里的 setNotifications）
-  // ==========================================
-  const handleViewMessageDetail = async (notice: any) => {
+  const handleViewMessageDetail = async (notice: AppNotification) => {
     setCurrentMessage(notice)
     setIsMessageDetailOpen(true)
 
     if (!notice.isRead) {
       try {
-        const res = await markReaded(notice.id)
-        if (res?.successful || res?.code === 0 || res?.code === 200) {
-          // 乐观更新父组件传下来的状态
-          setNotifications((prev) =>
-            prev.map((item) => (item.id === notice.id ? { ...item, isRead: true } : item)),
-          )
-        }
+        await markNotificationsRead([notice.id])
+        setNotifications((prev) =>
+          prev.map((item) => (item.id === notice.id ? { ...item, isRead: true } : item)),
+        )
+        setUnreadCount((count) => Math.max(0, count - 1))
       } catch (error) {
         console.error('标记已读状态失败:', error)
       }
     }
   }
 
-  const handleMarkAllAsRead = () => {
-    message.success(t('XPA9ue7_wp_bPGWxZTLSs'))
-    const updated = notifications.map((n) => ({ ...n, isRead: true }))
-    setNotifications(updated)
+  const handleMarkAllAsRead = async () => {
+    if (unreadCount === 0 && notifications.every((item) => item.isRead)) return
+    try {
+      await markNotificationsRead()
+      setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })))
+      setUnreadCount(0)
+      message.success(t('XPA9ue7_wp_bPGWxZTLSs'))
+    } catch (error) {
+      console.error('全部标记已读失败:', error)
+    }
   }
 
   return (
@@ -102,11 +143,11 @@ export const MessageCenter: React.FC<Props> = ({
                     <div className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0"></div>
                   )}
                   <span className="font-medium text-gray-800 text-[15px] truncate">
-                    {notice.title}
+                    {displayTitle(notice, t)}
                   </span>
                 </div>
                 <p className="text-gray-500 text-[13px] leading-relaxed line-clamp-2 mb-3">
-                  {notice.content}
+                  {displayContent(notice, t)}
                 </p>
                 <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50 text-xs">
                   <div className="text-gray-400 flex items-center gap-1">
@@ -140,7 +181,7 @@ export const MessageCenter: React.FC<Props> = ({
         {currentMessage && (
           <div className="pt-4 pb-2 animate-fade-in">
             <h3 className="text-[16px] font-bold text-gray-800 mb-3 leading-snug">
-              {currentMessage.title}
+              {displayTitle(currentMessage, t)}
             </h3>
             <div className="flex items-center gap-1.5 text-gray-400 text-[13px] mb-6">
               <ClockCircleOutlined />
@@ -149,7 +190,7 @@ export const MessageCenter: React.FC<Props> = ({
 
             {/* 🚀 修改点：使用 content，并支持文本自动换行 */}
             <div className="text-[14px] text-gray-500 leading-relaxed space-y-6 mb-10 tracking-wide whitespace-pre-wrap">
-              {currentMessage.content}
+              {displayContent(currentMessage, t)}
             </div>
 
             <div className="flex justify-end">

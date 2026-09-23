@@ -30,8 +30,8 @@ function OrdersPage() {
           user_id: userId,
           status: status === 'all' ? undefined : status,
           product_type: productType === 'all' ? undefined : productType,
-          start_at: startAt?.toISOString(),
-          end_at: endAt?.toISOString(),
+          start_at: startAt?.startOf('day').toISOString(),
+          end_at: endAt?.endOf('day').toISOString(),
           current,
           size: 20,
         }),
@@ -116,7 +116,6 @@ function OrdersPage() {
           ]}
         />
         <DatePicker.RangePicker
-          showTime
           value={startAt && endAt ? [startAt, endAt] : null}
           placeholder={['开始时间', '结束时间']}
           onChange={(dates) => {

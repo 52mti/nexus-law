@@ -1,14 +1,33 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Badge, Button, Dropdown } from 'antd'
 import { BellOutlined, GlobalOutlined } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'
-// 🚀 1. 引入获取消息的 API
-import { getMessageNotification } from '@/api/common'
+import { listNotifications, type NotificationRecord } from '@/api/notification'
+import { parseDate } from '@/utils/formatDate'
 
 import { RechargeModal } from '../header/RechargeModal'
-import { MessageCenter } from '../header/MessageCenter'
+import { MessageCenter, type AppNotification } from '../header/MessageCenter'
 import { UserProfile } from '../header/UserProfile'
 import { useUserStore } from '@/store/useUserStore'
+
+function formatNoticeTime(value?: string | null) {
+  const date = parseDate(value)
+  if (!date) return '-'
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
+
+function toAppNotification(item: NotificationRecord): AppNotification {
+  return {
+    id: item.id,
+    type: item.type,
+    title: item.title || '',
+    content: item.content || '',
+    extra: item.extra || {},
+    time: formatNoticeTime(item.created_at),
+    isRead: Boolean(item.is_read),
+  }
+}
 
 interface AppHeaderProps {
   onlyLanguage?: boolean
@@ -25,46 +44,32 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onlyLanguage = false }) =>
   // ==========================================
   // 🚀 2. 核心：将消息状态提升到全局 Header 中管理
   // ==========================================
-  const [notifications, setNotifications] = useState<any[]>([])
+  const [notifications, setNotifications] = useState<AppNotification[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(false)
+
+  const fetchNotifications = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
+    try {
+      const data = await listNotifications({ current: 1, size: 20 })
+      setNotifications((data.records || []).map(toAppNotification))
+      setUnreadCount(data.unread ?? 0)
+    } catch (error) {
+      console.error('获取消息列表异常:', error)
+    } finally {
+      if (!silent) setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
     if (onlyLanguage) return
+    void fetchNotifications()
+  }, [fetchNotifications, onlyLanguage])
 
-    // 页面一加载就请求消息，这样不点开抽屉也能看到红点数量
-    const fetchNotifications = async () => {
-      setLoading(true)
-      try {
-        const res = await getMessageNotification({ current: 1, size: 20 })
-        if (res?.successful && res?.data?.records) {
-          const formattedData = res.data.records.map((item: any) => {
-            let formattedTime = item.createTime || '-'
-            if (formattedTime.includes('T')) {
-              formattedTime = formattedTime.replace('T', ' ').substring(0, 19)
-            }
-            return {
-              id: item.id,
-              title: item.title || t('1rPK7Kh2jWTApuNa8oLbv'),
-              content: item.content || '',
-              time: formattedTime,
-              isRead: String(item.read) === '1',
-              raw: item,
-            }
-          })
-          setNotifications(formattedData)
-        }
-      } catch (error) {
-        console.error('获取消息列表异常:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchNotifications()
-  }, [t, onlyLanguage])
-
-  // 🚀 3. 动态计算出【未读】消息的数量，用于展示在 Badge 上
-  const unreadCount = onlyLanguage ? 0 : notifications.filter((n) => !n.isRead).length
+  useEffect(() => {
+    if (onlyLanguage || !isNotificationOpen) return
+    void fetchNotifications(true)
+  }, [fetchNotifications, isNotificationOpen, onlyLanguage])
 
   const languageItems = [
     { key: 'en-US', label: 'English' },
@@ -87,7 +92,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onlyLanguage = false }) =>
             </div>
 
             {/* 🚀 4. 将静态的 7 改为动态计算的 unreadCount */}
-            <Badge count={unreadCount} size="small">
+            <Badge count={onlyLanguage ? 0 : unreadCount} size="small">
               <Button
                 type="text"
                 shape="circle"
@@ -125,6 +130,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onlyLanguage = false }) =>
             onClose={() => setIsNotificationOpen(false)}
             notifications={notifications}
             setNotifications={setNotifications}
+            unreadCount={unreadCount}
+            setUnreadCount={setUnreadCount}
             loading={loading}
           />
         </>

@@ -28,8 +28,8 @@ function AuditPage() {
           action,
           target_type: targetType,
           target_id: targetId,
-          start_at: startAt?.toISOString(),
-          end_at: endAt?.toISOString(),
+          start_at: startAt?.startOf('day').toISOString(),
+          end_at: endAt?.endOf('day').toISOString(),
           current,
           size: 20,
         }),
@@ -104,7 +104,6 @@ function AuditPage() {
           }}
         />
         <DatePicker.RangePicker
-          showTime
           value={startAt && endAt ? [startAt, endAt] : null}
           placeholder={['开始时间', '结束时间']}
           onChange={(dates) => {

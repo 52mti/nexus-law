@@ -26,8 +26,8 @@ function BillingPage() {
         compactParams({
           user_id: userId,
           type: type === 'all' ? undefined : type,
-          start_at: startAt?.toISOString(),
-          end_at: endAt?.toISOString(),
+          start_at: startAt?.startOf('day').toISOString(),
+          end_at: endAt?.endOf('day').toISOString(),
           current,
           size: 20,
         }),
@@ -40,8 +40,8 @@ function BillingPage() {
       listConsume(
         compactParams({
           user_id: userId,
-          start_at: startAt?.toISOString(),
-          end_at: endAt?.toISOString(),
+          start_at: startAt?.startOf('day').toISOString(),
+          end_at: endAt?.endOf('day').toISOString(),
           current,
           size: 20,
         }),
@@ -93,7 +93,6 @@ function BillingPage() {
           />
         ) : null}
         <DatePicker.RangePicker
-          showTime
           value={startAt && endAt ? [startAt, endAt] : null}
           placeholder={['开始时间', '结束时间']}
           onChange={(dates) => {

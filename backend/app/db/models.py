@@ -142,6 +142,13 @@ class ProductType(StrEnum):
     POINTS = "points"
 
 
+class NotificationType(StrEnum):
+    FEATURE_LAUNCH = "feature_launch"
+    PAYMENT_SUCCESS = "payment_success"
+    REBATE_SUCCESS = "rebate_success"
+    REFUND_SUCCESS = "refund_success"
+
+
 class User(PersistentModel):
     __tablename__ = "users"
 
@@ -650,6 +657,50 @@ class Order(PersistentModel):
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     user: Mapped[User] = relationship(back_populates="orders")
+
+
+class Notification(PersistentModel):
+    """In-app notice. user_id is null for broadcasts such as feature launches."""
+
+    __tablename__ = "notifications"
+    __table_args__ = (Index("ix_notifications_user_created", "user_id", "created_at"),)
+
+    user_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=True,
+    )
+    type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(128), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    biz_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    extra_json: Mapped[dict | None] = mapped_column(JSON)
+
+    user: Mapped[User | None] = relationship()
+    reads: Mapped[list["NotificationRead"]] = relationship(back_populates="notification")
+
+
+class NotificationRead(PersistentModel):
+    __tablename__ = "notification_reads"
+    __table_args__ = (
+        UniqueConstraint("user_id", "notification_id", name="uq_notification_reads_user_notice"),
+    )
+
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    notification_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("notifications.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+
+    notification: Mapped[Notification] = relationship(back_populates="reads")
 
 
 class AdminAuditLog(PersistentModel):

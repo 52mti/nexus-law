@@ -1,10 +1,5 @@
 import request from '@/utils/request'
 
-// 系统消息记录
-export const getMessageNotification = () => {
-  return request.post<any, any>(`/message-notify/pageList`, {})
-}
-
 // 文书生成历史记录
 export const getDocumentList = (pagination: { current: number; size: number }) => {
   return request.post<any, any>(`/legalDocumentTranslation/pageList`, pagination)
@@ -13,13 +8,6 @@ export const getDocumentList = (pagination: { current: number; size: number }) =
 //  合规审查历史记录
 export const getComplianceReviewList = (pagination: { current: number; size: number }) => {
   return request.post<any, any>(`/complianceReview/pageList`, pagination)
-}
-
-// 标记已读
-export const markReaded = (ids: string[]) => {
-  return request.post('/message-notify/batchRead', {
-    idList: ids,
-  })
 }
 
 export const settingList = () => {

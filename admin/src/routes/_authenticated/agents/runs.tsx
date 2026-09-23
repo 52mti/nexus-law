@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { Button, Input, Modal, Select, Space, Table, Tag, Typography } from 'antd'
+import { Button, DatePicker, Modal, Select, Space, Table, Tag, Typography } from 'antd'
 import type { TableColumnsType } from 'antd'
+import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
 import { getAgentRunDetail, listAgentRuns, listAgents } from '@/api/runtime'
 import { PageHeader, tablePagination } from '@/components/page'
@@ -39,8 +40,8 @@ function AgentRunsPage() {
   const [agentId, setAgentId] = useState('all')
   const [retrieval, setRetrieval] = useState('all')
   const [error, setError] = useState('all')
-  const [startAt, setStartAt] = useState('')
-  const [endAt, setEndAt] = useState('')
+  const [startAt, setStartAt] = useState<Dayjs | null>(null)
+  const [endAt, setEndAt] = useState<Dayjs | null>(null)
   const [current, setCurrent] = useState(1)
   const [detailId, setDetailId] = useState<string | null>(null)
 
@@ -56,8 +57,8 @@ function AgentRunsPage() {
           agent_id: agentId === 'all' ? undefined : agentId,
           retrieval_hit: retrieval === 'all' ? undefined : retrieval === 'hit',
           error: error === 'all' ? undefined : error === 'yes',
-          start_at: startAt || undefined,
-          end_at: endAt || undefined,
+          start_at: startAt?.startOf('day').toISOString(),
+          end_at: endAt?.endOf('day').toISOString(),
           current,
           size: 20,
         }),
@@ -151,19 +152,12 @@ function AgentRunsPage() {
             { value: 'no', label: '无错误' },
           ]}
         />
-        <Input
-          type="datetime-local"
-          value={startAt}
-          onChange={(e) => {
-            setStartAt(e.target.value)
-            setCurrent(1)
-          }}
-        />
-        <Input
-          type="datetime-local"
-          value={endAt}
-          onChange={(e) => {
-            setEndAt(e.target.value)
+        <DatePicker.RangePicker
+          value={startAt && endAt ? [startAt, endAt] : null}
+          placeholder={['开始时间', '结束时间']}
+          onChange={(dates) => {
+            setStartAt(dates?.[0] ?? null)
+            setEndAt(dates?.[1] ?? null)
             setCurrent(1)
           }}
         />

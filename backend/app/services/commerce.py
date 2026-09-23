@@ -488,6 +488,18 @@ async def fulfill_order(session: AsyncSession, order: Order) -> None:
             )
     order.status = OrderStatus.FULFILLED.value
     await session.flush()
+    from app.db.models import NotificationType
+    from app.services.notification import create_notification
+
+    await create_notification(
+        session,
+        user_id=order.user_id,
+        ntype=NotificationType.PAYMENT_SUCCESS.value,
+        title="支付成功",
+        content=plan.name,
+        biz_id=order.id,
+        extra={"amount": money(order.amount), "plan_name": plan.name},
+    )
 
 
 async def handle_payment_callback(

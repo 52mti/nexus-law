@@ -408,5 +408,13 @@
   "download_word": "እንደ Word አውርድ",
   "history.editConversationTitle": "የውይይት ርዕስ አርትዕ",
   "history.editConversationPlaceholder": "የውይይት ርዕስ ያስገቡ",
-  "history.titleRequired": "ርዕስ ያስፈልጋል"
+  "history.titleRequired": "ርዕስ ያስፈልጋል",
+  "notify.feature_launch": "አዲስ ባህሪ ተጀምሯል",
+  "notify.payment_success": "ክፍያ ተሳክቷል",
+  "notify.payment_success_body": "{{plan}} ክፍያ ተሳክቷል፣ መጠን {{amount}}",
+  "notify.rebate_success": "የማጋራት ነጥብ ተቀብሏል",
+  "notify.rebate_success_body": "የማጋራት ሽልማት ገብቷል፡ {{points}} ነጥብ",
+  "notify.refund_success": "ተመላሽ ገንዘብ ተሳክቷል",
+  "notify.refund_success_body": "ተመላሽ ገንዘብ ገብቷል፣ መጠን {{amount}}",
+  "notify.order": "ትዕዛዝ"
 }

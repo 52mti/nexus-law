@@ -408,5 +408,13 @@
   "download_word": "下载为 Word",
   "history.editConversationTitle": "修改会话标题",
   "history.editConversationPlaceholder": "请输入会话标题",
-  "history.titleRequired": "标题不能为空"
+  "history.titleRequired": "标题不能为空",
+  "notify.feature_launch": "新功能上线",
+  "notify.payment_success": "支付成功",
+  "notify.payment_success_body": "{{plan}} 已支付成功，金额 {{amount}}",
+  "notify.rebate_success": "分享返利积分成功",
+  "notify.rebate_success_body": "分享返利已到账 {{points}} 积分",
+  "notify.refund_success": "退款成功",
+  "notify.refund_success_body": "退款已到账，金额 {{amount}}",
+  "notify.order": "订单"
 }

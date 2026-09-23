@@ -260,3 +260,102 @@ async def test_order_list_detail_and_authz(client) -> None:
         json={"order_id": order_id, "channel": "mock", "amount": "9.90", "sign": "deadbeef"},
     )
     assert bad_sign.json()["code"] == BizCode.PAYMENT_INVALID
+
+
+@pytest.mark.asyncio
+async def test_notification_list_covers_payment_feature_rebate_refund(client) -> None:
+    from app.db.models import NotificationType
+    from app.services.notification import create_notification
+
+    http, session_factory = client
+    plan = await _add_plan(session_factory, name="100积分")
+    auth = await _register(http, phone="13600136001")
+    headers = _auth(auth["access_token"])
+    user_id = auth["user"]["id"]
+
+    created = await http.post(
+        "/api/v1/order/create",
+        json={"product_type": "points", "product_id": plan.id, "channel": "mock"},
+        headers=headers,
+    )
+    order = created.json()["data"]["order"]
+    sign = callback_sign(PAY_SECRET, order_id=order["id"], channel="mock", amount=order["amount"])
+    paid = await http.post(
+        "/api/v1/payment/callback",
+        json={"order_id": order["id"], "channel": "mock", "amount": order["amount"], "sign": sign},
+    )
+    assert paid.json()["code"] == 0
+
+    async with session_factory() as session:
+        await create_notification(
+            session,
+            user_id=None,
+            ntype=NotificationType.FEATURE_LAUNCH.value,
+            title="法规检索上线",
+            content="支持按地域检索法规",
+        )
+        await create_notification(
+            session,
+            user_id=user_id,
+            ntype=NotificationType.REBATE_SUCCESS.value,
+            title="分享返利积分成功",
+            content="返利到账",
+            biz_id="rebate-1",
+            extra={"points": 20},
+        )
+        await create_notification(
+            session,
+            user_id=user_id,
+            ntype=NotificationType.REFUND_SUCCESS.value,
+            title="退款成功",
+            content="退款到账",
+            biz_id=order["id"],
+            extra={"amount": order["amount"]},
+        )
+        await session.commit()
+
+    listed = await http.get("/api/v1/notification/list", headers=headers)
+    body = listed.json()
+    assert body["code"] == 0
+    assert body["data"]["unread"] == 4
+    types = {item["type"] for item in body["data"]["records"]}
+    assert types == {
+        NotificationType.FEATURE_LAUNCH.value,
+        NotificationType.PAYMENT_SUCCESS.value,
+        NotificationType.REBATE_SUCCESS.value,
+        NotificationType.REFUND_SUCCESS.value,
+    }
+    payment = next(item for item in body["data"]["records"] if item["type"] == "payment_success")
+    assert payment["extra"]["amount"] == order["amount"]
+    assert payment["extra"]["plan_name"] == "100积分"
+    assert payment["is_read"] is False
+
+    again = await http.post(
+        "/api/v1/payment/callback",
+        json={"order_id": order["id"], "channel": "mock", "amount": order["amount"], "sign": sign},
+    )
+    assert again.json()["data"]["idempotent"] is True
+    listed_again = await http.get("/api/v1/notification/list", headers=headers)
+    payment_rows = [
+        item for item in listed_again.json()["data"]["records"] if item["type"] == "payment_success"
+    ]
+    assert len(payment_rows) == 1
+
+    read_one = await http.post(
+        "/api/v1/notification/read",
+        json={"id_list": [payment["id"]]},
+        headers=headers,
+    )
+    assert read_one.json()["code"] == 0
+    assert read_one.json()["data"]["updated"] == 1
+
+    after = await http.get("/api/v1/notification/list", headers=headers)
+    assert after.json()["data"]["unread"] == 3
+    marked = next(item for item in after.json()["data"]["records"] if item["id"] == payment["id"])
+    assert marked["is_read"] is True
+
+    read_all = await http.post("/api/v1/notification/read", json={"id_list": []}, headers=headers)
+    assert read_all.json()["data"]["updated"] == 3
+    done = await http.get("/api/v1/notification/list", headers=headers)
+    assert done.json()["data"]["unread"] == 0
+    assert all(item["is_read"] for item in done.json()["data"]["records"])
