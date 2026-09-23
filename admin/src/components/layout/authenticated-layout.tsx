@@ -127,7 +127,7 @@ export function AuthenticatedLayout({ children }: { children: React.ReactNode })
         >
           {sider}
         </Drawer>
-        <Content className="min-h-0 overflow-auto !bg-neutral-100 p-4 md:p-6">{children}</Content>
+        <Content className="flex min-h-0 flex-col overflow-auto !bg-neutral-100 p-4 md:p-6">{children}</Content>
       </Layout>
     </Layout>
   )

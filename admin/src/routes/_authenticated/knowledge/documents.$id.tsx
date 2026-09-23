@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { useVirtualizer } from '@tanstack/react-virtual'
-import { Button, DatePicker, Input, InputNumber, Slider, Space, Tag, message } from 'antd'
+import { Button, DatePicker, Form, Input, InputNumber, List, Pagination, Slider, Space, Spin, Tag, Typography, message } from 'antd'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -13,14 +12,15 @@ import {
   publishDocument,
   unpublishDocument,
 } from '@/api/knowledge'
+import { PageHeader } from '@/components/page'
 import type { ChunkItem } from '@/lib/types'
-import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/_authenticated/knowledge/documents/$id')({
   component: DocumentChunksPage,
 })
 
 const DEFAULT_SEPARATORS = ['\\n\\n', '\\n', '。', '；', ' ']
+const DEFAULT_PAGE_SIZE = 10
 
 function decodeSeparators(text: string) {
   return text
@@ -40,7 +40,7 @@ function overlapLength(previous: string, current: string) {
 function DocumentChunksPage() {
   const { id } = Route.useParams()
   const queryClient = useQueryClient()
-  const parentRef = useRef<HTMLDivElement>(null)
+  const previewRef = useRef<HTMLDivElement>(null)
   const [chunkSize, setChunkSize] = useState(800)
   const [overlap, setOverlap] = useState(120)
   const [separatorsText, setSeparatorsText] = useState(DEFAULT_SEPARATORS.join('\n'))
@@ -50,8 +50,9 @@ function DocumentChunksPage() {
   const [effectiveAt, setEffectiveAt] = useState<Dayjs | null>(null)
   const [expiredAt, setExpiredAt] = useState<Dayjs | null>(null)
   const [previewChunks, setPreviewChunks] = useState<ChunkItem[]>([])
-  const [selected, setSelected] = useState(0)
   const [seeded, setSeeded] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [previewMeta, setPreviewMeta] = useState<{
     chunk_size: number
     chunk_overlap: number
@@ -92,18 +93,14 @@ function DocumentChunksPage() {
   useEffect(() => {
     if (savedChunks.length && previewChunks.length === 0) {
       setPreviewChunks(savedChunks)
+      setPage(1)
     }
   }, [savedChunks, previewChunks.length])
 
-  const virtualizer = useVirtualizer({
-    count: previewChunks.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 168,
-    overscan: 8,
-    getItemKey: (index) => previewChunks[index]?.id ?? previewChunks[index]?.chunk_index ?? index,
-  })
-
   const safeOverlap = Math.min(overlap, Math.max(chunkSize - 1, 0))
+  const pageCount = Math.max(1, Math.ceil(previewChunks.length / pageSize))
+  const currentPage = Math.min(page, pageCount)
+  const pageChunks = previewChunks.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   const previewMut = useMutation({
     mutationFn: () =>
@@ -115,7 +112,7 @@ function DocumentChunksPage() {
       }),
     onSuccess: (data) => {
       setPreviewChunks(data.records)
-      setSelected(0)
+      setPage(1)
       setPreviewMeta({
         chunk_size: data.chunk_size,
         chunk_overlap: data.chunk_overlap,
@@ -142,6 +139,7 @@ function DocumentChunksPage() {
     },
     onSuccess: (data) => {
       setPreviewChunks(data.records)
+      setPage(1)
       message.success('切片已保存并导入')
       void queryClient.invalidateQueries({ queryKey: ['admin-chunks', id] })
       void queryClient.invalidateQueries({ queryKey: ['admin-document', id] })
@@ -167,51 +165,41 @@ function DocumentChunksPage() {
     return { count: previewChunks.length, chars }
   }, [previewChunks])
 
-  return (
-    <div className="chunk-studio -mx-4 -mb-4 mt-[-1rem] flex h-[calc(100svh-64px)] flex-col overflow-hidden bg-[#1b2433] text-slate-200 md:-mx-6 md:-mb-6 md:mt-[-1.5rem]">
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-cyan-400/20 bg-[#151c28] px-4 py-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-semibold tracking-tight text-slate-100">
-              {doc?.title || doc?.source || '切片预览'}
-            </h1>
-            {doc ? <Tag color="cyan">{doc.status}</Tag> : null}
-          </div>
-          <p className="mt-1 text-xs text-slate-400">
-            {doc?.error_message || '中控调节切片参数，右侧预览高亮重叠区；底部重新计算后保存导入'}
-          </p>
-        </div>
-        <Space wrap>
-          <Link to="/knowledge">
-            <Button>返回知识库</Button>
-          </Link>
-          {canEdit ? (
-            <Button
-              type="primary"
-              disabled={publishMut.isPending || !previewChunks.length}
-              onClick={() => publishMut.mutate()}
-            >
-              发布
-            </Button>
-          ) : null}
-          {doc?.status === 'published' ? (
-            <Button onClick={() => unpublishMut.mutate()}>下架</Button>
-          ) : null}
-        </Space>
-      </header>
+  useEffect(() => {
+    previewRef.current?.scrollTo({ top: 0 })
+  }, [currentPage, pageSize])
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <section className="min-h-0 w-full max-lg:max-h-[40%] overflow-auto border-b border-white/10 lg:w-[35%] lg:max-h-none lg:shrink-0 lg:border-b-0 lg:border-r lg:border-white/10">
-          <div className="space-y-6 p-4">
-            <div>
-              <h2 className="text-sm font-semibold tracking-wide text-cyan-300">切片参数</h2>
-              <p className="mt-1 text-xs text-slate-400">
-                RecursiveCharacterTextSplitter · 原文 {doc?.extracted_text_chars ?? 0} 字
-              </p>
-            </div>
-            <div>
-              <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-                <span className="text-slate-300">切片大小</span>
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <PageHeader
+        title={doc?.title || doc?.source || '切片预览'}
+        description={doc?.error_message || '调节切片参数后重新计算，确认无误再保存并导入'}
+      >
+        {doc ? <Tag>{doc.status}</Tag> : null}
+        <Link to="/knowledge">
+          <Button>返回知识库</Button>
+        </Link>
+        {canEdit ? (
+          <Button
+            type="primary"
+            disabled={publishMut.isPending || !previewChunks.length}
+            onClick={() => publishMut.mutate()}
+          >
+            发布
+          </Button>
+        ) : null}
+        {doc?.status === 'published' ? <Button onClick={() => unpublishMut.mutate()}>下架</Button> : null}
+      </PageHeader>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+        <div className="max-h-[40%] min-h-0 w-full overflow-auto lg:max-h-none lg:w-[35%] lg:shrink-0">
+          <Typography.Title level={5}>切片参数</Typography.Title>
+          <Typography.Paragraph type="secondary">
+            RecursiveCharacterTextSplitter · 原文 {doc?.extracted_text_chars ?? 0} 字
+          </Typography.Paragraph>
+          <Form layout="vertical">
+            <Form.Item label="切片大小">
+              <Space orientation="vertical" className="w-full">
                 <InputNumber
                   min={50}
                   max={8000}
@@ -220,19 +208,18 @@ function DocumentChunksPage() {
                   disabled={busy}
                   onChange={(value) => setChunkSize(Number(value) || 50)}
                 />
-              </div>
-              <Slider
-                min={50}
-                max={4000}
-                step={10}
-                value={Math.min(chunkSize, 4000)}
-                disabled={busy}
-                onChange={setChunkSize}
-              />
-            </div>
-            <div>
-              <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-                <span className="text-slate-300">重叠长度</span>
+                <Slider
+                  min={50}
+                  max={4000}
+                  step={10}
+                  value={Math.min(chunkSize, 4000)}
+                  disabled={busy}
+                  onChange={setChunkSize}
+                />
+              </Space>
+            </Form.Item>
+            <Form.Item label="重叠长度">
+              <Space orientation="vertical" className="w-full">
                 <InputNumber
                   min={0}
                   max={Math.max(chunkSize - 1, 0)}
@@ -241,151 +228,140 @@ function DocumentChunksPage() {
                   disabled={busy}
                   onChange={(value) => setOverlap(Number(value) || 0)}
                 />
-              </div>
-              <Slider
-                min={0}
-                max={Math.max(chunkSize - 1, 0)}
-                step={5}
-                value={safeOverlap}
-                disabled={busy}
-                onChange={setOverlap}
-              />
-            </div>
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm text-slate-300">拆分符号</span>
-                <Button type="link" size="small" disabled={busy} onClick={() => setSeparatorsText(DEFAULT_SEPARATORS.join('\n'))}>
-                  恢复默认
-                </Button>
-              </div>
+                <Slider
+                  min={0}
+                  max={Math.max(chunkSize - 1, 0)}
+                  step={5}
+                  value={safeOverlap}
+                  disabled={busy}
+                  onChange={setOverlap}
+                />
+              </Space>
+            </Form.Item>
+            <Form.Item
+              label="拆分符号"
+              extra="每行一个分隔符，可用 \n 表示换行，将按优先级递归切分"
+            >
               <Input.TextArea
-                className="font-mono"
                 rows={6}
                 value={separatorsText}
                 disabled={busy}
                 onChange={(e) => setSeparatorsText(e.target.value)}
               />
-              <p className="mt-1 text-xs text-slate-500">每行一个分隔符，可用 \n 表示换行，将按优先级递归切分</p>
-            </div>
-            <div className="space-y-3">
-              <h2 className="text-sm font-semibold tracking-wide text-emerald-300">元数据提取</h2>
-              <div>
-                <div className="mb-1 text-sm text-slate-300">标题</div>
-                <Input value={title} disabled={!canEdit || busy} onChange={(e) => setTitle(e.target.value)} />
-              </div>
-              <div>
-                <div className="mb-1 text-sm text-slate-300">效力层级</div>
-                <Input
-                  value={lawLevel}
-                  disabled={!canEdit || busy}
-                  onChange={(e) => setLawLevel(e.target.value)}
-                  placeholder="法律 / 行政法规 / 地方法规"
-                />
-              </div>
-              <div>
-                <div className="mb-1 text-sm text-slate-300">地域</div>
-                <Input value={region} disabled={!canEdit || busy} onChange={(e) => setRegion(e.target.value)} />
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <div className="mb-1 text-sm text-slate-300">生效时间</div>
-                  <DatePicker
-                    className="w-full"
-                    showTime
-                    value={effectiveAt}
-                    disabled={!canEdit || busy}
-                    onChange={setEffectiveAt}
-                  />
-                </div>
-                <div>
-                  <div className="mb-1 text-sm text-slate-300">失效时间</div>
-                  <DatePicker
-                    className="w-full"
-                    showTime
-                    value={expiredAt}
-                    disabled={!canEdit || busy}
-                    onChange={setExpiredAt}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+              <Button
+                type="link"
+                size="small"
+                disabled={busy}
+                onClick={() => setSeparatorsText(DEFAULT_SEPARATORS.join('\n'))}
+              >
+                恢复默认
+              </Button>
+            </Form.Item>
+            <Typography.Title level={5}>元数据提取</Typography.Title>
+            <Form.Item label="标题">
+              <Input value={title} disabled={!canEdit || busy} onChange={(e) => setTitle(e.target.value)} />
+            </Form.Item>
+            <Form.Item label="效力层级">
+              <Input
+                value={lawLevel}
+                disabled={!canEdit || busy}
+                onChange={(e) => setLawLevel(e.target.value)}
+                placeholder="法律 / 行政法规 / 地方法规"
+              />
+            </Form.Item>
+            <Form.Item label="地域">
+              <Input value={region} disabled={!canEdit || busy} onChange={(e) => setRegion(e.target.value)} />
+            </Form.Item>
+            <Form.Item label="生效时间">
+              <DatePicker
+                className="w-full"
+                showTime
+                value={effectiveAt}
+                disabled={!canEdit || busy}
+                onChange={setEffectiveAt}
+              />
+            </Form.Item>
+            <Form.Item label="失效时间">
+              <DatePicker
+                className="w-full"
+                showTime
+                value={expiredAt}
+                disabled={!canEdit || busy}
+                onChange={setExpiredAt}
+              />
+            </Form.Item>
+          </Form>
+        </div>
 
-        <section className="flex min-h-0 w-full flex-1 flex-col lg:min-w-[50%] lg:flex-1">
-          <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-2 text-xs text-slate-400">
-            <span>
-              预览 {stats.count} 段 · {stats.chars} 字
-              {previewMeta ? ` · 参数 ${previewMeta.chunk_size}/${previewMeta.chunk_overlap}` : ''}
-            </span>
-            <span className="text-cyan-300/80">亮青标题 · 翠绿重叠</span>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <Typography.Paragraph type="secondary" className="!mb-2 shrink-0">
+            预览 {stats.count} 段 · {stats.chars} 字
+            {previewMeta ? ` · 参数 ${previewMeta.chunk_size}/${previewMeta.chunk_overlap}` : ''}
+          </Typography.Paragraph>
+          <div ref={previewRef} className="min-h-0 flex-1 overflow-auto">
+            <Spin spinning={docQuery.isLoading || chunksQuery.isLoading || busy}>
+            <List
+              bordered
+              className="min-h-full"
+              dataSource={pageChunks}
+              locale={{ emptyText: busy ? '处理中，自动刷新状态…' : '暂无切片。请等待解析完成，或点击「重新计算」。' }}
+              renderItem={(chunk, index) => {
+                const globalIndex = (currentPage - 1) * pageSize + index
+                const prev = globalIndex > 0 ? previewChunks[globalIndex - 1] : undefined
+                const overlapChars = prev ? overlapLength(prev.content, chunk.content) : 0
+                return (
+                  <List.Item>
+                    <div className="w-full">
+                      <div className="mb-2 flex items-center justify-between">
+                        <Typography.Text>#{chunk.chunk_index ?? globalIndex}</Typography.Text>
+                        <Typography.Text type="secondary">
+                          {chunk.char_count ?? chunk.content.length} 字
+                          {overlapChars ? ` · 与上一段重叠 ${overlapChars} 字` : ''}
+                        </Typography.Text>
+                      </div>
+                      <Typography.Paragraph className="whitespace-pre-wrap" style={{ marginBottom: 0 }}>
+                        {chunk.content}
+                      </Typography.Paragraph>
+                    </div>
+                  </List.Item>
+                )
+              }}
+            />
+            </Spin>
           </div>
-          {busy ? (
-            <p className="p-4 text-sm text-slate-400">处理中，自动刷新状态…</p>
-          ) : (
-            <div ref={parentRef} className="min-h-0 flex-1 overflow-auto px-3 py-3">
-              {previewChunks.length === 0 ? (
-                <p className="text-sm text-slate-400">暂无切片。请等待解析完成，或点击底部「重新计算」。</p>
-              ) : (
-                <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-                  {virtualizer.getVirtualItems().map((row) => {
-                    const chunk = previewChunks[row.index]
-                    const prev = previewChunks[row.index - 1]
-                    const overlapChars = prev ? overlapLength(prev.content, chunk.content) : 0
-                    const overlapText = overlapChars ? chunk.content.slice(0, overlapChars) : ''
-                    const rest = chunk.content.slice(overlapChars)
-                    const active = selected === row.index
-                    return (
-                      <article
-                        key={row.key}
-                        data-index={row.index}
-                        ref={virtualizer.measureElement}
-                        className="absolute top-0 left-0 w-full pb-3"
-                        style={{ transform: `translateY(${row.start}px)` }}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => setSelected(row.index)}
-                          className={cn(
-                            'w-full rounded-lg border px-3 py-3 text-left transition-colors',
-                            active
-                              ? 'border-emerald-400/70 bg-[#132433] shadow-[0_0_24px_rgba(52,211,153,0.12)]'
-                              : 'border-slate-600/70 bg-[#202a38] hover:border-cyan-400/50',
-                          )}
-                        >
-                          <div className="mb-2 flex items-center justify-between text-xs">
-                            <span className="font-mono text-cyan-300">#{chunk.chunk_index ?? row.index}</span>
-                            <span className="text-slate-400">{chunk.char_count ?? chunk.content.length} 字</span>
-                          </div>
-                          <p className="whitespace-pre-wrap text-sm leading-6 text-slate-200">
-                            {overlapText ? (
-                              <span className="rounded-sm bg-emerald-400/20 text-emerald-200">{overlapText}</span>
-                            ) : null}
-                            {rest}
-                          </p>
-                        </button>
-                      </article>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </section>
+          {previewChunks.length > 0 ? (
+            <Pagination
+              className="mt-4 shrink-0"
+              align="end"
+              current={currentPage}
+              pageSize={pageSize}
+              total={previewChunks.length}
+              showSizeChanger
+              pageSizeOptions={[10, 20, 50]}
+              showTotal={(total) => `共 ${total} 条`}
+              onChange={(nextPage, nextSize) => {
+                setPageSize(nextSize)
+                setPage(nextSize === pageSize ? nextPage : 1)
+              }}
+            />
+          ) : null}
+        </div>
       </div>
 
-      <footer className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-cyan-400/20 bg-[#151c28] px-4 py-3">
-        <Button disabled={!hasSourceText || busy || previewMut.isPending} onClick={() => previewMut.mutate()}>
-          {previewMut.isPending ? '计算中…' : '重新计算'}
-        </Button>
-        <Button
-          type="primary"
-          disabled={!canEdit || busy || importMut.isPending || previewChunks.length === 0}
-          onClick={() => importMut.mutate()}
-        >
-          {importMut.isPending ? '导入中…' : '保存并导入'}
-        </Button>
-      </footer>
+      <div className="mt-4 flex shrink-0 justify-end">
+        <Space>
+          <Button disabled={!hasSourceText || busy || previewMut.isPending} onClick={() => previewMut.mutate()}>
+            {previewMut.isPending ? '计算中…' : '重新计算'}
+          </Button>
+          <Button
+            type="primary"
+            disabled={!canEdit || busy || importMut.isPending || previewChunks.length === 0}
+            onClick={() => importMut.mutate()}
+          >
+            {importMut.isPending ? '导入中…' : '保存并导入'}
+          </Button>
+        </Space>
+      </div>
     </div>
   )
 }

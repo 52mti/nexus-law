@@ -185,16 +185,18 @@ function AgentsPage() {
           从模板新建
         </Button>
       </PageHeader>
-      <Input
-        className="mb-4"
-        style={{ width: 224 }}
-        placeholder="搜索名称/编码"
-        value={keyword}
-        onChange={(e) => {
-          setKeyword(e.target.value)
-          setCurrent(1)
-        }}
-      />
+      <div className="mb-4">
+        <Input
+          className="mb-4"
+          style={{ width: 224 }}
+          placeholder="搜索名称/编码"
+          value={keyword}
+          onChange={(e) => {
+            setKeyword(e.target.value)
+            setCurrent(1)
+          }}
+        />
+      </div>
       <Table
         rowKey="id"
         loading={agentsQuery.isLoading}

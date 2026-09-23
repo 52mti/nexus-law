@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { Button, Input, Select, Space, Table, Tag, message } from 'antd'
+import { Button, DatePicker, Input, Select, Space, Table, Tag, message } from 'antd'
 import type { TableColumnsType } from 'antd'
+import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
 import { fulfillOrder, listOrders } from '@/api/commerce'
 import { PageHeader, tablePagination } from '@/components/page'
@@ -17,8 +18,8 @@ function OrdersPage() {
   const [userId, setUserId] = useState('')
   const [status, setStatus] = useState('all')
   const [productType, setProductType] = useState('all')
-  const [startAt, setStartAt] = useState('')
-  const [endAt, setEndAt] = useState('')
+  const [startAt, setStartAt] = useState<Dayjs | null>(null)
+  const [endAt, setEndAt] = useState<Dayjs | null>(null)
   const [current, setCurrent] = useState(1)
 
   const query = useQuery({
@@ -29,8 +30,8 @@ function OrdersPage() {
           user_id: userId,
           status: status === 'all' ? undefined : status,
           product_type: productType === 'all' ? undefined : productType,
-          start_at: startAt || undefined,
-          end_at: endAt || undefined,
+          start_at: startAt?.toISOString(),
+          end_at: endAt?.toISOString(),
           current,
           size: 20,
         }),
@@ -114,19 +115,13 @@ function OrdersPage() {
             { value: 'points', label: '积分' },
           ]}
         />
-        <Input
-          type="datetime-local"
-          value={startAt}
-          onChange={(e) => {
-            setStartAt(e.target.value)
-            setCurrent(1)
-          }}
-        />
-        <Input
-          type="datetime-local"
-          value={endAt}
-          onChange={(e) => {
-            setEndAt(e.target.value)
+        <DatePicker.RangePicker
+          showTime
+          value={startAt && endAt ? [startAt, endAt] : null}
+          placeholder={['开始时间', '结束时间']}
+          onChange={(dates) => {
+            setStartAt(dates?.[0] ?? null)
+            setEndAt(dates?.[1] ?? null)
             setCurrent(1)
           }}
         />
