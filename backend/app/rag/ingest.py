@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import io
+import re
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from uuid import uuid4
 
@@ -20,10 +21,17 @@ SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf"}
 
 
 @dataclass(slots=True)
+class StatuteChunk:
+    content: str
+    metadata: dict[str, str]
+
+
+@dataclass(slots=True)
 class ParseResult:
     source: str
     extracted_text: str
     chunks: list[str]
+    chunk_metadata: list[dict[str, str]] = field(default_factory=list)
 
 
 def extract_text(filename: str, content: bytes) -> str:
@@ -52,6 +60,27 @@ def extract_text(filename: str, content: bytes) -> str:
 
 
 DEFAULT_SEPARATORS = ["\n\n", "\n", "。", "；", " ", ""]
+
+_STATUTE_NUMBER = r"[零〇一二三四五六七八九十百千万0-9]+"
+# 分编必须写在编前面，否则「第一分编」会被编吃掉。
+STATUTE_SEPARATORS = [
+    rf"(?m)^[ \t]*(?:#{{1,6}}[ \t]*)?第{_STATUTE_NUMBER}分编",
+    rf"(?m)^[ \t]*(?:#{{1,6}}[ \t]*)?第{_STATUTE_NUMBER}编",
+    rf"(?m)^[ \t]*(?:#{{1,6}}[ \t]*)?第{_STATUTE_NUMBER}章",
+    rf"(?m)^[ \t]*(?:#{{1,6}}[ \t]*)?第{_STATUTE_NUMBER}节",
+    rf"(?m)^[ \t]*(?:#{{1,6}}[ \t]*)?第{_STATUTE_NUMBER}条",
+]
+_STATUTE_HEADING = re.compile(
+    rf"(?m)^[ \t]*(?:#{{1,6}}[ \t]*)?"
+    rf"(第{_STATUTE_NUMBER})(分编|编|章|节|条)"
+    rf"[ \t\u3000]*([^\n]*)"
+)
+_LEVEL_RESET = {
+    "编": ("分编", "章", "节"),
+    "分编": ("章", "节"),
+    "章": ("节",),
+    "节": (),
+}
 
 
 class NoMergeRecursiveCharacterTextSplitter(RecursiveCharacterTextSplitter):
@@ -100,6 +129,41 @@ class NoMergeRecursiveCharacterTextSplitter(RecursiveCharacterTextSplitter):
         return chunks
 
 
+def _heading_label(match: re.Match[str]) -> str:
+    title = match.group(3).strip().strip("*").strip()
+    label = f"{match.group(1)}{match.group(2)}"
+    return f"{label} {title}".strip() if title else label
+
+
+def split_statute_markdown(text: str) -> list[StatuteChunk]:
+    """Split markdown statutes into one chunk per 条.
+
+    Headings are matched with ``STATUTE_SEPARATORS``. 编 / 分编 / 章 / 节 stay
+    as metadata on each 条. A 条 is never split further.
+    """
+    matches = list(_STATUTE_HEADING.finditer(text))
+    if not any(match.group(2) == "条" for match in matches):
+        return []
+
+    state = {"编": "", "分编": "", "章": "", "节": "", "条": ""}
+    chunks: list[StatuteChunk] = []
+    for index, match in enumerate(matches):
+        level = match.group(2)
+        label = _heading_label(match)
+        if level == "条":
+            end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+            body = text[match.start() : end].strip()
+            if body:
+                meta = {**state, "条": f"{match.group(1)}{match.group(2)}"}
+                chunks.append(StatuteChunk(content=body, metadata=meta))
+            continue
+        state[level] = label
+        state["条"] = ""
+        for child in _LEVEL_RESET[level]:
+            state[child] = ""
+    return chunks
+
+
 def normalize_separators(separators: list[str] | None) -> list[str]:
     if separators is None:
         return list(DEFAULT_SEPARATORS)
@@ -132,10 +196,12 @@ def chunk_text(
             code="invalid_chunk_overlap",
             status_code=422,
         )
+    seps = normalize_separators(separators)
     splitter = NoMergeRecursiveCharacterTextSplitter(
         chunk_size=size,
         chunk_overlap=overlap,
-        separators=normalize_separators(separators),
+        separators=seps,
+        is_separator_regex=any(item.startswith("(?") for item in seps),
         keep_separator=True,
     )
     return splitter.split_text(text)
@@ -151,6 +217,14 @@ def parse_and_chunk(
     settings = settings or get_settings()
     source = Path(filename).name
     text = extract_text(source, content)
+    statute_chunks = split_statute_markdown(text) if source.lower().endswith(".md") else []
+    if statute_chunks:
+        return ParseResult(
+            source=source,
+            extracted_text=text,
+            chunks=[item.content for item in statute_chunks],
+            chunk_metadata=[item.metadata for item in statute_chunks],
+        )
     chunks = chunk_text(text, settings=settings)
     if not chunks:
         raise AppError(

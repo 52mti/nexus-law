@@ -563,6 +563,7 @@ class DocumentChunk(PersistentModel):
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     char_count: Mapped[int | None] = mapped_column(Integer)
+    metadata_json: Mapped[dict | None] = mapped_column(JSON)
 
     document: Mapped[Document] = relationship(back_populates="chunks")
 

@@ -16,7 +16,7 @@ from app.db.models import (
     DocumentChunk,
     DocumentStatus,
 )
-from app.rag.ingest import chunk_text, normalize_separators
+from app.rag.ingest import STATUTE_SEPARATORS, chunk_text, normalize_separators, split_statute_markdown
 from app.rag.store import delete_weaviate_by_document_id, delete_weaviate_collection
 from app.services import document as document_service
 from app.services.admin.common import iso, page_meta
@@ -85,6 +85,7 @@ def dump_chunk(item: DocumentChunk) -> dict[str, Any]:
         "chunk_index": item.chunk_index,
         "content": item.content,
         "char_count": item.char_count,
+        "metadata": item.metadata_json or None,
     }
 
 
@@ -460,25 +461,40 @@ async def preview_chunks(
     try:
         document = await document_service.get_document(session, document_id)
         text = _document_source_text(document)
-        seps = normalize_separators(separators)
-        chunks = chunk_text(
-            text,
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            separators=seps,
+        statute = (
+            split_statute_markdown(text) if document.source.lower().endswith(".md") else []
         )
+        if statute:
+            seps = list(STATUTE_SEPARATORS)
+            records = [
+                {
+                    "chunk_index": index,
+                    "content": item.content,
+                    "char_count": len(item.content),
+                    "metadata": item.metadata,
+                }
+                for index, item in enumerate(statute)
+            ]
+        else:
+            seps = normalize_separators(separators)
+            chunks = chunk_text(
+                text,
+                chunk_size=chunk_size,
+                chunk_overlap=chunk_overlap,
+                separators=seps,
+            )
+            records = [
+                {
+                    "chunk_index": index,
+                    "content": content,
+                    "char_count": len(content),
+                }
+                for index, content in enumerate(chunks)
+            ]
     except BizError:
         raise
     except AppError as exc:
         raise _wrap_app_error(exc) from exc
-    records = [
-        {
-            "chunk_index": index,
-            "content": content,
-            "char_count": len(content),
-        }
-        for index, content in enumerate(chunks)
-    ]
     return {
         "document_id": document.id,
         "status": document.status,

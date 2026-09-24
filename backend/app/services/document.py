@@ -496,6 +496,9 @@ async def run_parse_task(document_id: str) -> None:
                     chunk_index=index,
                     content=chunk,
                     char_count=len(chunk),
+                    metadata_json=(
+                        parsed.chunk_metadata[index] if index < len(parsed.chunk_metadata) else None
+                    ),
                 )
                 for index, chunk in enumerate(parsed.chunks)
             ]

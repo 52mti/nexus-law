@@ -67,6 +67,50 @@ def test_chunk_text_custom_separators() -> None:
     assert all(item for item in chunks)
 
 
+def test_split_statute_markdown_keeps_article_and_hierarchy() -> None:
+    from app.rag.ingest import split_statute_markdown
+
+    text = """# 第一编 总则
+
+## 第一分编 自然人
+
+### 第一章 民事权利能力
+
+#### 第一节 一般规定
+
+第一条 为了保护民事主体的合法权益，制定本法。
+
+自然人从出生时起到死亡时止，具有民事权利能力。
+
+第二条 本法所称民事主体，包括自然人、法人和非法人组织。
+
+## 第二章 民事法律行为
+
+第三条 民事法律行为是民事主体通过意思表示设立、变更、终止民事法律关系的行为。
+"""
+    chunks = split_statute_markdown(text)
+    assert [item.metadata["条"] for item in chunks] == ["第一条", "第二条", "第三条"]
+    assert chunks[0].metadata["编"] == "第一编 总则"
+    assert chunks[0].metadata["分编"] == "第一分编 自然人"
+    assert chunks[0].metadata["章"] == "第一章 民事权利能力"
+    assert chunks[0].metadata["节"] == "第一节 一般规定"
+    assert "制定本法" in chunks[0].content
+    assert "第二条" not in chunks[0].content
+    assert chunks[2].metadata["分编"] == "第一分编 自然人"
+    assert chunks[2].metadata["章"] == "第二章 民事法律行为"
+    assert chunks[2].metadata["节"] == ""
+    assert "民事权利能力" in chunks[0].content
+
+
+def test_parse_markdown_statute_metadata() -> None:
+    text = "# 第一章 总则\n\n第一条 劳动合同应当合法。\n第二条 试用期不得超过六个月。\n"
+    result = parse_and_chunk(filename="labor.md", content=text.encode())
+    assert result.chunk_metadata[0]["章"] == "第一章 总则"
+    assert result.chunk_metadata[0]["条"] == "第一条"
+    assert result.chunk_metadata[1]["条"] == "第二条"
+    assert len(result.chunks) == 2
+
+
 def test_normalize_collection_name() -> None:
     from app.core.exceptions import AppError
     from app.services.document import normalize_collection_name
