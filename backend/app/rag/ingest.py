@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
@@ -53,6 +54,52 @@ def extract_text(filename: str, content: bytes) -> str:
 DEFAULT_SEPARATORS = ["\n\n", "\n", "。", "；", " ", ""]
 
 
+class NoMergeRecursiveCharacterTextSplitter(RecursiveCharacterTextSplitter):
+    """Keep separator-bounded fragments intact.
+
+    ``_split_text`` still walks finer separators when a fragment is longer than
+    ``chunk_size``. This override does not join the shorter fragments back
+    together. The empty-separator fallback arrives as single characters of one
+    oversized span; those are cut into ``chunk_size`` windows, not merged with
+    neighboring spans.
+    """
+
+    def _merge_splits(self, splits: Iterable[str], separator: str) -> list[str]:
+        del separator
+        raw = [split for split in splits if split]
+        if not raw:
+            return []
+        if len(raw) > 1 and all(self._length_function(split) <= 1 for split in raw):
+            return self._cut_oversized("".join(raw))
+
+        docs: list[str] = []
+        for split in raw:
+            text = split.strip() if self._strip_whitespace else split
+            if not text:
+                continue
+            if self._length_function(text) > self._chunk_size:
+                docs.extend(self._cut_oversized(text))
+            else:
+                docs.append(text)
+        return docs
+
+    def _cut_oversized(self, text: str) -> list[str]:
+        if self._length_function(text) <= self._chunk_size:
+            piece = text.strip() if self._strip_whitespace else text
+            return [piece] if piece else []
+
+        chunks: list[str] = []
+        start = 0
+        while start < len(text):
+            piece = text[start : start + self._chunk_size]
+            if self._strip_whitespace:
+                piece = piece.strip()
+            if piece:
+                chunks.append(piece)
+            start += self._chunk_size
+        return chunks
+
+
 def normalize_separators(separators: list[str] | None) -> list[str]:
     if separators is None:
         return list(DEFAULT_SEPARATORS)
@@ -85,7 +132,7 @@ def chunk_text(
             code="invalid_chunk_overlap",
             status_code=422,
         )
-    splitter = RecursiveCharacterTextSplitter(
+    splitter = NoMergeRecursiveCharacterTextSplitter(
         chunk_size=size,
         chunk_overlap=overlap,
         separators=normalize_separators(separators),

@@ -26,6 +26,29 @@ def test_chunk_text() -> None:
     assert len(chunks) >= 2
 
 
+def test_chunk_text_does_not_merge_short_splits() -> None:
+    text = "第一条 劳动合同应当合法。第二条 试用期不得超过六个月。第三条 解除应当提前通知。"
+    chunks = chunk_text(text, chunk_size=80, chunk_overlap=0, separators=["。", ""])
+    assert chunks == [
+        "第一条 劳动合同应当合法",
+        "。第二条 试用期不得超过六个月",
+        "。第三条 解除应当提前通知",
+        "。",
+    ]
+    assert all(len(item) <= 80 for item in chunks)
+
+
+def test_chunk_text_downgrades_only_oversized_fragment() -> None:
+    short = "第一条 合法。"
+    long = "超" * 80
+    text = f"{short}{long}"
+    chunks = chunk_text(text, chunk_size=50, chunk_overlap=0, separators=["。", ""])
+    assert chunks[0] == "第一条 合法"
+    assert "".join(chunks[1:]) == f"。{long}"
+    assert all(len(item) <= 50 for item in chunks[1:])
+    assert len(chunks) > 2
+
+
 def test_chunk_text_custom_separators() -> None:
     text = (
         "第一条 劳动合同的订立应当遵循合法公平原则。"
