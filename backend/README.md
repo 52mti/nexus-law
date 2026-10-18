@@ -42,6 +42,8 @@ uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ## Infrastructure
 
+Kong 已抽到独立服务 `gateway`（工作区同级目录）。本 compose 把 API 映射到 `127.0.0.1:18000`，由网关对外暴露 `8000`。`JWT_SECRET` 两边必须一致。
+
 Redis and Weaviate still use Docker:
 
 ```bash

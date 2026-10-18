@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
-const SERVER_URL = 'http://101.200.206.159:8000/'
+const SERVER_URL = 'http://43.103.0.50:8000/'
 
 // https://vitejs.dev/config/
 export default defineConfig({

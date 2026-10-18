@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { Button, DatePicker, Form, Input, InputNumber, List, Pagination, Slider, Space, Spin, Tag, Typography, message } from 'antd'
+import { Button, DatePicker, Form, Input, InputNumber, List, Pagination, Radio, Slider, Space, Spin, Tag, Typography, message } from 'antd'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -21,6 +21,9 @@ export const Route = createFileRoute('/_authenticated/knowledge/documents/$id')(
 
 const DEFAULT_SEPARATORS = ['\\n\\n', '\\n', '。', '；', ' ']
 const DEFAULT_PAGE_SIZE = 10
+const STATUTE_META_KEYS = ['编', '分编', '章', '节', '条'] as const
+
+type SplitMode = 'statute' | 'separator'
 
 function decodeSeparators(text: string) {
   return text
@@ -43,6 +46,7 @@ function DocumentChunksPage() {
   const previewRef = useRef<HTMLDivElement>(null)
   const [chunkSize, setChunkSize] = useState(800)
   const [overlap, setOverlap] = useState(120)
+  const [splitMode, setSplitMode] = useState<SplitMode>('separator')
   const [separatorsText, setSeparatorsText] = useState(DEFAULT_SEPARATORS.join('\n'))
   const [title, setTitle] = useState('')
   const [lawLevel, setLawLevel] = useState('')
@@ -82,6 +86,7 @@ function DocumentChunksPage() {
 
   useEffect(() => {
     if (!doc || seeded) return
+    setSplitMode(doc.source?.toLowerCase().endsWith('.md') ? 'statute' : 'separator')
     setTitle(doc.title || '')
     setLawLevel(doc.law_level || '')
     setRegion(doc.region || '')
@@ -108,7 +113,8 @@ function DocumentChunksPage() {
         id,
         chunk_size: chunkSize,
         chunk_overlap: safeOverlap,
-        separators: decodeSeparators(separatorsText),
+        split_mode: splitMode,
+        separators: splitMode === 'separator' ? decodeSeparators(separatorsText) : undefined,
       }),
     onSuccess: (data) => {
       setPreviewChunks(data.records)
@@ -129,7 +135,10 @@ function DocumentChunksPage() {
       }
       return importDocumentChunks({
         id,
-        chunks: previewChunks.map((item) => ({ content: item.content })),
+        chunks: previewChunks.map((item) => ({
+          content: item.content,
+          metadata: item.metadata ?? undefined,
+        })),
         title,
         law_level: lawLevel,
         region,
@@ -194,10 +203,25 @@ function DocumentChunksPage() {
       <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
         <div className="max-h-[40%] min-h-0 w-full overflow-auto lg:max-h-none lg:w-[35%] lg:shrink-0">
           <Typography.Title level={5}>切片参数</Typography.Title>
-          <Typography.Paragraph type="secondary">
-            RecursiveCharacterTextSplitter · 原文 {doc?.extracted_text_chars ?? 0} 字
-          </Typography.Paragraph>
+          <Typography.Paragraph type="secondary">原文 {doc?.extracted_text_chars ?? 0} 字</Typography.Paragraph>
           <Form layout="vertical">
+            <Form.Item label="拆分方式">
+              <Radio.Group
+                value={splitMode}
+                disabled={busy}
+                onChange={(event) => setSplitMode(event.target.value as SplitMode)}
+              >
+                <Radio value="statute">内置规则</Radio>
+                <Radio value="separator">自定义拆分符号</Radio>
+              </Radio.Group>
+              <Typography.Paragraph type="secondary" className="!mb-0 !mt-2">
+                {splitMode === 'statute'
+                  ? '按编、分编、章、节、条识别标题，以条为最小切片，并写入层级元数据。'
+                  : '按下方分隔符优先级递归切分。'}
+              </Typography.Paragraph>
+            </Form.Item>
+            {splitMode === 'separator' ? (
+            <>
             <Form.Item label="切片大小">
               <Space orientation="vertical" className="w-full">
                 <InputNumber
@@ -257,6 +281,8 @@ function DocumentChunksPage() {
                 恢复默认
               </Button>
             </Form.Item>
+            </>
+            ) : null}
             <Typography.Title level={5}>元数据提取</Typography.Title>
             <Form.Item label="标题">
               <Input value={title} disabled={!canEdit || busy} onChange={(e) => setTitle(e.target.value)} />
@@ -309,11 +335,20 @@ function DocumentChunksPage() {
                 const globalIndex = (currentPage - 1) * pageSize + index
                 const prev = globalIndex > 0 ? previewChunks[globalIndex - 1] : undefined
                 const overlapChars = prev ? overlapLength(prev.content, chunk.content) : 0
+                const metaTags = STATUTE_META_KEYS.flatMap((key) => {
+                  const value = chunk.metadata?.[key]
+                  return value ? [`${key} ${value}`] : []
+                })
                 return (
                   <List.Item>
                     <div className="w-full">
-                      <div className="mb-2 flex items-center justify-between">
-                        <Typography.Text>#{chunk.chunk_index ?? globalIndex}</Typography.Text>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <Space size={4} wrap>
+                          <Typography.Text>#{chunk.chunk_index ?? globalIndex}</Typography.Text>
+                          {metaTags.map((label) => (
+                            <Tag key={label}>{label}</Tag>
+                          ))}
+                        </Space>
                         <Typography.Text type="secondary">
                           {chunk.char_count ?? chunk.content.length} 字
                           {overlapChars ? ` · 与上一段重叠 ${overlapChars} 字` : ''}

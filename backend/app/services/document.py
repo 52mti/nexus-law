@@ -383,6 +383,8 @@ async def replace_chunks(
             chunk.char_count = len(content)
 
             chunk.chunk_index = index
+            if "metadata" in item:
+                chunk.metadata_json = item.get("metadata") or None
 
             kept_ids.add(chunk_id)
 
@@ -394,6 +396,7 @@ async def replace_chunks(
                 chunk_index=index,
                 content=content,
                 char_count=len(content),
+                metadata_json=item.get("metadata") or None,
             )
 
             session.add(chunk)

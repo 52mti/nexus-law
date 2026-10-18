@@ -96,6 +96,9 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me}
       TRUST_KONG_HEADERS: "true"
       SKIP_APP_RATE_LIMIT_FOR_GATEWAY: "true"
+    # Public entry is the standalone gateway (sibling repo `gateway`, proxy :8000).
+    ports:
+      - "127.0.0.1:${API_PUBLISH_PORT:-18000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -144,42 +147,6 @@ services:
         condition: service_healthy
       api:
         condition: service_healthy
-
-  kong:
-    image: kong:3.9
-    container_name: nexus-law-api-kong
-    restart: unless-stopped
-    environment:
-      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me}
-      KONG_NORMAL_RATE_LIMIT_PER_MINUTE: ${KONG_NORMAL_RATE_LIMIT_PER_MINUTE:-60}
-      KONG_DATABASE: "off"
-      KONG_PROXY_ACCESS_LOG: /dev/stdout
-      KONG_ADMIN_ACCESS_LOG: /dev/stdout
-      KONG_PROXY_ERROR_LOG: /dev/stderr
-      KONG_ADMIN_ERROR_LOG: /dev/stderr
-      KONG_ADMIN_LISTEN: 0.0.0.0:8001
-      KONG_PROXY_LISTEN: 0.0.0.0:8000
-    ports:
-      - "8000:8000"
-      - "8001:8001"
-    volumes:
-      - ./kong/kong.yml.template:/kong/kong.yml.template:ro
-      - ./scripts/kong-entrypoint.sh:/kong-entrypoint.sh:ro
-    entrypoint:
-      - /bin/sh
-      - -c
-      - sed 's/\r$//' /kong-entrypoint.sh > /tmp/kong-entrypoint.sh && exec /bin/sh /tmp/kong-entrypoint.sh
-    depends_on:
-      redis:
-        condition: service_healthy
-      api:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "kong", "health"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
 
 volumes:
   nexus_law_api_postgres:

@@ -4,7 +4,7 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-const SERVER_URL = 'http://101.200.206.159:8000/'
+const SERVER_URL = 'http://43.103.0.50:8000/'
 
 export default defineConfig({
   plugins: [

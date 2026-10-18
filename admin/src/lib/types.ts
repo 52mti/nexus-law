@@ -200,6 +200,7 @@ export interface ChunkItem {
   chunk_index: number
   content: string
   char_count?: number
+  metadata?: Record<string, string> | null
 }
 
 export interface PlanItem {

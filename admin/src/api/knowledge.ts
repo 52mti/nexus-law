@@ -74,6 +74,7 @@ export function previewDocumentChunks(body: {
   chunk_size: number
   chunk_overlap: number
   separators?: string[]
+  split_mode?: 'statute' | 'separator'
 }) {
   return apiPost<{
     document_id: string
@@ -89,7 +90,7 @@ export function previewDocumentChunks(body: {
 
 export function importDocumentChunks(body: {
   id: string
-  chunks: { content: string }[]
+  chunks: { content: string; metadata?: Record<string, string> | null }[]
   title?: string
   law_level?: string
   region?: string

@@ -457,14 +457,15 @@ async def preview_chunks(
     chunk_size: int,
     chunk_overlap: int,
     separators: list[str] | None,
+    split_mode: str = "separator",
 ) -> dict[str, Any]:
     try:
         document = await document_service.get_document(session, document_id)
         text = _document_source_text(document)
-        statute = (
-            split_statute_markdown(text) if document.source.lower().endswith(".md") else []
-        )
-        if statute:
+        statute = split_statute_markdown(text) if split_mode == "statute" else []
+        if split_mode == "statute" and not statute:
+            raise BizError(BizCode.INVALID_PARAMS, "未识别到编、章、节、条标题，无法使用内置拆分规则")
+        if split_mode == "statute":
             seps = list(STATUTE_SEPARATORS)
             records = [
                 {

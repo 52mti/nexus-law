@@ -124,6 +124,7 @@ class DatasetUpdateRequest(BaseModel):
 class ChunkItem(BaseModel):
     id: str | None = None
     content: str = Field(min_length=1)
+    metadata: dict[str, str] | None = None
 
 
 class DocumentChunksUpdateRequest(BaseModel):
@@ -136,6 +137,7 @@ class DocumentChunksPreviewRequest(BaseModel):
     chunk_size: int = Field(default=800, ge=50, le=8000)
     chunk_overlap: int = Field(default=120, ge=0, le=4000)
     separators: list[str] | None = None
+    split_mode: Literal["statute", "separator"] = "separator"
 
 
 class DocumentChunksImportRequest(BaseModel):

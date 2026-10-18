@@ -177,7 +177,7 @@ async def document_chunks_update(
         ctx.session,
         admin_id=ctx.user.id,
         document_id=body.id,
-        chunks=[item.model_dump() for item in body.chunks],
+        chunks=[item.model_dump(exclude_unset=True) for item in body.chunks],
     )
     return ok(data)
 
@@ -193,6 +193,7 @@ async def document_chunks_preview(
         chunk_size=body.chunk_size,
         chunk_overlap=body.chunk_overlap,
         separators=body.separators,
+        split_mode=body.split_mode,
     )
     return ok(data)
 
@@ -206,7 +207,7 @@ async def document_chunks_import(
         ctx.session,
         admin_id=ctx.user.id,
         document_id=body.id,
-        chunks=[item.model_dump() for item in body.chunks],
+        chunks=[item.model_dump(exclude_unset=True) for item in body.chunks],
         title=body.title,
         law_level=body.law_level,
         region=body.region,
