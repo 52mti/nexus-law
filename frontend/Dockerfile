@@ -2,8 +2,9 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# 安装 pnpm
-RUN npm install -g pnpm
+# lockfileVersion 9.0。不固定版本时 npm 会装到 pnpm 10/11，
+# 未批准的依赖构建脚本会让 install 以 ERR_PNPM_IGNORED_BUILDS 失败。
+RUN npm install -g pnpm@9.15.9
 
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
